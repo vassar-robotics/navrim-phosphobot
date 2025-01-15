@@ -1,4 +1,4 @@
-# Phosphobot
+# phosphobot
 
 A community-driven platform for robotics enthusiasts to share and explore creative projects built with the Phospho Junior Dev Kit.
 
