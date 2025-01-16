@@ -44,7 +44,7 @@ Please ensure your code is well-documented and includes:
 
 ## Community Projects
 
-Explore projects created by our community members in the [projects](./projects) directory. Each project includes its own documentation and setup instructions.
+Explore projects created by our community members in the [code_examples](./code_examples) directory. Each project includes its own documentation and setup instructions.
 
 ## Support
 
