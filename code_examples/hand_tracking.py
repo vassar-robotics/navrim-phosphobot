@@ -1,7 +1,9 @@
 import cv2
-import requests
+import requests  # type: ignore
 import numpy as np
 import mediapipe as mp  # type: ignore
+
+# TODO: estimate depth using the stero camera
 
 
 class HandTracker:
@@ -142,7 +144,10 @@ class HandTracker:
 
 def main():
     # Initialize hand tracker
-    requests.post("http://localhost:80/move/init")
+    try:
+        requests.post("http://localhost:80/move/init")
+    except requests.RequestException as e:
+        print(f"Failed to connect to server: {e}")
 
     tracker = HandTracker()
     tracker.track_hand()
