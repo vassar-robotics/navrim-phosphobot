@@ -104,27 +104,21 @@ def api_call(endpoint: str, data: dict | None = None):
 def move_box_left():
     api_call(
         "recording/play",
-        {
-            "episode_path": "/Users/fredericlegrand/Documents/GitHub/robots/teleop/recordings/json-format/example_dataset/push_left.json"
-        },
+        {"episode_path": "push_left.json"},
     )
 
 
 def move_box_right():
     api_call(
         "recording/play",
-        {
-            "episode_path": "/Users/fredericlegrand/Documents/GitHub/robots/teleop/recordings/json-format/example_dataset/push_right.json"
-        },
+        {"episode_path": "push_right.json"},
     )
 
 
 def say_hello():
     api_call(
         "recording/play",
-        {
-            "episode_path": "/Users/fredericlegrand/Documents/GitHub/robots/teleop/recordings/json-format/example_dataset/wave.json"
-        },
+        {"episode_path": "wave.json"},
     )
 
 
