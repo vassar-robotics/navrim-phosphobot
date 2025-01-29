@@ -19,6 +19,8 @@ from phosphobot.utils import (
     NdArrayAsList,
 )
 
+VideoCodecs = Literal["mp4v", "avc1", "avc3", "hev1", "hvc1", "av01", "vp09"]
+
 
 class BaseRobotPIDGains(BaseModel):
     """
@@ -234,6 +236,7 @@ class Episode(BaseModel):
         folder_name: str,
         dataset_name: str,
         fps: int,
+        codec: VideoCodecs = "hvc1",
         format_to_save: Literal["json", "lerobot_v2"] = "json",
     ):
         """
@@ -334,6 +337,7 @@ class Episode(BaseModel):
                 frames=np.array(self.get_frames_main_camera()),
                 output_path=video_path,
                 fps=fps,
+                codec=codec,
             )
             logger.info(
                 f"{'Video' if isinstance(saved_path, str) else 'Stereo video'} saved to {video_path}"
@@ -1028,7 +1032,8 @@ class VideoInfo(BaseModel):
     """
 
     video_fps: int = 10
-    video_codec: str = "av1"
+    video_codec: VideoCodecs = "hvc1"
+
     video_pix_fmt: str = "yuv420p"
     video_is_depth_map: bool = False
     has_audio: bool = False
@@ -1226,6 +1231,7 @@ class InfoModel(BaseModel):
         fps: int,
         tasks_model: "TasksModel",
         episodes_model: "EpisodesModel",
+        codec: VideoCodecs,
     ) -> None:
         """
         Save the info to the meta folder path.
@@ -1243,6 +1249,10 @@ class InfoModel(BaseModel):
         self.fps = fps
         # Splits are 100% of the dataset
         self.splits = {"train": f"0:{self.total_episodes}"}
+
+        # For videos, we update the codec with the one provided
+        for key, value in self.features.observation_images.items():
+            value.info.video_codec = codec
 
         self.to_json(meta_folder_path)
 
