@@ -460,11 +460,20 @@ class Episode(BaseModel):
                 episode_index = info_json["total_episodes"]
         return episode_index
 
-    def get_index(self) -> int:
+    @property
+    def index(self) -> int:
         """
         Return the episode index
         """
         return self.metadata.get("index", 0)
+
+    # Setter
+    @index.setter
+    def index(self, value: int):
+        """
+        Set the episode index
+        """
+        self.metadata["index"] = value
 
     def convert_episode_data_to_LeRobot(self, episode_index: int = 0):
         """
@@ -1033,15 +1042,29 @@ class VideoFeatureDetails(FeatureDetails):
 class InfoFeatures(BaseModel):
     action: FeatureDetails
     observation_state: FeatureDetails
-    episode_index: FeatureDetails | None = None
-    frame_index: FeatureDetails | None = None
-    timestamp: FeatureDetails | None = None
-    next_reward: FeatureDetails | None = None
+
+    timestamp: FeatureDetails = Field(
+        default_factory=lambda: FeatureDetails(dtype="float32", shape=[1], names=None)
+    )
+    episode_index: FeatureDetails = Field(
+        default_factory=lambda: FeatureDetails(dtype="int64", shape=[1], names=None)
+    )
+    frame_index: FeatureDetails = Field(
+        default_factory=lambda: FeatureDetails(dtype="int64", shape=[1], names=None)
+    )
+    task_index: FeatureDetails = Field(
+        default_factory=lambda: FeatureDetails(dtype="int64", shape=[1], names=None)
+    )
+    index: FeatureDetails = Field(
+        default_factory=lambda: FeatureDetails(dtype="int64", shape=[1], names=None)
+    )
+    # Camera images
+    observation_images: Dict[str, VideoFeatureDetails] = Field(default_factory=dict)
+
+    # Optional fields (RL)
     next_done: FeatureDetails | None = None
     next_success: FeatureDetails | None = None
-    index: FeatureDetails | None = None
-    task_index: FeatureDetails | None = None
-    observation_images: Dict[str, VideoFeatureDetails] = Field(default_factory=dict)
+    next_reward: FeatureDetails | None = None
 
     def to_dict(self) -> dict:
         """
@@ -1058,6 +1081,13 @@ class InfoFeatures(BaseModel):
                 model_dict[key] = value.model_dump()
 
         model_dict.pop("observation_images")
+
+        # Filter all None values
+        model_dict = {
+            key: value
+            for key, value in model_dict.items()
+            if value is not None and value != {}
+        }
 
         return model_dict
 
@@ -1223,7 +1253,7 @@ class TasksFeatures(BaseModel):
     """
 
     task_index: int
-    language_instruction: str = "None"
+    task: str = "None"
 
 
 class TasksModel(BaseModel):
@@ -1272,15 +1302,15 @@ class TasksModel(BaseModel):
         """
         # Add the task only if it is not in the tasks already
         if str(step.observation.language_instruction) not in [
-            task.language_instruction for task in self.tasks
+            task.task for task in self.tasks
         ]:
             logger.info(
-                f"Adding task: {step.observation.language_instruction} to {[task.language_instruction for task in self.tasks]}"
+                f"Adding task: {step.observation.language_instruction} to {[task.task for task in self.tasks]}"
             )
             self.tasks.append(
                 TasksFeatures(
                     task_index=len(self.tasks),
-                    language_instruction=str(step.observation.language_instruction),
+                    task=str(step.observation.language_instruction),
                 )
             )
 
@@ -1315,7 +1345,7 @@ class EpisodesModel(BaseModel):
         episode_index is the index of the episode of the current step.
         """
         # If episode_index is not in the episodes, add it
-        if episode_index >= len(self.episodes):
+        if episode_index not in [episode.episode_index for episode in self.episodes]:
             self.episodes.append(
                 EpisodesFeatures(
                     episode_index=episode_index,
@@ -1324,7 +1354,7 @@ class EpisodesModel(BaseModel):
                 )
             )
         else:
-            # Incrase the nb frames counter
+            # Increase the nb frames counter
             self.episodes[episode_index].length += 1
 
             # Add the language instruction if it's a new one
