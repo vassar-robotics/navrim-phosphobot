@@ -1,13 +1,13 @@
 [project]
 name = "phosphobot"
-version = "0.0.3"
+version = "0.0.4"
 description = "The AI-ready robotics dev kit, with built-in remote control."
 authors = [{ name = "phospho", email = "contact@phospho.ai" }]
 license = "MIT"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "httpx>=0.28.1", 
+    "httpx>=0.28.1",
     "pydantic>=2.10.5",
     "fastparquet>=2024.11.0",
     "ffmpeg-python>=0.2.0",
@@ -15,11 +15,15 @@ dependencies = [
     "numpy<2",
     "opencv-python>=4.11.0.86",
     "rich>=13.9.4",
-    ]
+]
+
+
+[tool.setuptools]
+packages = ["phosphobot"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
-include = ["phosphobot/urdf/"]
+include = ["phosphobot/urdf/", "phosphobot"]
