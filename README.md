@@ -16,15 +16,41 @@ This repository contains demo code and community projects developed using the Ph
 
 ## Getting Started
 
-1. **Get Your Dev Kit**: Purchase your Phospho Junior Dev Kit at [robots.phospho.ai](https://robots.phospho.ai)
+1. **Get Your Dev Kit**: Purchase your Phospho Junior Dev Kit at [robots.phospho.ai](https://robots.phospho.ai). Unbox it and set it up following the instructions in the box.
 
-2. **Install the Package**:
+2. **Control your Robot**: Donwload the Meta Quest app, connect it to your robot, start teleoperating it.
+
+3. **Record a Dataset**: Record a dataset using the app. Do the same gesture 30 times to create a dataset. Go to your
+
+4. **Install the Package**:
 
 ```bash
-pip install phosphobot
+pip install --upgrade phosphobot
 ```
 
-3. **Join the Community**: Connect with other developers and share your experience in our [Discord community](https://discord.gg/cbkggY6NSK)
+5. **Train a Model**: Run the following command (adapt the device type and dataset ID) to train a policy on your dataset:
+
+```bash
+python train.py \
+  dataset_repo_id=phospho-hub/YourDatasetID \
+  policy=act_so100 \
+  env=so100_real \
+  hydra.run.dir=outputs/train/act_so100_quickstart \
+  hydra.job.name=act_so100_quickstart \
+  device=mps \
+  wandb.enable=false
+```
+
+5. **Test the Model**: Test the model you just trained using the following command:
+
+```bash
+TODO
+```
+
+## Next steps
+
+- **Test the model**: Run the following code to test the model you just trained TODO
+- **Join the Community**: Connect with other developers and share your experience in our [Discord community](https://discord.gg/cbkggY6NSK)
 
 ## Contributing
 
