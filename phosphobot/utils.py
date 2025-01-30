@@ -150,6 +150,7 @@ def create_video_file(
         print(f"""[green]Left output path: {left_path}
 Right output path: {right_path}
 fps: {fps}
+codec: {codec}
 target_size of each video: {target_size}[/green]""")
         return left_path, right_path
 
@@ -164,6 +165,7 @@ target_size of each video: {target_size}[/green]""")
 
         print(f"""[green]Output path: {output_path}
 Fps: {fps}
+codec: {codec}
 Target_size of video: {target_size}[/green]""")
         return output_path
 
