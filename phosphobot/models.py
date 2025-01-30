@@ -947,6 +947,9 @@ class StatsModel(BaseModel):
             # Write the pydantic Basemodel as a str
             model_dict = self.model_dump()
 
+            # Renamed observation_state to observation.state here
+            model_dict["observation.state"] = model_dict.pop("observation_state")
+
             # We expose the fields in the dict observations images
             for key, value in model_dict["observation_images"].items():
                 model_dict[key] = value
