@@ -51,15 +51,9 @@ python lerobot/scripts/train.py \
   wandb.enable=false
 ```
 
-5. **Test the Model**: Test the model you just trained using the following command:
-
-```bash
-TODO
-```
-
 ## Next steps
 
-- **Test the model**: Run the following code to test the model you just trained TODO
+- **Test the model**: Run the following code to test the model you just trained (TODO)
 - **Join the Community**: Connect with other developers and share your experience in our [Discord community](https://discord.gg/cbkggY6NSK)
 
 ## Contributing
