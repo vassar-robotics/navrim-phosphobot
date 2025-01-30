@@ -19,7 +19,7 @@ from phosphobot.utils import (
     NdArrayAsList,
 )
 
-VideoCodecs = Literal["mp4v", "avc1", "avc3", "hev1", "hvc1", "av01", "vp09"]
+VideoCodecs = Literal["avc1", "hev1", "mp4v", "hvc1", "avc3", "av01", "vp09"]
 
 
 class BaseRobotPIDGains(BaseModel):
