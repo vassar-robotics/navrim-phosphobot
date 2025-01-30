@@ -876,11 +876,11 @@ class Stats(BaseModel):
         self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
         # We want .tolist() to yield [[[mean_r, mean_g, mean_b]]] and not [mean_r, mean_g, mean_b]
         # Reshape to have the same shape as the mean and std
-        # This makes it easier to normalize the images
-        self.mean = self.mean.reshape(1, 3, 1)
-        self.std = self.std.reshape(1, 3, 1)
-        self.min = self.min.reshape(1, 3, 1)
-        self.max = self.max.reshape(1, 3, 1)
+        # This makes it easier to normalize the imags
+        self.mean = self.mean.reshape(3, 1, 1)
+        self.std = self.std.reshape(3, 1, 1)
+        self.min = self.min.reshape(3, 1, 1)
+        self.max = self.max.reshape(3, 1, 1)
 
 
 class StatsModel(BaseModel):
