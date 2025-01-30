@@ -39,9 +39,9 @@ class BaseRobotConfig(BaseModel):
 
     name: str
     servos_voltage: float
-    servos_offsets: List[int]
-    servos_calibration_position: List[int]
-    servos_offsets_signs: List[int]
+    servos_offsets: List[float]
+    servos_calibration_position: List[float]
+    servos_offsets_signs: List[float]
     pid_gains: List[BaseRobotPIDGains] = Field(default_factory=list)
 
     # Torque value to consider that an object is gripped
