@@ -339,9 +339,18 @@ class Episode(BaseModel):
                 fps=fps,
                 codec=codec,
             )
-            logger.info(
-                f"{'Video' if isinstance(saved_path, str) else 'Stereo video'} saved to {video_path}"
-            )
+            # check if the video was saved
+            if (isinstance(saved_path, str) and os.path.exists(saved_path)) or (
+                isinstance(saved_path, tuple)
+                and all(os.path.exists(path) for path in saved_path)
+            ):
+                logger.info(
+                    f"{'Video' if isinstance(saved_path, str) else 'Stereo video'} saved to {video_path}"
+                )
+            else:
+                logger.error(
+                    f"{'Video' if isinstance(saved_path, str) else 'Stereo video'} not saved to {video_path}"
+                )
 
             # Create the secondary camera videos and paths
             for index, camera_frames in enumerate(secondary_camera_frames):
@@ -361,7 +370,10 @@ class Episode(BaseModel):
                     output_path=video_path,
                     fps=fps,
                 )
-                logger.info(f"Video for camera {index} saved to {video_path}")
+                if os.path.exists(video_path):
+                    logger.info(f"Video for camera {index} saved to {video_path}")
+                else:
+                    logger.error(f"Video for camera {index} not saved to {video_path}")
 
         # Case where we save the episode in JSON format
         # Save the episode to a JSON file
