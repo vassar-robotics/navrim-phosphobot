@@ -20,7 +20,7 @@ This repository contains demo code and community projects developed using the Ph
 
 2. **Control your Robot**: Donwload the Meta Quest app, connect it to your robot, start teleoperating it.
 
-3. **Record a Dataset**: Record a dataset using the app. Do the same gesture 30 times to create a dataset. Go to your
+3. **Record a Dataset**: Record a dataset using the app. Do the same gesture 30 times to create a dataset.
 
 4. **Install the Package**:
 
@@ -28,11 +28,21 @@ This repository contains demo code and community projects developed using the Ph
 pip install --upgrade phosphobot
 ```
 
-5. **Train a Model**: Run the following command (adapt the device type and dataset ID) to train a policy on your dataset:
+5. **Train a Model**: Use Le Robot to train a policy on the dataset you just recorded.
+
+```bash
+git clone https://github.com/huggingface/lerobot.git
+cd lerobot
+pip install -e .
+```
+
+Add the `configs/policy/act_so100_phosphobot.yaml`file from this repository to the `lerobot/configs/policy` directory in the `lerobot` repository.
+
+Launch the training script with the following command from the `lerobot` repository (change the device to `cuda` if you have an NVIDIA GPU or `cpu` if you don't have a GPU):
 
 ```bash
 python train.py \
-  dataset_repo_id=phospho-hub/YourDatasetID \
+  dataset_repo_id=YOUR_HF_DATASET_ID \
   policy=act_so100 \
   env=so100_real \
   hydra.run.dir=outputs/train/act_so100_quickstart \
