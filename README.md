@@ -28,7 +28,7 @@ This repository contains demo code and community projects developed using the ph
 pip install --upgrade phosphobot
 ```
 
-5. **Train a Model**: Use Le Robot to train a policy on the dataset you just recorded.
+5. **Train a Model**: Use [Le Robot](https://github.com/huggingface/lerobot) to train a policy on the dataset you just recorded.
 
 ```bash
 git clone https://github.com/huggingface/lerobot.git
