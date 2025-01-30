@@ -599,6 +599,10 @@ class Episode(BaseModel):
         """
         Returns a list of list of frames for each secondary camera
         """
+        # Handle the case where there are no secondary images
+        if not self.steps[0].observation.secondary_images:
+            return []
+
         # Convert the nested structure to a numpy array first
         all_images = np.array(
             [
