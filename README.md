@@ -16,15 +16,45 @@ This repository contains demo code and community projects developed using the ph
 
 ## Getting Started
 
-1. **Get Your Dev Kit**: Purchase your Phospho Junior Dev Kit at [robots.phospho.ai](https://robots.phospho.ai)
+1. **Get Your Dev Kit**: Purchase your Phospho Junior Dev Kit at [robots.phospho.ai](https://robots.phospho.ai). Unbox it and set it up following the instructions in the box.
 
-2. **Install the Package**:
+2. **Control your Robot**: Donwload the Meta Quest app, connect it to your robot, start teleoperating it.
+
+3. **Record a Dataset**: Record a dataset using the app. Do the same gesture 30 times to create a dataset.
+
+4. **Install the Package**:
 
 ```bash
-pip install phosphobot
+pip install --upgrade phosphobot
 ```
 
-3. **Join the Community**: Connect with other developers and share your experience in our [Discord community](https://discord.gg/cbkggY6NSK)
+5. **Train a Model**: Use [Le Robot](https://github.com/huggingface/lerobot) to train a policy on the dataset you just recorded.
+
+```bash
+git clone https://github.com/huggingface/lerobot.git
+cd lerobot
+pip install -e .
+```
+
+Add the `configs/policy/act_so100_phosphobot.yaml`file from this repository to the `lerobot/configs/policy` directory in the `lerobot` repository.
+
+Launch the training script with the following command from the `lerobot` repository (change the device to `cuda` if you have an NVIDIA GPU or `cpu` if you don't have a GPU):
+
+```bash
+python lerobot/scripts/train.py \
+  dataset_repo_id=YOUR_HF_DATASET_ID \
+  policy=act_so100_phosphobot \
+  env=so100_real \
+  hydra.run.dir=outputs/train/act_so100_quickstart \
+  hydra.job.name=act_so100_quickstart \
+  device=mps \
+  wandb.enable=false
+```
+
+## Next steps
+
+- **Test the model**: Run the following code to test the model you just trained (TODO)
+- **Join the Community**: Connect with other developers and share your experience in our [Discord community](https://discord.gg/cbkggY6NSK)
 
 ## Contributing
 
