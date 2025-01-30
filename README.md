@@ -41,9 +41,9 @@ Add the `configs/policy/act_so100_phosphobot.yaml`file from this repository to t
 Launch the training script with the following command from the `lerobot` repository (change the device to `cuda` if you have an NVIDIA GPU or `cpu` if you don't have a GPU):
 
 ```bash
-python train.py \
+python lerobot/scripts/train.py \
   dataset_repo_id=YOUR_HF_DATASET_ID \
-  policy=act_so100 \
+  policy=act_so100_phosphobot \
   env=so100_real \
   hydra.run.dir=outputs/train/act_so100_quickstart \
   hydra.job.name=act_so100_quickstart \
