@@ -2,7 +2,7 @@ import base64
 import json
 import os
 from pathlib import Path
-from typing import Annotated, Any, Literal, Tuple, Union
+from typing import Annotated, Any, Tuple, Union
 
 import cv2
 import numpy as np
@@ -10,8 +10,7 @@ from loguru import logger
 from pydantic import BeforeValidator, PlainSerializer
 from rich import print
 
-# Cannot import from teleop.models due to circular import
-VideoCodecs = Literal["avc1", "hev1", "mp4v", "hvc1", "avc3", "av01", "vp09"]
+from phosphobot.types import VideoCodecs
 
 
 class NumpyEncoder(json.JSONEncoder):

@@ -18,8 +18,7 @@ from phosphobot.utils import (
     decode_numpy,
     NdArrayAsList,
 )
-
-VideoCodecs = Literal["avc1", "hev1", "mp4v", "hvc1", "avc3", "av01", "vp09"]
+from phosphobot.types import VideoCodecs
 
 
 class BaseRobotPIDGains(BaseModel):
@@ -1058,7 +1057,7 @@ class VideoInfo(BaseModel):
     """
 
     video_fps: int = 10
-    video_codec: VideoCodecs = "mp4v"
+    video_codec: VideoCodecs
 
     video_pix_fmt: str = "yuv420p"
     video_is_depth_map: bool = False
@@ -1183,6 +1182,8 @@ class InfoModel(BaseModel):
     def from_json(
         cls,
         meta_folder_path: str,
+        fps: int | None = None,
+        codec: VideoCodecs | None = None,
         robot: BaseRobot | None = None,
         main_image: np.ndarray | None = None,
         secondary_images: List[np.ndarray] | None = None,
@@ -1197,33 +1198,36 @@ class InfoModel(BaseModel):
             not os.path.exists(f"{meta_folder_path}/info.json")
             or os.stat(f"{meta_folder_path}/info.json").st_size == 0
         ):
-            if robot is not None:
-                info_model = cls.from_robot(robot)
-                if main_image is not None:
-                    # TODO: Check if this stereo
-                    info_model.features.observation_images[
-                        "observation.images.main"
-                    ] = VideoFeatureDetails(
-                        shape=list(main_image.shape),
-                        names=["height", "width", "channel"],
-                        info=VideoInfo(),
-                    )
-                    # TODO: Support stereo
-                if secondary_images is not None:
-                    for image in secondary_images:
-                        info_model.features.observation_images[
-                            f"observation.images.secondary_{secondary_images.index(image)}"
-                        ] = VideoFeatureDetails(
-                            shape=list(image.shape),
-                            names=["height", "width", "channel"],
-                            info=VideoInfo(),
-                        )
-                return info_model
-
-            else:
+            if robot is None:
                 raise ValueError(
                     "No info.json file found and no robot provided to create the InfoModel"
                 )
+            if codec is None:
+                raise ValueError("No codec provided to create the InfoModel")
+            if fps is None:
+                raise ValueError("No fps provided to create the InfoModel")
+
+            info_model = cls.from_robot(robot)
+            if main_image is not None:
+                # TODO: Check if this stereo
+                info_model.features.observation_images["observation.images.main"] = (
+                    VideoFeatureDetails(
+                        shape=list(main_image.shape),
+                        names=["height", "width", "channel"],
+                        info=VideoInfo(video_codec=codec, video_fps=fps),
+                    )
+                )
+                # TODO: Support stereo
+            if secondary_images is not None:
+                for image in secondary_images:
+                    info_model.features.observation_images[
+                        f"observation.images.secondary_{secondary_images.index(image)}"
+                    ] = VideoFeatureDetails(
+                        shape=list(image.shape),
+                        names=["height", "width", "channel"],
+                        info=VideoInfo(video_codec=codec, video_fps=fps),
+                    )
+            return info_model
 
         with open(f"{meta_folder_path}/info.json", "r") as f:
             stats_dict = json.load(f)
