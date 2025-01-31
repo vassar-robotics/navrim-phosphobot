@@ -19,7 +19,7 @@ from phosphobot.utils import (
     NdArrayAsList,
 )
 
-VideoCodecs = Literal["mp4v", "avc1", "avc3", "hev1", "hvc1", "av01", "vp09"]
+VideoCodecs = Literal["avc1", "hev1", "mp4v", "hvc1", "avc3", "av01", "vp09"]
 
 
 class BaseRobotPIDGains(BaseModel):
@@ -339,9 +339,18 @@ class Episode(BaseModel):
                 fps=fps,
                 codec=codec,
             )
-            logger.info(
-                f"{'Video' if isinstance(saved_path, str) else 'Stereo video'} saved to {video_path}"
-            )
+            # check if the video was saved
+            if (isinstance(saved_path, str) and os.path.exists(saved_path)) or (
+                isinstance(saved_path, tuple)
+                and all(os.path.exists(path) for path in saved_path)
+            ):
+                logger.info(
+                    f"{'Video' if isinstance(saved_path, str) else 'Stereo video'} saved to {video_path}"
+                )
+            else:
+                logger.error(
+                    f"{'Video' if isinstance(saved_path, str) else 'Stereo video'} not saved to {video_path}"
+                )
 
             # Create the secondary camera videos and paths
             for index, camera_frames in enumerate(secondary_camera_frames):
@@ -366,7 +375,10 @@ class Episode(BaseModel):
                     fps=fps,
                     codec=codec,
                 )
-                logger.info(f"Video for camera {index} saved to {video_path}")
+                if os.path.exists(video_path):
+                    logger.info(f"Video for camera {index} saved to {video_path}")
+                else:
+                    logger.error(f"Video for camera {index} not saved to {video_path}")
 
         # Case where we save the episode in JSON format
         # Save the episode to a JSON file
@@ -605,6 +617,10 @@ class Episode(BaseModel):
         """
         Returns a list of list of frames for each secondary camera
         """
+        # Handle the case where there are no secondary images
+        if not self.steps[0].observation.secondary_images:
+            return []
+
         # Convert the nested structure to a numpy array first
         all_images = np.array(
             [
@@ -882,11 +898,11 @@ class Stats(BaseModel):
         self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
         # We want .tolist() to yield [[[mean_r, mean_g, mean_b]]] and not [mean_r, mean_g, mean_b]
         # Reshape to have the same shape as the mean and std
-        # This makes it easier to normalize the images
-        self.mean = self.mean.reshape(1, 3, 1)
-        self.std = self.std.reshape(1, 3, 1)
-        self.min = self.min.reshape(1, 3, 1)
-        self.max = self.max.reshape(1, 3, 1)
+        # This makes it easier to normalize the imags
+        self.mean = self.mean.reshape(3, 1, 1)
+        self.std = self.std.reshape(3, 1, 1)
+        self.min = self.min.reshape(3, 1, 1)
+        self.max = self.max.reshape(3, 1, 1)
 
 
 class StatsModel(BaseModel):
@@ -936,6 +952,9 @@ class StatsModel(BaseModel):
         with open(f"{meta_folder_path}/stats.json", "w") as f:
             # Write the pydantic Basemodel as a str
             model_dict = self.model_dump()
+
+            # Renamed observation_state to observation.state here
+            model_dict["observation.state"] = model_dict.pop("observation_state")
 
             # We expose the fields in the dict observations images
             for key, value in model_dict["observation_images"].items():
