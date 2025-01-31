@@ -10,6 +10,8 @@ from loguru import logger
 from pydantic import BeforeValidator, PlainSerializer
 from rich import print
 
+from .models import VideoCodecs
+
 
 class NumpyEncoder(json.JSONEncoder):
     """Custom encoder for numpy data types"""
@@ -67,7 +69,7 @@ def create_video_file(
     target_size: Tuple[int, int],
     output_path: str,
     fps: float,
-    codec: Literal["mp4v", "avc1", "avc3", "hev1", "hvc1", "av01", "vp09"] = "mp4v",
+    codec: VideoCodecs,
 ) -> str | Tuple[str, str]:
     """
     Create a video file from a list of frames and resize video to target size.

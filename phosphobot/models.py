@@ -236,7 +236,7 @@ class Episode(BaseModel):
         folder_name: str,
         dataset_name: str,
         fps: int,
-        codec: VideoCodecs = "mp4v",
+        codec: VideoCodecs,
         format_to_save: Literal["json", "lerobot_v2"] = "json",
     ):
         """
