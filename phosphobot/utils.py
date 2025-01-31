@@ -67,7 +67,7 @@ def create_video_file(
     target_size: Tuple[int, int],
     output_path: str,
     fps: float,
-    codec: Literal["mp4v", "avc1", "avc3", "hev1", "hvc1", "av01", "vp09"] = "hev1",
+    codec: Literal["mp4v", "avc1", "avc3", "hev1", "hvc1", "av01", "vp09"] = "mp4v",
 ) -> str | Tuple[str, str]:
     """
     Create a video file from a list of frames and resize video to target size.
@@ -78,8 +78,7 @@ def create_video_file(
         target_size (Tuple[int, int]): Target dimensions (width, height) for the output video.
         output_path (str): Path to save the video file.
         fps (float): Frames per second for the video.
-        codec (str): FourCC codec for the video. Defaults to "hvc1" (H.265 for MP4).
-            Alternative: "mp4v" (MPEG-4 for MP4). Alternative: av1 (h264)
+        codec (str): FourCC codec for the video. Defaults to "mp4v" (MPEG-4 for MP4).
 
     Returns:
         Union[str, Tuple[str, str]]: Path(s) to created video file(s). Returns tuple of paths for stereo.

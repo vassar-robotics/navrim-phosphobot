@@ -236,7 +236,7 @@ class Episode(BaseModel):
         folder_name: str,
         dataset_name: str,
         fps: int,
-        codec: VideoCodecs = "hvc1",
+        codec: VideoCodecs = "mp4v",
         format_to_save: Literal["json", "lerobot_v2"] = "json",
     ):
         """
@@ -1058,7 +1058,7 @@ class VideoInfo(BaseModel):
     """
 
     video_fps: int = 10
-    video_codec: VideoCodecs = "hvc1"
+    video_codec: VideoCodecs = "mp4v"
 
     video_pix_fmt: str = "yuv420p"
     video_is_depth_map: bool = False
