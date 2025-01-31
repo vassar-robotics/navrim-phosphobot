@@ -10,7 +10,8 @@ from loguru import logger
 from pydantic import BeforeValidator, PlainSerializer
 from rich import print
 
-from .models import VideoCodecs
+# Cannot import from teleop.models due to circular import
+VideoCodecs = Literal["avc1", "hev1", "mp4v", "hvc1", "avc3", "av01", "vp09"]
 
 
 class NumpyEncoder(json.JSONEncoder):
