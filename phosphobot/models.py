@@ -8,7 +8,7 @@ from typing import Dict, List, Literal, Optional, Union
 
 import numpy as np
 from loguru import logger
-import pandas as pd
+import pandas as pd  # type: ignore
 from pydantic import BaseModel, Field, model_validator
 
 from phosphobot.utils import (
@@ -346,8 +346,12 @@ class Episode(BaseModel):
             # Create the secondary camera videos and paths
             for index, camera_frames in enumerate(secondary_camera_frames):
                 video_path = create_video_path(folder_name, f"secondary_{index}")
-                img_shape = camera_frames[0].shape[-2:]
+                img_shape = camera_frames[0].shape
+                logger.debug(f"Secondary cameras are arrays of dimension: {img_shape}")
                 secondary_camera_image_size = (img_shape[1], img_shape[0])
+                logger.debug(
+                    f"Secondary cameras target size: {secondary_camera_image_size}"
+                )
                 if len(secondary_camera_image_size) != 2:
                     logger.error(
                         f"Secondary camera {index} image must be 2D, skipping video creation"
@@ -360,6 +364,7 @@ class Episode(BaseModel):
                     frames=np.array(camera_frames),
                     output_path=video_path,
                     fps=fps,
+                    codec=codec,
                 )
                 logger.info(f"Video for camera {index} saved to {video_path}")
 
@@ -554,7 +559,8 @@ class Episode(BaseModel):
         """
 
         deltas_joints_position = np.diff(
-            np.array([step.observation.joints_position for step in self.steps]), axis=0
+            np.array([step.observation.joints_position for step in self.steps]),
+            axis=0,
         )
 
         deltas_joints_position = np.vstack(
@@ -997,9 +1003,10 @@ class StatsModel(BaseModel):
                 self.observation_images[
                     f"observation.images.secondary_{image_index}"
                 ] = Stats()
+
             self.observation_images[
                 f"observation.images.secondary_{image_index}"
-            ].update_image(step.observation.secondary_images[image])
+            ].update_image(step.observation.secondary_images[image_index])
 
     def save(self, meta_folder_path: str) -> None:
         """

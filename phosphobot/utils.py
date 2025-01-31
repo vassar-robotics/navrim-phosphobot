@@ -97,6 +97,8 @@ def create_video_file(
         f"Creating video file - stereo: {is_stereo} - Aspect ratio: {aspect_ratio}"
     )
 
+    logger.info(f"Target size: {target_size}")
+
     def init_video_writer(path: str, size: Tuple[int, int]) -> cv2.VideoWriter:
         # Ensure the directory exists
         os.makedirs(os.path.dirname(path), exist_ok=True)
