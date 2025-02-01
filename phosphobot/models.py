@@ -289,27 +289,19 @@ class Episode(BaseModel):
 
             secondary_camera_frames = self.get_frames_secondary_cameras()
 
-            # Update meta files
-
             filename = os.path.join(
                 data_path,
                 f"episode_{episode_index:06d}.parquet",
             )
-
             logger.debug(
                 f"Saving Episode {episode_index} data in LeRobot format to: {filename}"
             )
-
             lerobot_episode_parquet: LeRobotEpisodeParquet = (
                 self.convert_episode_data_to_LeRobot()
             )
-
             # Ensure the directory for the file exists
             os.makedirs(os.path.dirname(filename), exist_ok=True)
-            logger.info("Load episode data to lerobot format")
             df = pd.DataFrame(lerobot_episode_parquet.model_dump())
-            # Rename observation_state to observation.state
-            df.rename(columns={"observation_state": "observation.state"}, inplace=True)
             df.to_parquet(filename, index=False)
 
             logger.info(f"Data of episode {episode_index} saved to {filename}")
@@ -369,7 +361,7 @@ class Episode(BaseModel):
                 os.makedirs(os.path.dirname(video_path), exist_ok=True)
                 create_video_file(
                     target_size=secondary_camera_image_size,
-                    frames=np.array(camera_frames),
+                    frames=camera_frames,
                     output_path=video_path,
                     fps=fps,
                     codec=codec,
@@ -504,7 +496,7 @@ class Episode(BaseModel):
         # Prepare the data for the Parquet file
         episode_data: Dict[str, List] = {
             "action": [],
-            "observation_state": [],
+            "observation.state": [],  # with a dot, not an underscore
             "timestamp": [],
             "task_index": [],
             "episode_index": [],
@@ -520,9 +512,6 @@ class Episode(BaseModel):
         # first_episode_timestamp = self.steps[0].observation.timestamp
         episode_data["action"] = self.get_delta_joints_position().tolist()
 
-        # not in parquet file but in mp4 video
-        episode_observation_images = []
-
         logger.info(f"Number of steps during conversion: {len(self.steps)}")
 
         episode_data["timestamp"] = [step.observation.timestamp for step in self.steps]
@@ -531,24 +520,18 @@ class Episode(BaseModel):
             # Fill in the data for each step
             episode_data["episode_index"].append(episode_index)
             episode_data["frame_index"].append(frame_index)
-            episode_data["observation_state"].append(
+            episode_data["observation.state"].append(
                 step.observation.joints_position.astype(np.float32)
             )
             episode_data["index"].append(frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
 
-            # We use this to create mp4 video file
-            episode_observation_images.append(step.observation.main_image.tolist())
-
-        frames = np.array(episode_observation_images)
-        if frames is np.empty:
-            raise ValueError("No frames provided to create the video.")
-
         # Validate frame dimensions and data type
-        height, width = frames[0].shape[:2]
+        height, width = self.steps[0].observation.main_image.shape[:2]
         if any(
-            frame.shape[:2] != (height, width) or frame.ndim != 3 for frame in frames
+            frame.shape[:2] != (height, width) or frame.ndim != 3
+            for frame in self.get_frames_main_camera()
         ):
             raise ValueError(
                 "All frames must have the same dimensions and be 3-channel RGB images."
@@ -556,7 +539,7 @@ class Episode(BaseModel):
 
         return LeRobotEpisodeParquet(
             action=episode_data["action"],
-            observation_state=episode_data["observation_state"],
+            observation_state=episode_data["observation.state"],
             timestamp=episode_data["timestamp"],
             task_index=episode_data["task_index"],
             episode_index=episode_data["episode_index"],
@@ -608,36 +591,30 @@ class Episode(BaseModel):
 
     def get_frames_main_camera(self) -> List[np.ndarray]:
         """
-        Return the frames of the episode
+        Return the frames of the main camera
         """
         return [step.observation.main_image for step in self.steps]
 
-    def get_frames_secondary_cameras(self) -> List[List[np.ndarray]]:
+    def get_frames_secondary_cameras(self) -> List[np.ndarray]:
         """
-        Returns a list of list of frames for each secondary camera
+        Returns a list, where each np.array is a series of frames for a secondary camera.
         """
         # Handle the case where there are no secondary images
         if not self.steps[0].observation.secondary_images:
             return []
 
         # Convert the nested structure to a numpy array first
-        all_images = np.array(
-            [
+        all_images = [
+            np.array(
                 [
                     step.observation.secondary_images[i]
                     for i in range(len(step.observation.secondary_images))
                 ]
-                for step in self.steps
-            ]
-        )
+            )
+            for step in self.steps
+        ]
 
-        # Transpose the array to switch from [steps, cameras] to [cameras, steps]
-        transposed_images = np.transpose(
-            all_images, axes=(1, 0) + tuple(range(2, all_images.ndim))
-        )
-
-        # Convert back to list of lists of numpy arrays
-        return [list(camera_steps) for camera_steps in transposed_images]
+        return all_images
 
 
 class LeRobotEpisodeParquet(BaseModel):
