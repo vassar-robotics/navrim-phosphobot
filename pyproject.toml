@@ -18,6 +18,11 @@ dependencies = [
     "pandas-stubs>=2.2.2.240807",
 ]
 
+[dependency-groups]
+dev = ["pyinstrument>=5.0.0"]
+
+[tool.uv]
+default-groups = ["dev"]
 
 [tool.setuptools]
 packages = ["phosphobot"]
