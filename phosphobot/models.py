@@ -1294,19 +1294,15 @@ class TasksModel(BaseModel):
             for line in f:
                 tasks.append(TasksFeatures(**json.loads(line)))
 
-            tasks_model = cls(tasks=tasks)
-
-            # Save the number of orignal tasks
-            tasks_model._initial_nb_total_tasks = len(tasks)
-            return tasks_model
+        tasks_model = cls(tasks=tasks)
+        # Do it after model init, otherwise pydantic ignores the value of _original_nb_total_episodes
+        tasks_model._initial_nb_total_tasks = len(tasks)
+        return tasks_model
 
     def to_jsonl(self, meta_folder_path: str) -> None:
         """
         Write the tasks.jsonl file in the meta folder path.
         """
-        if not os.path.exists(meta_folder_path):
-            with open(f"{meta_folder_path}/tasks.jsonl", "w") as f:
-                f.write("")
 
         with open(f"{meta_folder_path}/tasks.jsonl", "a") as f:
             # Only append the new tasks to the file
@@ -1402,11 +1398,13 @@ class EpisodesModel(BaseModel):
         with open(f"{meta_folder_path}/episodes.jsonl", "r") as f:
             episodes_model = []
             for line in f:
+                logger.debug(f"Reading line: {line}")
                 episodes_model.append(EpisodesFeatures(**json.loads(line)))
 
-            return EpisodesModel(
-                episodes=episodes_model, _original_nb_total_episodes=len(episodes_model)
-            )
+        episode = EpisodesModel(episodes=episodes_model)
+        # Do it after model init, otherwise pydantic ignores the value of _original_nb_total_episodes
+        episode._original_nb_total_episodes = len(episodes_model)
+        return episode
 
     def save(self, meta_folder_path: str) -> None:
         """
