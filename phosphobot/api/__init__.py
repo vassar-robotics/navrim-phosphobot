@@ -18,7 +18,7 @@ from .types import (
     VoltageReadResponse,
 )
 from .errors import NotFoundError, UnprocessableEntityError
-from . import camera, control, networking, pages, recording
+from . import camera, control, recording
 from .camera import VideoFeedForCameraVideoCameraIdGetRequestCameraId
 from .client import AsyncPhosphobotApi, PhosphobotApi
 from .control import AutoControlRequestTypeOfModel, Environment, Source, Unit
@@ -56,7 +56,5 @@ __all__ = [
     "VoltageReadResponse",
     "camera",
     "control",
-    "networking",
-    "pages",
     "recording",
 ]
