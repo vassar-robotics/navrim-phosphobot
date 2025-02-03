@@ -3,21 +3,25 @@
 import typing
 import httpx
 from .core.client_wrapper import SyncClientWrapper
+from .networking.client import NetworkingClient
+from .pages.client import PagesClient
 from .control.client import ControlClient
-from .camera.client import CameraClient
 from .recording.client import RecordingClient
+from .camera.client import CameraClient
 from .core.request_options import RequestOptions
 from .types.server_status import ServerStatus
 from .core.pydantic_utilities import parse_obj_as
 from json.decoder import JSONDecodeError
 from .core.api_error import ApiError
 from .core.client_wrapper import AsyncClientWrapper
+from .networking.client import AsyncNetworkingClient
+from .pages.client import AsyncPagesClient
 from .control.client import AsyncControlClient
-from .camera.client import AsyncCameraClient
 from .recording.client import AsyncRecordingClient
+from .camera.client import AsyncCameraClient
 
 
-class PhosphobotApi:
+class PhosphoApi:
     """
     Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propagate to these functions.
 
@@ -37,9 +41,9 @@ class PhosphobotApi:
 
     Examples
     --------
-    from phosphobot import PhosphobotApi
+    from phospho import PhosphoApi
 
-    client = PhosphobotApi(
+    client = PhosphoApi(
         base_url="https://yourhost.com/path/to/api",
     )
     """
@@ -66,9 +70,11 @@ class PhosphobotApi:
             else httpx.Client(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
+        self.networking = NetworkingClient(client_wrapper=self._client_wrapper)
+        self.pages = PagesClient(client_wrapper=self._client_wrapper)
         self.control = ControlClient(client_wrapper=self._client_wrapper)
-        self.camera = CameraClient(client_wrapper=self._client_wrapper)
         self.recording = RecordingClient(client_wrapper=self._client_wrapper)
+        self.camera = CameraClient(client_wrapper=self._client_wrapper)
 
     def status_status_get(
         self, *, request_options: typing.Optional[RequestOptions] = None
@@ -88,9 +94,9 @@ class PhosphobotApi:
 
         Examples
         --------
-        from phosphobot import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.status_status_get()
@@ -115,7 +121,7 @@ class PhosphobotApi:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
 
-class AsyncPhosphobotApi:
+class AsyncPhosphoApi:
     """
     Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propagate to these functions.
 
@@ -135,9 +141,9 @@ class AsyncPhosphobotApi:
 
     Examples
     --------
-    from phosphobot import AsyncPhosphobotApi
+    from phospho import AsyncPhosphoApi
 
-    client = AsyncPhosphobotApi(
+    client = AsyncPhosphoApi(
         base_url="https://yourhost.com/path/to/api",
     )
     """
@@ -164,9 +170,11 @@ class AsyncPhosphobotApi:
             else httpx.AsyncClient(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
+        self.networking = AsyncNetworkingClient(client_wrapper=self._client_wrapper)
+        self.pages = AsyncPagesClient(client_wrapper=self._client_wrapper)
         self.control = AsyncControlClient(client_wrapper=self._client_wrapper)
-        self.camera = AsyncCameraClient(client_wrapper=self._client_wrapper)
         self.recording = AsyncRecordingClient(client_wrapper=self._client_wrapper)
+        self.camera = AsyncCameraClient(client_wrapper=self._client_wrapper)
 
     async def status_status_get(
         self, *, request_options: typing.Optional[RequestOptions] = None
@@ -188,9 +196,9 @@ class AsyncPhosphobotApi:
         --------
         import asyncio
 
-        from phosphobot import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
