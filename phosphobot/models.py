@@ -307,6 +307,7 @@ class Episode(BaseModel):
             logger.info(f"Data of episode {episode_index} saved to {filename}")
 
             def create_video_path(folder_name: str, camera_name: str) -> str:
+                logger.info(f"Creating video path for {camera_name}")
                 return os.path.join(
                     folder_name,
                     "lerobot_v2",
@@ -605,13 +606,8 @@ class Episode(BaseModel):
 
         # Convert the nested structure to a numpy array first
         all_images = [
-            np.array(
-                [
-                    step.observation.secondary_images[i]
-                    for i in range(len(step.observation.secondary_images))
-                ]
-            )
-            for step in self.steps
+            np.array([step.observation.secondary_images[i] for step in self.steps])
+            for i in range(len(self.steps[0].observation.secondary_images))
         ]
 
         return all_images
