@@ -51,9 +51,9 @@ class RecordingClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.recording.play_recording(
@@ -137,9 +137,9 @@ class RecordingClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.recording.start_recording_episode()
@@ -209,9 +209,9 @@ class RecordingClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.recording.stop_recording_episode()
@@ -286,9 +286,9 @@ class AsyncRecordingClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -380,9 +380,9 @@ class AsyncRecordingClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -460,9 +460,9 @@ class AsyncRecordingClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 

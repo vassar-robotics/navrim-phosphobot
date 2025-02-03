@@ -42,9 +42,9 @@ class CameraClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.camera.video_feed_for_camera()
@@ -111,9 +111,9 @@ class AsyncCameraClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 

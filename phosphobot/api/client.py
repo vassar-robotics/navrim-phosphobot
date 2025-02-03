@@ -21,7 +21,7 @@ from .recording.client import AsyncRecordingClient
 from .camera.client import AsyncCameraClient
 
 
-class PhosphoApi:
+class PhosphobotApi:
     """
     Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propagate to these functions.
 
@@ -41,9 +41,9 @@ class PhosphoApi:
 
     Examples
     --------
-    from phospho import PhosphoApi
+    from phospho import PhosphobotApi
 
-    client = PhosphoApi(
+    client = PhosphobotApi(
         base_url="https://yourhost.com/path/to/api",
     )
     """
@@ -94,9 +94,9 @@ class PhosphoApi:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.status_status_get()
@@ -121,7 +121,7 @@ class PhosphoApi:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
 
-class AsyncPhosphoApi:
+class AsyncPhosphobotApi:
     """
     Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propagate to these functions.
 
@@ -141,9 +141,9 @@ class AsyncPhosphoApi:
 
     Examples
     --------
-    from phospho import AsyncPhosphoApi
+    from phospho import AsyncPhosphobotApi
 
-    client = AsyncPhosphoApi(
+    client = AsyncPhosphobotApi(
         base_url="https://yourhost.com/path/to/api",
     )
     """
@@ -196,9 +196,9 @@ class AsyncPhosphoApi:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 

@@ -59,9 +59,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.start_auto(
@@ -126,9 +126,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.stop_auto()
@@ -175,9 +175,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.calibrate()
@@ -237,9 +237,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.end_effector_read()
@@ -299,9 +299,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.read_joints()
@@ -369,9 +369,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.write_joints(
@@ -466,9 +466,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.move_to_absolute_position(
@@ -546,9 +546,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.move_init()
@@ -614,9 +614,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.mimicking_robots(
@@ -704,9 +704,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.move_relative(
@@ -816,9 +816,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.move_teleoperation(
@@ -900,9 +900,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.read_torque()
@@ -965,9 +965,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.toggle_torque(
@@ -1030,9 +1030,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphoApi
+        from phospho import PhosphobotApi
 
-        client = PhosphoApi(
+        client = PhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.read_voltage()
@@ -1107,9 +1107,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1182,9 +1182,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1239,9 +1239,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1309,9 +1309,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1379,9 +1379,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1457,9 +1457,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1562,9 +1562,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1650,9 +1650,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1726,9 +1726,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1824,9 +1824,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1944,9 +1944,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -2036,9 +2036,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -2109,9 +2109,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -2182,9 +2182,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphoApi
+        from phospho import AsyncPhosphobotApi
 
-        client = AsyncPhosphoApi(
+        client = AsyncPhosphobotApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
