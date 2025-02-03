@@ -1187,6 +1187,7 @@ class InfoModel(BaseModel):
         robot: BaseRobot | None = None,
         main_image: np.ndarray | None = None,
         secondary_images: List[np.ndarray] | None = None,
+        main_is_stereo: bool = False,
     ) -> "InfoModel":
         """
         Read the info.json file in the meta folder path.
@@ -1209,23 +1210,45 @@ class InfoModel(BaseModel):
 
             info_model = cls.from_robot(robot)
             if main_image is not None:
-                # TODO: Check if this stereo
-                info_model.features.observation_images["observation.images.main"] = (
-                    VideoFeatureDetails(
+                if not main_is_stereo:
+                    info_model.features.observation_images[
+                        "observation.images.main"
+                    ] = VideoFeatureDetails(
                         shape=list(main_image.shape),
                         names=["height", "width", "channel"],
                         info=VideoInfo(video_codec=codec, video_fps=fps),
                     )
-                )
-                # TODO: Support stereo
-            if secondary_images is not None:
-                for image in secondary_images:
+                else:
+                    # Split along the width in 2 imaes
+                    new_shape = [
+                        main_image.shape[0],
+                        main_image.shape[1] // 2,
+                        main_image.shape[2],
+                    ]
                     info_model.features.observation_images[
-                        f"observation.images.secondary_{secondary_images.index(image)}"
+                        "observation.images.main.left"
                     ] = VideoFeatureDetails(
-                        shape=list(image.shape),
+                        shape=new_shape,
                         names=["height", "width", "channel"],
                         info=VideoInfo(video_codec=codec, video_fps=fps),
+                    )
+                    info_model.features.observation_images[
+                        "observation.images.main.right"
+                    ] = VideoFeatureDetails(
+                        shape=new_shape,
+                        names=["height", "width", "channel"],
+                        info=VideoInfo(video_codec=codec, video_fps=fps),
+                    )
+
+            if secondary_images is not None:
+                for index_image, image in enumerate(secondary_images):
+                    key_name = f"observation.images.secondary_{index_image}"
+                    info_model.features.observation_images[key_name] = (
+                        VideoFeatureDetails(
+                            shape=list(image.shape),
+                            names=["height", "width", "channel"],
+                            info=VideoInfo(video_codec=codec, video_fps=fps),
+                        )
                     )
             return info_model
 
