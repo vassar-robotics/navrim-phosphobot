@@ -3,8 +3,6 @@
 import typing
 import httpx
 from .core.client_wrapper import SyncClientWrapper
-from .networking.client import NetworkingClient
-from .pages.client import PagesClient
 from .control.client import ControlClient
 from .recording.client import RecordingClient
 from .camera.client import CameraClient
@@ -14,8 +12,6 @@ from .core.pydantic_utilities import parse_obj_as
 from json.decoder import JSONDecodeError
 from .core.api_error import ApiError
 from .core.client_wrapper import AsyncClientWrapper
-from .networking.client import AsyncNetworkingClient
-from .pages.client import AsyncPagesClient
 from .control.client import AsyncControlClient
 from .recording.client import AsyncRecordingClient
 from .camera.client import AsyncCameraClient
@@ -70,8 +66,6 @@ class PhosphobotApi:
             else httpx.Client(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
-        self.networking = NetworkingClient(client_wrapper=self._client_wrapper)
-        self.pages = PagesClient(client_wrapper=self._client_wrapper)
         self.control = ControlClient(client_wrapper=self._client_wrapper)
         self.recording = RecordingClient(client_wrapper=self._client_wrapper)
         self.camera = CameraClient(client_wrapper=self._client_wrapper)
@@ -170,8 +164,6 @@ class AsyncPhosphobotApi:
             else httpx.AsyncClient(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
-        self.networking = AsyncNetworkingClient(client_wrapper=self._client_wrapper)
-        self.pages = AsyncPagesClient(client_wrapper=self._client_wrapper)
         self.control = AsyncControlClient(client_wrapper=self._client_wrapper)
         self.recording = AsyncRecordingClient(client_wrapper=self._client_wrapper)
         self.camera = AsyncCameraClient(client_wrapper=self._client_wrapper)
