@@ -302,6 +302,9 @@ class Episode(BaseModel):
             # Ensure the directory for the file exists
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             df = pd.DataFrame(lerobot_episode_parquet.model_dump())
+
+            self.rewrite_df_dataframe_timestamp(df, fps)
+
             df.to_parquet(filename, index=False)
 
             logger.info(f"Data of episode {episode_index} saved to {filename}")
@@ -406,6 +409,20 @@ class Episode(BaseModel):
         logger.info(f"Loaded episode from {filename}")
 
         return cls(**data_dict)
+
+    def rewrite_df_dataframe_timestamp(self, df: pd.DataFrame, fps: int):
+        logger.debug(f"DATAFRAME HEAD: {df.keys()}")
+        # Get the first timestamp
+        first_timestamp = df["timestamp"].iloc[0]
+        # Add 1/fps to the successive rows timestamp
+        df["timestamp"] = first_timestamp + (1 / fps) * np.arange(len(df))
+
+        logger.debug(f"FPS When writing to timestamps: {fps}")
+
+        diff = np.diff(df["timestamp"])
+        abs_diff = np.abs(diff - 1 / fps)
+        if np.any(abs_diff > 1e-6):
+            raise ValueError(f"Timestamps are not equally spaced: {abs_diff}")
 
     def add_step(self, step: Step):
         """
