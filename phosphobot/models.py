@@ -297,11 +297,12 @@ class Episode(BaseModel):
                 f"Saving Episode {episode_index} data in LeRobot format to: {filename}"
             )
             lerobot_episode_parquet: LeRobotEpisodeParquet = (
-                self.convert_episode_data_to_LeRobot()
+                self.convert_episode_data_to_LeRobot(fps=fps)
             )
             # Ensure the directory for the file exists
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             df = pd.DataFrame(lerobot_episode_parquet.model_dump())
+
             df.to_parquet(filename, index=False)
 
             logger.info(f"Data of episode {episode_index} saved to {filename}")
@@ -488,7 +489,7 @@ class Episode(BaseModel):
         """
         self.metadata["index"] = value
 
-    def convert_episode_data_to_LeRobot(self, episode_index: int = 0):
+    def convert_episode_data_to_LeRobot(self, fps: int, episode_index: int = 0):
         """
         Convert a dataset to the LeRobot format
         """
@@ -515,7 +516,8 @@ class Episode(BaseModel):
 
         logger.info(f"Number of steps during conversion: {len(self.steps)}")
 
-        episode_data["timestamp"] = [step.observation.timestamp for step in self.steps]
+        # episode_data["timestamp"] = [step.observation.timestamp for step in self.steps]
+        episode_data["timestamp"] = (np.arange(len(self.steps)) / fps).tolist()
 
         for frame_index, step in enumerate(self.steps):
             # Fill in the data for each step
