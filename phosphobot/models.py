@@ -297,13 +297,11 @@ class Episode(BaseModel):
                 f"Saving Episode {episode_index} data in LeRobot format to: {filename}"
             )
             lerobot_episode_parquet: LeRobotEpisodeParquet = (
-                self.convert_episode_data_to_LeRobot()
+                self.convert_episode_data_to_LeRobot(fps=fps)
             )
             # Ensure the directory for the file exists
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             df = pd.DataFrame(lerobot_episode_parquet.model_dump())
-
-            self.rewrite_df_dataframe_timestamp(df, fps)
 
             df.to_parquet(filename, index=False)
 
@@ -410,20 +408,6 @@ class Episode(BaseModel):
 
         return cls(**data_dict)
 
-    def rewrite_df_dataframe_timestamp(self, df: pd.DataFrame, fps: int):
-        logger.debug(f"DATAFRAME HEAD: {df.keys()}")
-        # Get the first timestamp
-        first_timestamp = df["timestamp"].iloc[0]
-        # Add 1/fps to the successive rows timestamp
-        df["timestamp"] = first_timestamp + (1 / fps) * np.arange(len(df))
-
-        logger.debug(f"FPS When writing to timestamps: {fps}")
-
-        diff = np.diff(df["timestamp"])
-        abs_diff = np.abs(diff - 1 / fps)
-        if np.any(abs_diff > 1e-6):
-            raise ValueError(f"Timestamps are not equally spaced: {abs_diff}")
-
     def add_step(self, step: Step):
         """
         Add a step to the episode
@@ -505,7 +489,7 @@ class Episode(BaseModel):
         """
         self.metadata["index"] = value
 
-    def convert_episode_data_to_LeRobot(self, episode_index: int = 0):
+    def convert_episode_data_to_LeRobot(self, fps: int, episode_index: int = 0):
         """
         Convert a dataset to the LeRobot format
         """
@@ -532,7 +516,8 @@ class Episode(BaseModel):
 
         logger.info(f"Number of steps during conversion: {len(self.steps)}")
 
-        episode_data["timestamp"] = [step.observation.timestamp for step in self.steps]
+        # episode_data["timestamp"] = [step.observation.timestamp for step in self.steps]
+        episode_data["timestamp"] = (np.arange(len(self.steps)) / fps).tolist()
 
         for frame_index, step in enumerate(self.steps):
             # Fill in the data for each step
