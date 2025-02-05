@@ -303,6 +303,8 @@ class Episode(BaseModel):
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             df = pd.DataFrame(lerobot_episode_parquet.model_dump())
 
+            # Rename observation_state too observation.state
+            df.rename(columns={"observation_state": "observation.state"}, inplace=True)
             df.to_parquet(filename, index=False)
 
             logger.info(f"Data of episode {episode_index} saved to {filename}")
