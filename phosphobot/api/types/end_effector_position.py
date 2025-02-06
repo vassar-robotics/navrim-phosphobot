@@ -9,6 +9,7 @@ import typing
 class EndEffectorPosition(UniversalBaseModel):
     """
     End effector position for a movement in absolute frame.
+    All zeros means the initial position, that you get by calling /move/init
     """
 
     open: float = pydantic.Field()
@@ -31,9 +32,20 @@ class EndEffectorPosition(UniversalBaseModel):
     Absolute Roll in degrees
     """
 
-    x: float
-    y: float
-    z: float
+    x: float = pydantic.Field()
+    """
+    X position in centimeters
+    """
+
+    y: float = pydantic.Field()
+    """
+    Y position in centimeters
+    """
+
+    z: float = pydantic.Field()
+    """
+    Z position in centimeters
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

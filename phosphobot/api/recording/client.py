@@ -51,9 +51,9 @@ class RecordingClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.recording.play_recording(
@@ -105,6 +105,7 @@ class RecordingClient:
         robot_id: typing.Optional[int] = None,
         dataset_name: typing.Optional[str] = OMIT,
         episode_format: typing.Optional[RecordingStartRequestEpisodeFormat] = OMIT,
+        freq: typing.Optional[int] = OMIT,
         video_codec: typing.Optional[RecordingStartRequestVideoCodec] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
@@ -124,6 +125,9 @@ class RecordingClient:
             `json` is compatible with OpenVLA and stores videos as a series of npy.
             `lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models)
 
+        freq : typing.Optional[int]
+            Records steps of the robot at this frequency. Defaults to 10.
+
         video_codec : typing.Optional[RecordingStartRequestVideoCodec]
             Codec to use for the video saving. Defaults to None.
 
@@ -137,9 +141,9 @@ class RecordingClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.recording.start_recording_episode()
@@ -153,6 +157,7 @@ class RecordingClient:
             json={
                 "dataset_name": dataset_name,
                 "episode_format": episode_format,
+                "freq": freq,
                 "video_codec": video_codec,
             },
             headers={
@@ -209,9 +214,9 @@ class RecordingClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.recording.stop_recording_episode()
@@ -286,9 +291,9 @@ class AsyncRecordingClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -346,6 +351,7 @@ class AsyncRecordingClient:
         robot_id: typing.Optional[int] = None,
         dataset_name: typing.Optional[str] = OMIT,
         episode_format: typing.Optional[RecordingStartRequestEpisodeFormat] = OMIT,
+        freq: typing.Optional[int] = OMIT,
         video_codec: typing.Optional[RecordingStartRequestVideoCodec] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
@@ -365,6 +371,9 @@ class AsyncRecordingClient:
             `json` is compatible with OpenVLA and stores videos as a series of npy.
             `lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models)
 
+        freq : typing.Optional[int]
+            Records steps of the robot at this frequency. Defaults to 10.
+
         video_codec : typing.Optional[RecordingStartRequestVideoCodec]
             Codec to use for the video saving. Defaults to None.
 
@@ -380,9 +389,9 @@ class AsyncRecordingClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -402,6 +411,7 @@ class AsyncRecordingClient:
             json={
                 "dataset_name": dataset_name,
                 "episode_format": episode_format,
+                "freq": freq,
                 "video_codec": video_codec,
             },
             headers={
@@ -460,9 +470,9 @@ class AsyncRecordingClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 

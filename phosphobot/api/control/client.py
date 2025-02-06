@@ -59,9 +59,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.start_auto(
@@ -126,9 +126,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.stop_auto()
@@ -175,9 +175,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.calibrate()
@@ -237,9 +237,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.end_effector_read()
@@ -299,9 +299,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.read_joints()
@@ -369,9 +369,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.write_joints(
@@ -449,10 +449,13 @@ class ControlClient:
             Absolute Roll in degrees
 
         x : float
+            X position in centimeters
 
         y : float
+            Y position in centimeters
 
         z : float
+            Z position in centimeters
 
         robot_id : typing.Optional[int]
 
@@ -466,9 +469,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.move_to_absolute_position(
@@ -523,6 +526,68 @@ class ControlClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    def say_hello(
+        self,
+        *,
+        robot_id: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> StatusResponse:
+        """
+        Make the robot say hello by waving its end effector. (Test endpoint)
+
+        Parameters
+        ----------
+        robot_id : typing.Optional[int]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        from phospho import PhosphoApi
+
+        client = PhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.control.say_hello()
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "move/hello",
+            method="POST",
+            params={
+                "robot_id": robot_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    StatusResponse,
+                    parse_obj_as(
+                        type_=StatusResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
     def move_init(
         self,
         *,
@@ -546,9 +611,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.move_init()
@@ -614,9 +679,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.mimicking_robots(
@@ -678,19 +743,22 @@ class ControlClient:
         open : float
 
         rx : float
-            Relative Pitch in radian
+            Relative Pitch in degrees
 
         ry : float
-            Relative Yaw in radian
+            Relative Yaw in degrees
 
         rz : float
-            Relative Roll in radian
+            Relative Roll in degrees
 
         x : float
+            Delta X position in centimeters
 
         y : float
+            Delta Y position in centimeters
 
         z : float
+            Delta Z position in centimeters
 
         robot_id : typing.Optional[int]
 
@@ -704,9 +772,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.move_relative(
@@ -816,9 +884,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.move_teleoperation(
@@ -900,9 +968,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.read_torque()
@@ -965,9 +1033,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.toggle_torque(
@@ -1030,9 +1098,9 @@ class ControlClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.control.read_voltage()
@@ -1107,9 +1175,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1182,9 +1250,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1239,9 +1307,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1309,9 +1377,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1379,9 +1447,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1457,9 +1525,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1543,10 +1611,13 @@ class AsyncControlClient:
             Absolute Roll in degrees
 
         x : float
+            X position in centimeters
 
         y : float
+            Y position in centimeters
 
         z : float
+            Z position in centimeters
 
         robot_id : typing.Optional[int]
 
@@ -1562,9 +1633,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1625,6 +1696,76 @@ class AsyncControlClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    async def say_hello(
+        self,
+        *,
+        robot_id: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> StatusResponse:
+        """
+        Make the robot say hello by waving its end effector. (Test endpoint)
+
+        Parameters
+        ----------
+        robot_id : typing.Optional[int]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from phospho import AsyncPhosphoApi
+
+        client = AsyncPhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.control.say_hello()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "move/hello",
+            method="POST",
+            params={
+                "robot_id": robot_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    StatusResponse,
+                    parse_obj_as(
+                        type_=StatusResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
     async def move_init(
         self,
         *,
@@ -1650,9 +1791,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1726,9 +1867,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1796,19 +1937,22 @@ class AsyncControlClient:
         open : float
 
         rx : float
-            Relative Pitch in radian
+            Relative Pitch in degrees
 
         ry : float
-            Relative Yaw in radian
+            Relative Yaw in degrees
 
         rz : float
-            Relative Roll in radian
+            Relative Roll in degrees
 
         x : float
+            Delta X position in centimeters
 
         y : float
+            Delta Y position in centimeters
 
         z : float
+            Delta Z position in centimeters
 
         robot_id : typing.Optional[int]
 
@@ -1824,9 +1968,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -1944,9 +2088,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -2036,9 +2180,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -2109,9 +2253,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 
@@ -2182,9 +2326,9 @@ class AsyncControlClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 

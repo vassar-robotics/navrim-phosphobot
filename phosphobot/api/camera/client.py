@@ -27,7 +27,7 @@ class CameraClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
         """
-        Stream video feed of the specified camera.
+        Stream video feed of the specified camera. If no camera id is provided, the default camera is used. If the camera id is 'realsense' or 'depth', the realsense camera is used.
 
         Parameters
         ----------
@@ -42,9 +42,9 @@ class CameraClient:
 
         Examples
         --------
-        from phospho import PhosphobotApi
+        from phospho import PhosphoApi
 
-        client = PhosphobotApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
         client.camera.video_feed_for_camera()
@@ -94,7 +94,7 @@ class AsyncCameraClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
         """
-        Stream video feed of the specified camera.
+        Stream video feed of the specified camera. If no camera id is provided, the default camera is used. If the camera id is 'realsense' or 'depth', the realsense camera is used.
 
         Parameters
         ----------
@@ -111,9 +111,9 @@ class AsyncCameraClient:
         --------
         import asyncio
 
-        from phospho import AsyncPhosphobotApi
+        from phospho import AsyncPhosphoApi
 
-        client = AsyncPhosphobotApi(
+        client = AsyncPhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
 

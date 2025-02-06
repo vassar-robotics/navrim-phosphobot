@@ -20,7 +20,7 @@ from .types import (
 from .errors import NotFoundError, UnprocessableEntityError
 from . import camera, control, recording
 from .camera import VideoFeedForCameraVideoCameraIdGetRequestCameraId
-from .client import AsyncPhosphobotApi, PhosphobotApi
+from .client import AsyncPhosphoApi, PhosphoApi
 from .control import AutoControlRequestTypeOfModel, Environment, Source, Unit
 from .recording import (
     RecordingStartRequestEpisodeFormat,
@@ -29,7 +29,7 @@ from .recording import (
 
 __all__ = [
     "AllCamerasStatus",
-    "AsyncPhosphobotApi",
+    "AsyncPhosphoApi",
     "AutoControlRequestTypeOfModel",
     "BodySubmitTokenAdminFormPost",
     "CalibrateResponse",
@@ -39,7 +39,7 @@ __all__ = [
     "HttpValidationError",
     "JointsReadResponse",
     "NotFoundError",
-    "PhosphobotApi",
+    "PhosphoApi",
     "RecordingStartRequestEpisodeFormat",
     "RecordingStartRequestVideoCodec",
     "RecordingStopResponse",
