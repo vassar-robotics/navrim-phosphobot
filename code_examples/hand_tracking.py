@@ -122,7 +122,12 @@ class HandTracker:
 
                         requests.post(
                             "http://localhost:80/move/absolute",
-                            json=hand_data,
+                            json={
+                                **hand_data,
+                                "x": hand_data["x"] * 100,
+                                "y": hand_data["y"] * 100,
+                                "z": hand_data["z"] * 100,
+                            },
                             timeout=0.2,  # Short timeout to prevent blocking
                         )
                     except requests.RequestException as e:

@@ -20,9 +20,7 @@ print("Initializing robot")
 time.sleep(2)
 
 # We move it to the top left corner of the square
-call_to_api(
-    "relative", {"x": 0, "y": -0.03, "z": 0.03, "rx": 0, "ry": 0, "rz": 0, "open": 0}
-)
+call_to_api("relative", {"x": 0, "y": -3, "z": 3, "rx": 0, "ry": 0, "rz": 0, "open": 0})
 print("Moving to top left corner")
 time.sleep(0.2)
 
@@ -31,28 +29,28 @@ time.sleep(0.2)
 for _ in range(NUMBER_OF_SQUARES):
     # Move to the top right corner
     call_to_api(
-        "relative", {"x": 0, "y": 0.03, "z": 0, "rx": 0, "ry": 0, "rz": 0, "open": 0}
+        "relative", {"x": 0, "y": 3, "z": 0, "rx": 0, "ry": 0, "rz": 0, "open": 0}
     )
     print("Moving to top right corner")
     time.sleep(0.2)
 
     # Move to the bottom right corner
     call_to_api(
-        "relative", {"x": 0, "y": 0, "z": -0.03, "rx": 0, "ry": 0, "rz": 0, "open": 0}
+        "relative", {"x": 0, "y": 0, "z": -3, "rx": 0, "ry": 0, "rz": 0, "open": 0}
     )
     print("Moving to bottom right corner")
     time.sleep(0.2)
 
     # Move to the bottom left corner
     call_to_api(
-        "relative", {"x": 0, "y": -0.03, "z": 0, "rx": 0, "ry": 0, "rz": 0, "open": 0}
+        "relative", {"x": 0, "y": -3, "z": 0, "rx": 0, "ry": 0, "rz": 0, "open": 0}
     )
     print("Moving to bottom left corner")
     time.sleep(0.2)
 
     # Move to the top left corner
     call_to_api(
-        "relative", {"x": 0, "y": 0, "z": 0.03, "rx": 0, "ry": 0, "rz": 0, "open": 0}
+        "relative", {"x": 0, "y": 0, "z": 3, "rx": 0, "ry": 0, "rz": 0, "open": 0}
     )
     print("Moving to top left corner")
     time.sleep(0.2)

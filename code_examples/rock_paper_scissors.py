@@ -65,33 +65,33 @@ class RockPaperScissorsGame:
         # Move to closed fist position
         self.call_to_api(
             "absolute",
-            {"x": 0, "y": 0, "z": 0.05, "rx": 0, "ry": 0, "rz": 0, "open": 0},
+            {"x": 0, "y": 0, "z": 5, "rx": 0, "ry": 0, "rz": 0, "open": 0},
         )
 
     def make_paper_gesture(self):
         # Move to open hand position
         self.call_to_api(
             "absolute",
-            {"x": 0, "y": 0, "z": 0.05, "rx": 0, "ry": 0, "rz": 0, "open": 1},
+            {"x": 0, "y": 0, "z": 5, "rx": 0, "ry": 0, "rz": 0, "open": 1},
         )
 
     def make_scissors_gesture(self):
         # Move to scissors position
         self.call_to_api(
             "absolute",
-            {"x": 0, "y": 0, "z": 0.05, "rx": 0, "ry": -45, "rz": 0, "open": 0.5},
+            {"x": 0, "y": 0, "z": 5, "rx": 0, "ry": -45, "rz": 0, "open": 0.5},
         )
 
     def move_up_down(self, times=3):
         for step in range(times + 1):
             self.call_to_api(
                 "absolute",
-                {"x": 0, "y": 0, "z": 0.04, "rx": 0, "ry": 0, "rz": 0, "open": 0},
+                {"x": 0, "y": 0, "z": 4, "rx": 0, "ry": 0, "rz": 0, "open": 0},
             )
             time.sleep(0.25)
             self.call_to_api(
                 "absolute",
-                {"x": 0, "y": 0, "z": -0.04, "rx": 0, "ry": 0, "rz": 0, "open": 0},
+                {"x": 0, "y": 0, "z": -4, "rx": 0, "ry": 0, "rz": 0, "open": 0},
             )
             time.sleep(0.25)
             print(times - step)

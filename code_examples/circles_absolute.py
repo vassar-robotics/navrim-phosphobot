@@ -25,8 +25,8 @@ time.sleep(2)
 # 2 - We move the robot in a circle with a diameter of 4 cm
 for _ in range(NUMBER_OF_CIRCLES):
     for step in range(NUMBER_OF_STEPS):
-        position_y: float = 4 * math.sin(2 * math.pi * step / NUMBER_OF_STEPS) * 0.01
-        position_z: float = 4 * math.cos(2 * math.pi * step / NUMBER_OF_STEPS) * 0.01
+        position_y: float = 4 * math.sin(2 * math.pi * step / NUMBER_OF_STEPS)
+        position_z: float = 4 * math.cos(2 * math.pi * step / NUMBER_OF_STEPS)
         call_to_api(
             "absolute",
             {
