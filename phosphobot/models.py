@@ -57,7 +57,7 @@ class BaseRobotConfig(BaseModel):
                 data = json.load(f)
 
         except FileNotFoundError:
-            logger.error(f"Configuration file {filepath} not found.")
+            logger.warning(f"Configuration file {filepath} not found.")
             return None
 
         return cls(**data)
@@ -75,7 +75,7 @@ class BaseRobotConfig(BaseModel):
             with open(filepath, "r") as f:
                 data = json.load(f)
         except FileNotFoundError:
-            logger.error(f"Configuration file {filepath} not found.")
+            logger.warning(f"Configuration file {filepath} not found.")
             return None
 
         logger.info(f"Loaded v0 config for {name} from {filepath}")
