@@ -1,4 +1,4 @@
-DATASET_NAME: example2_dataset
+DATASET_NAME: example_dataset
 EPISODE_FORMAT: lerobot_v2
-FREQ: "10"
-VIDEO_CODEC: mp4v
+FREQ: 10
+VIDEO_CODEC: hev1
