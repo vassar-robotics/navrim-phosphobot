@@ -1,0 +1,6 @@
+## Users configuration file
+
+DATASET_NAME: "example_dataset"
+FREQ: 10 # Records steps of the robot at this frequency. Defaults to 10.
+EPISODE_FORMAT: "lerobot_v2" # Alternative 'json'
+VIDEO_CODEC: "mp4v" # Alternative, "avc1", "hev1", "hvc1", "avc3", "av01", "vp09"]
