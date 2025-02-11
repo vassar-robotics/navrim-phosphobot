@@ -4,6 +4,11 @@
 # --------------------------------------------
 # This script will install and configure phosphobot teleop server on supported platforms.
 # Supported platforms: Raspberry Pi, Linux, macOS
+# Feel free to review the script before running it.
+# Support: contact@phospho.ai
+
+# Run this script on your raspberry pi, linux or macOS device using the following command:
+# curl -fsSL https://raw.githubusercontent.com/phospho-app/phosphobot/main/install.sh | sudo bash
 
 # Platform detection
 PLATFORM="unknown"
