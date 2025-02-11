@@ -383,7 +383,6 @@ class Episode(BaseModel):
             data_dict = self.model_dump()
             json_filename = os.path.join(
                 data_path,
-                dataset_name,
                 f"episode_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json",
             )
 
