@@ -1,4 +1,0 @@
-DATASET_NAME: example_dataset
-EPISODE_FORMAT: lerobot_v2
-FREQ: 10
-VIDEO_CODEC: hev1
