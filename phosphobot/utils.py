@@ -192,5 +192,4 @@ def get_home_app_path() -> Path:
     # Create subfolders
     (home_path / "calibration").mkdir(parents=True, exist_ok=True)
     (home_path / "recordings").mkdir(parents=True, exist_ok=True)
-    logger.info(f"Home app path: {home_path}")
     return home_path
