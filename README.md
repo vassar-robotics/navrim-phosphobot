@@ -38,39 +38,24 @@ pip install -e .
 
 Add the `configs/policy/act_so100_phosphobot.yaml`file from this repository to the `lerobot/configs/policy` directory in the `lerobot` repository.
 
-Launch the training script with the following command from the `lerobot` repository (change the device to `cuda` if you have an NVIDIA GPU or `cpu` if you don't have a GPU):
+Launch the training script with the following command from the `lerobot` repository (change the device to `cuda` if you have an NVIDIA GPU, `mps` if you use a MacBook Pro Sillicon, and `cpu` otherwise):
 
 ```bash
-python lerobot/scripts/train.py \
-  dataset_repo_id=YOUR_HF_DATASET_ID \
-  policy=act_so100_phosphobot \
-  env=so100_real \
-  hydra.run.dir=outputs/train/act_so100_quickstart \
-  hydra.job.name=act_so100_quickstart \
-  device=mps \
-  wandb.enable=false
+sudo python lerobot/scripts/train.py \
+  --dataset.repo_id=<HF_USERNAME>/<DATASET_NAME> \
+  --policy.type=<act or diffusion or tdmpc or vqbet> \
+  --output_dir=outputs/train/phoshobot_test \
+  --job_name=phosphobot_test \
+  --device=cpu \
+  --wandb.enable=true
 ```
+
+For the full detailed instructions, refer to the [guide available here](https://docs.phospho.ai/learn/ai-models).
 
 ## Next steps
 
 - **Test the model**: Run the following code to test the model you just trained (TODO)
 - **Join the Community**: Connect with other developers and share your experience in our [Discord community](https://discord.gg/cbkggY6NSK)
-
-## Contributing
-
-We welcome contributions from the community! Here's how you can participate:
-
-1. Fork this repository
-2. Create a new branch for your project
-3. Add your code and documentation
-4. Submit a Pull Request
-
-Please ensure your code is well-documented and includes:
-
-- Clear setup instructions
-- Dependencies list
-- Basic usage examples
-- Any special requirements
 
 ## Community Projects
 
@@ -88,4 +73,4 @@ MIT License
 
 ---
 
-Made with ❤️ by the Phospho community
+Made with 💚 by the Phospho community
