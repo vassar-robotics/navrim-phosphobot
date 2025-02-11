@@ -275,15 +275,15 @@ class Episode(BaseModel):
         self.metadata["format"] = format_to_save
         logger.info(f"Saving episode to {folder_name} with format {format_to_save}")
 
-        if format_to_save == "lerobot_v2":
-            dataset_path = os.path.join(folder_name, format_to_save, dataset_name)
-            data_path = os.path.join(dataset_path, "data", "chunk-000")
-            # Ensure there is a older folder_name/lerobot_v2/dataset_name/data/chunk-000/
-            os.makedirs(
-                data_path,
-                exist_ok=True,
-            )
+        dataset_path = os.path.join(folder_name, format_to_save, dataset_name)
+        data_path = os.path.join(dataset_path, "data", "chunk-000")
+        # Ensure there is a older folder_name/episode_format/dataset_name/data/chunk-000/
+        os.makedirs(
+            data_path,
+            exist_ok=True,
+        )
 
+        if format_to_save == "lerobot_v2":
             # Check the number of elements in the folder folder_name/lerobot_v2-format/dataset_name/data/chunk-000/
             episode_index = len(os.listdir(data_path))
 
@@ -382,8 +382,7 @@ class Episode(BaseModel):
             # Convert the episode to a dictionary
             data_dict = self.model_dump()
             json_filename = os.path.join(
-                folder_name,
-                format_to_save,
+                data_path,
                 dataset_name,
                 f"episode_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json",
             )
