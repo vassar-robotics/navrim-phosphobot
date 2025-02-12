@@ -211,10 +211,8 @@ install_darwin_specific() {
         exit 1
     fi
 
-    # Proceed to install phosphobot with Homebrew
+    # Update Homebrew before installing phosphobot
     brew update
-    brew tap phospho-app/phosphobot
-    brew install phosphobot
 }
 
 install_linux_specific() {
@@ -339,10 +337,8 @@ main() {
         sudo apt install -y phosphobot
     else
         echo "Installing phosphobot via Homebrew..."
-        # TODO: Not supported yet
-        # brew install phosphobot
-        echo "Error: Not supported yet."
-        exit 1
+        brew tap phospho-app/phosphobot
+        brew install phosphobot
     fi
 
     # Setup services
