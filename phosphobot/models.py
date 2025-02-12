@@ -1508,3 +1508,22 @@ class EpisodesModel(BaseModel):
         Save the episodes to the meta folder path.
         """
         self.to_jsonl(meta_folder_path)
+
+    def update_before_episode_removal(self, parquet_path: str):
+        """
+        Update the episodes model before removing an episode from the dataset.
+        We just remove the line corresponding to the episode_index of the parquet file.
+        """
+        # Ensure the parquet file exist
+        if not os.path.exists(parquet_path):
+            raise ValueError(f"Parquet file {parquet_path} does not exist.")
+
+        index_deleted_episode = int(
+            parquet_path.split("/")[-1].split(".")[0].split("_")[-1]
+        )
+
+        self.episodes = [
+            episode
+            for episode in self.episodes
+            if episode.episode_index != index_deleted_episode
+        ]
