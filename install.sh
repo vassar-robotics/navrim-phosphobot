@@ -348,7 +348,12 @@ main() {
 
     # Display status information
     echo "IP address of the device:"
-    hostname -I
+
+    # Commands to get IP address based on platform
+    if [[ "$PLATFORM" == "darwin" ]]; then
+        ipconfig getifaddr en0
+    else
+        hostname -I
 
     echo "Installation completed for platform: $PLATFORM"
 
