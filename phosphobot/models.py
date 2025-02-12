@@ -1310,6 +1310,24 @@ class InfoModel(BaseModel):
 
         self.to_json(meta_folder_path)
 
+    def update_before_episode_removal(self, parquet_path: str) -> None:
+        """
+        Update the info before removing an episode from the dataset.
+        """
+        # Ensure the parquet file exist
+        if not os.path.exists(parquet_path):
+            raise ValueError(f"Parquet file {parquet_path} does not exist.")
+
+        # Load parquet file with pandas
+        df_episode = pd.read_parquet(parquet_path)
+
+        self.total_episodes -= 1
+        self.total_frames -= len(df_episode)
+        self.total_videos -= len(self.features.observation_images.keys())
+        self.splits = {"train": f"0:{self.total_episodes}"}
+        # TODO(adle): Implement support for multi tasks in dataset
+        # self.total_tasks -= ...
+
 
 class TasksFeatures(BaseModel):
     """
@@ -1373,6 +1391,38 @@ class TasksModel(BaseModel):
                     task=str(step.observation.language_instruction),
                 )
             )
+
+    def update_before_episode_removal(self, parquet_path: str) -> None:
+        """
+        Update the tasks before removing an episode from the dataset.
+        We count the number of occurences of task_index in the dataset.
+        If the episode is the only one with this task_index, we remove it from the tasks.jsonl file.
+        """
+        # Ensure the parquet file exist
+        if not os.path.exists(parquet_path):
+            raise ValueError(f"Parquet file {parquet_path} does not exist.")
+
+        # Load parquet file with pandas
+        df_episode = pd.read_parquet(parquet_path)
+
+        # Create the path of the data folder
+        parquet_path_parts = parquet_path.split("/")
+        data_folder_path = "/".join(parquet_path_parts[:-2])
+
+        # For each file in the data folder get the task indexes (unique)
+        task_indexes: List[int] = []
+        for file in os.listdir(data_folder_path):
+            if file.endswith(".parquet"):
+                df = pd.read_parquet(f"{data_folder_path}/{file}")
+                task_indexes.extend(df["task_index"].unique())
+
+        for task_index in df_episode["task_index"].unique():
+            task_index = int(task_index)
+            # delete the line in tasks.jsonl if and only if the task index in this episode is the only one in the dataset
+            if task_indexes.count(task_index) == 1:
+                self.tasks = [
+                    task for task in self.tasks if task.task_index != task_index
+                ]
 
     def save(self, meta_folder_path: str) -> None:
         """
