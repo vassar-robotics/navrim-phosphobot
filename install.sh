@@ -354,6 +354,7 @@ main() {
         ipconfig getifaddr en0
     else
         hostname -I
+    fi
 
     echo "Installation completed for platform: $PLATFORM"
 
