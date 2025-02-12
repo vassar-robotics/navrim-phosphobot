@@ -283,10 +283,23 @@ class Episode(BaseModel):
             exist_ok=True,
         )
 
-        if format_to_save == "lerobot_v2":
-            # Check the number of elements in the folder folder_name/lerobot_v2-format/dataset_name/data/chunk-000/
-            episode_index = len(os.listdir(data_path))
+        # Check the elements in the folder folder_name/lerobot_v2-format/dataset_name/data/chunk-000/
+        # the episode index is the max index + 1
+        # We create the list of index from filenames and take the max + 1
+        li_data_filename = os.listdir(data_path)
+        episode_index = (
+            max(
+                [
+                    int(data_filename.split("_")[-1].split(".")[0])
+                    for data_filename in li_data_filename
+                ]
+            )
+            + 1
+            if li_data_filename
+            else 0
+        )
 
+        if format_to_save == "lerobot_v2":
             secondary_camera_frames = self.get_frames_secondary_cameras()
 
             filename = os.path.join(
@@ -383,7 +396,7 @@ class Episode(BaseModel):
             data_dict = self.model_dump()
             json_filename = os.path.join(
                 data_path,
-                f"episode_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json",
+                f"episode_{episode_index:06d}.json",
             )
 
             # Ensure the directory for the file exists
