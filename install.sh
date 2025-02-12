@@ -202,9 +202,19 @@ install_rpi_specific() {
 }
 
 install_darwin_specific() {
-    # Additional macOS-specific setup can be added here
     echo "Installing macOS specific components..."
+
+    # Check if Homebrew is installed
+    if ! command -v brew >/dev/null 2>&1; then
+        echo "Error: Homebrew is not installed. Please install it first."
+        echo "Visit https://brew.sh for installation instructions."
+        exit 1
+    fi
+
+    # Proceed to install phosphobot with Homebrew
     brew update
+    brew tap phospho-app/phosphobot
+    brew install phosphobot
 }
 
 install_linux_specific() {
