@@ -274,32 +274,32 @@ class Episode(BaseModel):
         # Update the metadata with the format used to save the episode
         self.metadata["format"] = format_to_save
         logger.info(f"Saving episode to {folder_name} with format {format_to_save}")
-
         dataset_path = os.path.join(folder_name, format_to_save, dataset_name)
-        data_path = os.path.join(dataset_path, "data", "chunk-000")
-        # Ensure there is a older folder_name/episode_format/dataset_name/data/chunk-000/
-        os.makedirs(
-            data_path,
-            exist_ok=True,
-        )
-
-        # Check the elements in the folder folder_name/lerobot_v2-format/dataset_name/data/chunk-000/
-        # the episode index is the max index + 1
-        # We create the list of index from filenames and take the max + 1
-        li_data_filename = os.listdir(data_path)
-        episode_index = (
-            max(
-                [
-                    int(data_filename.split("_")[-1].split(".")[0])
-                    for data_filename in li_data_filename
-                ]
-            )
-            + 1
-            if li_data_filename
-            else 0
-        )
 
         if format_to_save == "lerobot_v2":
+            data_path = os.path.join(dataset_path, "data", "chunk-000")
+            # Ensure there is a older folder_name/episode_format/dataset_name/data/chunk-000/
+            os.makedirs(
+                data_path,
+                exist_ok=True,
+            )
+
+            # Check the elements in the folder folder_name/lerobot_v2-format/dataset_name/data/chunk-000/
+            # the episode index is the max index + 1
+            # We create the list of index from filenames and take the max + 1
+            li_data_filename = os.listdir(data_path)
+            episode_index = (
+                max(
+                    [
+                        int(data_filename.split("_")[-1].split(".")[0])
+                        for data_filename in li_data_filename
+                    ]
+                )
+                + 1
+                if li_data_filename
+                else 0
+            )
+
             secondary_camera_frames = self.get_frames_secondary_cameras()
 
             filename = os.path.join(
@@ -392,11 +392,24 @@ class Episode(BaseModel):
         # Save the episode to a JSON file
         else:
             logger.info("Saving Episode data in JSON format")
+            episode_index = (
+                max(
+                    [
+                        int(data_filename.split("_")[-1].split(".")[0])
+                        for data_filename in os.listdir(dataset_path)
+                    ]
+                )
+                + 1
+                if os.listdir(dataset_path)
+                else 0
+            )
             # Convert the episode to a dictionary
             data_dict = self.model_dump()
             json_filename = os.path.join(
-                data_path,
-                f"episode_{episode_index:06d}.json",
+                folder_name,
+                format_to_save,
+                dataset_name,
+                f"episode_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json",
             )
 
             # Ensure the directory for the file exists
