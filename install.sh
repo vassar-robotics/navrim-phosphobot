@@ -341,16 +341,11 @@ main() {
     fi
 
     # Display status information
-    echo "Installation completed for platform: $PLATFORM"
     echo "IP address of the device:"
     hostname -I
 
-    if [[ "$PLATFORM" != "darwin" ]]; then
-        echo "Checking phosphobot service status..."
-        sudo systemctl status phosphobot --no-pager
-        echo "Checking update timer status..."
-        sudo systemctl list-timers phosphobot-update.timer
-    fi
+    echo "Installation completed for platform: $PLATFORM"
+
 }
 
 # Run main installation
