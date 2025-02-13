@@ -271,6 +271,9 @@ class Episode(BaseModel):
 
         """
 
+        # Target size, all videos need to have the same size
+        TARGET_SIZE = (640, 480)
+
         # Update the metadata with the format used to save the episode
         self.metadata["format"] = format_to_save
         logger.info(f"Saving episode to {folder_name} with format {format_to_save}")
@@ -338,10 +341,12 @@ class Episode(BaseModel):
 
             assert len(main_camera_size) == 2, "Main camera size must be 2D"
 
+            logger.debug(f"Main camera target size: {TARGET_SIZE}")
+
             # Create the main video file and path
             video_path = create_video_path(folder_name, "main")
             saved_path = create_video_file(
-                target_size=main_camera_size,
+                target_size=TARGET_SIZE,
                 frames=np.array(self.get_frames_main_camera()),
                 output_path=video_path,
                 fps=fps,
@@ -366,9 +371,7 @@ class Episode(BaseModel):
                 img_shape = camera_frames[0].shape
                 logger.debug(f"Secondary cameras are arrays of dimension: {img_shape}")
                 secondary_camera_image_size = (img_shape[1], img_shape[0])
-                logger.debug(
-                    f"Secondary cameras target size: {secondary_camera_image_size}"
-                )
+                logger.debug(f"Secondary cameras target size: {TARGET_SIZE}")
                 if len(secondary_camera_image_size) != 2:
                     logger.error(
                         f"Secondary camera {index} image must be 2D, skipping video creation"
@@ -377,7 +380,7 @@ class Episode(BaseModel):
 
                 os.makedirs(os.path.dirname(video_path), exist_ok=True)
                 create_video_file(
-                    target_size=secondary_camera_image_size,
+                    target_size=TARGET_SIZE,
                     frames=camera_frames,
                     output_path=video_path,
                     fps=fps,
