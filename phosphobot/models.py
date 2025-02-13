@@ -944,6 +944,8 @@ class StatsModel(BaseModel):
 
         with open(f"{meta_folder_path}/stats.json", "r") as f:
             stats_dict = json.load(f)
+            # Rename observation.state to observation_state here
+            stats_dict["observation_state"] = stats_dict.pop("observation.state")
         return cls(**stats_dict)
 
     def to_json(self, meta_folder_path: str) -> None:
@@ -1059,40 +1061,71 @@ class StatsModel(BaseModel):
         episode_df = pd.read_parquet(parquet_path)
         nb_steps_deleted_episode = len(episode_df)
 
-        # For each column in the parquet file, compute sum, square sum, min and max. Write it in a dictionnary
-        # TODO: Check if sum is on the first axis
-        logger.info("Updatting stats before removing episode")
-        logger.info(f"Episode df: {episode_df.head()}")
+        # For each column in the parquet file, compute sum along first axis, min/max along last axis
+        logger.info("Updating stats before removing episode")
+        logger.info(f"Episode df action: {episode_df['action']}")
 
         column_sums = {
             col: {
-                "sum": episode_df[col].sum(axis=0),
-                "max": episode_df[col].max(axis=2),
-                "min": episode_df[col].min(axis=2),
-                "square_sum": (episode_df[col] ** 2).sum(axis=0),
+                "sum": np.sum(np.array(episode_df[col].tolist()), axis=0),
+                "max": np.max(np.array(episode_df[col].tolist()), axis=0),
+                "min": np.min(np.array(episode_df[col].tolist()), axis=0),
+                "square_sum": np.sum(np.array(episode_df[col].tolist()) ** 2, axis=0),
             }
             for col in episode_df.columns
         }
 
-        # Substract the sum, square sum, min and max of the deleted episode to the stats_model
-        for field_key, field_value in iter(
-            self
-        ):  # TODO: Implement multiple language instructions
-            if field_key != "task_index" and field_key != "observation_images":
-                field_value.sum -= column_sums[field_key]["sum"]
-                field_value.square_sum -= column_sums[field_key]["square_sum"]
-                field_value.min = np.minimum(
-                    field_value.min, column_sums[field_key]["min"]
-                )
-                field_value.max = np.maximum(
-                    field_value.max, column_sums[field_key]["max"]
-                )
+        logger.info(f"Column sums: {column_sums}")
+        # Update stats for each field in the StatsModel
+        for field_name, field in StatsModel.model_fields.items():
+            # task_index is not updated since we do not support multiple tasks
+            # observation_images has a special treatment
+            if field_name in ["task_index", "observation_images"]:
+                continue
+            logger.info(f"Updating field {field_name}")
+            # Get the field value from the instance
+            field_value = getattr(self, field_name)
+            # Convert observation_state field name for dictionary lookup
+            field_name = (
+                "observation.state" if field_name == "observation_state" else field_name
+            )
+            # Update statistics
+            if field_name in column_sums:
+                # Maximum of debug info
+                logger.info(f"Column sums for {field_name}: {column_sums[field_name]}")
+                logger.info(f"Field value: {field_value}")
+                logger.info(f"Field value sum: {field_value.sum}")
+
+                # Subtract sums
+                field_value.sum -= column_sums[field_name]["sum"]
+                field_value.square_sum -= column_sums[field_name]["square_sum"]
+
+                # Update min/max
+                if (
+                    field_value.min is not None
+                    and column_sums[field_name]["min"] is not None
+                ):
+                    field_value.min = np.minimum(
+                        field_value.min, column_sums[field_name]["min"]
+                    )
+                if (
+                    field_value.max is not None
+                    and column_sums[field_name]["max"] is not None
+                ):
+                    field_value.max = np.maximum(
+                        field_value.max, column_sums[field_name]["max"]
+                    )
+
+                # Update count
                 field_value.count -= nb_steps_deleted_episode
 
-                field_value.mean = field_value.sum / field_value.count
-                field_value.std = np.sqrt(
-                    (field_value.square_sum / field_value.count) - field_value.mean**2
-                )
+                # Recalculate mean and standard deviation
+                if field_value.count > 0:
+                    field_value.mean = field_value.sum / field_value.count
+                    field_value.std = np.sqrt(
+                        (field_value.square_sum / field_value.count)
+                        - np.square(field_value.mean)
+                    )
 
         # For image we need to load the mp4 video
 
@@ -1439,7 +1472,7 @@ class TasksModel(BaseModel):
                 tasks.append(TasksFeatures(**json.loads(line)))
 
         tasks_model = cls(tasks=tasks)
-        # Do it after model init, otherwise pydantic ignores the value of _original_nb_total_episodes
+        # Do it after model init, otherwise pydantic ignores the value of _original_nb_total_tasks
         tasks_model._initial_nb_total_tasks = len(tasks)
         return tasks_model
 
