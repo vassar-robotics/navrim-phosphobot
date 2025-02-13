@@ -932,10 +932,6 @@ class StatsModel(BaseModel):
 
     @classmethod
     def from_json(cls, meta_folder_path: str) -> "StatsModel":
-        """
-        Read the stats.json file in the meta folder path.
-        If the file does not exist, return an empty StatsModel.
-        """
         if (
             not os.path.exists(f"{meta_folder_path}/stats.json")
             or os.stat(f"{meta_folder_path}/stats.json").st_size == 0
@@ -944,9 +940,17 @@ class StatsModel(BaseModel):
 
         with open(f"{meta_folder_path}/stats.json", "r") as f:
             stats_dict = json.load(f)
-            # Rename observation.state to observation_state here
+            # Rename observation.state to observation_state
             stats_dict["observation_state"] = stats_dict.pop("observation.state")
-        return cls(**stats_dict)
+
+            # Create a temporary dictionary for observation_images
+            observation_images = {}
+            for key in list(stats_dict.keys()):
+                if "images" in key:
+                    observation_images[key] = Stats(**stats_dict.pop(key))
+
+        # Pass observation_images into the model constructor
+        return cls(**stats_dict, observation_images=observation_images)
 
     def to_json(self, meta_folder_path: str) -> None:
         """
@@ -1085,7 +1089,7 @@ class StatsModel(BaseModel):
             logger.info(f"Updating field {field_name}")
             # Get the field value from the instance
             field_value = getattr(self, field_name)
-            # Convert observation_state field name for dictionary lookup
+            # Convert observation_state to observation.state
             field_name = (
                 "observation.state" if field_name == "observation_state" else field_name
             )
@@ -1094,11 +1098,13 @@ class StatsModel(BaseModel):
                 # Maximum of debug info
                 logger.info(f"Column sums for {field_name}: {column_sums[field_name]}")
                 logger.info(f"Field value: {field_value}")
-                logger.info(f"Field value sum: {field_value.sum}")
+                logger.info(f"Field value mean: {field_value.mean}")
 
                 # Subtract sums
                 field_value.sum -= column_sums[field_name]["sum"]
                 field_value.square_sum -= column_sums[field_name]["square_sum"]
+
+                logger.info(f"Field value sum: {field_value.sum}")
 
                 # Update min/max
                 if (
@@ -1128,13 +1134,13 @@ class StatsModel(BaseModel):
                     )
 
         # For image we need to load the mp4 video
-
+        logger.info("Updating stats for images")
         # Extract the episode index from the parquet file name
         episode_index = int(parquet_path.split("_")[-1].split(".")[0])
 
         # List cameras_folder:
         folder_videos_path = (
-            "/".join(parquet_path.split("/")[:-4]) + "/videos/chunk-000"
+            "/".join(parquet_path.split("/")[:-3]) + "/videos/chunk-000"
         )
 
         cameras_folder = os.listdir(folder_videos_path)
@@ -1147,15 +1153,33 @@ class StatsModel(BaseModel):
                 compute_sum_squaresum_framecount_from_video(video_path)
             )
 
+            sum_array = sum_array.astype(np.float32)
+            square_sum_array = square_sum_array.astype(np.float32)
+
+            logger.info(f"sum_array: {sum_array}")
+            logger.info(f"square_sum_array: {square_sum_array}")
+            logger.info(f"frame_count_array: {frame_count_array}")
+
             # Update the stats_model
-            self.observation_images[camera_folder].sum -= sum_array
-            self.observation_images[camera_folder].square_sum -= square_sum_array
-            self.observation_images[camera_folder].count -= frame_count_array[0]
+            self.observation_images[camera_folder].sum = (
+                self.observation_images[camera_folder].sum - sum_array
+            )
+            self.observation_images[camera_folder].square_sum = (
+                self.observation_images[camera_folder].square_sum - square_sum_array
+            )
+            self.observation_images[camera_folder].count = (
+                self.observation_images[camera_folder].count - frame_count_array[0]
+            )
             field_value.count -= nb_steps_deleted_episode
             field_value.mean = field_value.sum / field_value.count
+            logger.info(f"mean: {field_value.mean}")
+            logger.info(f"count: {field_value.count}")
+            logger.info(f"square_sum: {field_value.square_sum}")
+
             field_value.std = np.sqrt(
-                (field_value.square_sum / field_value.count) - field_value.mean**2
+                abs((field_value.square_sum / field_value.count) - field_value.mean**2)
             )
+            logger.info(f"std: {field_value.std}")
 
 
 class FeatureDetails(BaseModel):
