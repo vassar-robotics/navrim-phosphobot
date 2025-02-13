@@ -1061,11 +1061,14 @@ class StatsModel(BaseModel):
 
         # For each column in the parquet file, compute sum, square sum, min and max. Write it in a dictionnary
         # TODO: Check if sum is on the first axis
+        logger.info("Updatting stats before removing episode")
+        logger.info(f"Episode df: {episode_df.head()}")
+
         column_sums = {
             col: {
                 "sum": episode_df[col].sum(axis=0),
-                "max": episode_df[col].max(axis=0),
-                "min": episode_df[col].min(axis=0),
+                "max": episode_df[col].max(axis=2),
+                "min": episode_df[col].min(axis=2),
                 "square_sum": (episode_df[col] ** 2).sum(axis=0),
             }
             for col in episode_df.columns
