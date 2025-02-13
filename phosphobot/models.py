@@ -902,10 +902,10 @@ class Stats(BaseModel):
         # We want .tolist() to yield [[[mean_r, mean_g, mean_b]]] and not [mean_r, mean_g, mean_b]
         # Reshape to have the same shape as the mean and std
         # This makes it easier to normalize the imags
-        self.mean = self.mean.reshape(3, 1, 1) / 255
-        self.std = self.std.reshape(3, 1, 1) / 255
-        self.min = self.min.reshape(3, 1, 1) / 255
-        self.max = self.max.reshape(3, 1, 1) / 255
+        self.mean = self.mean.reshape(3, 1, 1)
+        self.std = self.std.reshape(3, 1, 1)
+        self.min = self.min.reshape(3, 1, 1)
+        self.max = self.max.reshape(3, 1, 1)
 
 
 class StatsModel(BaseModel):
