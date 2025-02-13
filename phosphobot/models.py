@@ -557,7 +557,7 @@ class Episode(BaseModel):
             assert step.action is not None, (
                 "The action must be set for each step before saving"
             )
-            episode_data["action"] = step.action.tolist()
+            episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
         height, width = self.steps[0].observation.main_image.shape[:2]
