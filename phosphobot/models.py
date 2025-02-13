@@ -538,7 +538,6 @@ class Episode(BaseModel):
             )
 
         # first_episode_timestamp = self.steps[0].observation.timestamp
-        episode_data["action"] = self.get_delta_joints_position().tolist()
 
         logger.info(f"Number of steps during conversion: {len(self.steps)}")
 
@@ -555,6 +554,10 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
+            assert step.action is not None, (
+                "The action must be set for each step before saving"
+            )
+            episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
         height, width = self.steps[0].observation.main_image.shape[:2]
