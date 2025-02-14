@@ -608,12 +608,6 @@ class Episode(BaseModel):
 
         return fps
 
-    def get_videos_keys(self) -> List[str] | None:
-        """
-        Return the keys of the video frames in the observation
-        """
-        raise NotImplementedError
-
     def get_episode_chunk(self) -> int:
         """
         Return the episode chunk
@@ -861,57 +855,41 @@ class Stats(BaseModel):
         The stats are in dim 3 for RGB.
         We normalize with the number of pixels.
         """
-        logger.info("Starting image stats update")
         assert image_value.ndim == 3, "Image value must be 3D"
 
         if image_value is None:
-            logger.info("Image value is None, skipping update")
             return None
 
-        logger.info("Updating max values")
         # Update the max and min
+        # TODO: Is this code ok with the new shape of image_value?
+        # TODO: Check if shape are ok for ex: min or max with shape (3, 1, 3)
         if self.max is None:
-            logger.info("Initializing max values")
             self.max = np.max(image_value, axis=(0, 1))
         else:
             # maximum is the max in each channel
-            logger.info("Computing new max values")
             self.max = np.maximum(self.max, np.max(image_value, axis=(0, 1)))
 
-        logger.info("Updating min values")
         if self.min is None:
-            logger.info("Initializing min values")
             self.min = np.min(image_value, axis=(0, 1))
         else:
-            logger.info("Computing new min values")
             self.min = np.minimum(self.min, np.min(image_value, axis=(0, 1)))
 
-        logger.info("Computing pixel count")
         # Update the rolling sum and square sum
         nb_pixels = image_value.shape[0] * image_value.shape[1]
 
-        logger.info("Converting image to int32 for square sum computation")
         # Convert to int32 to avoid overflow when computing the square sum
         image_uint32 = image_value.astype(dtype=np.int32)
 
-        logger.info("Updating sum and square sum")
         if self.sum is None or self.square_sum is None:
-            logger.info("Initializing sum and square sum")
             self.sum = np.sum(image_value, axis=(0, 1))
             self.square_sum = np.sum(image_uint32**2, axis=(0, 1))
             self.count = nb_pixels
         else:
-            logger.info("Adding to existing sum and square sum")
-            logger.error(f"Self.sum: {self.sum}")
-            logger.error(f"Image value: {image_value}")
-            logger.error(f"Image value shape: {image_value.shape}")
-            logger.error(f"Image value sum: {np.sum(image_value, axis=(0, 1))}")
+            logger.info(f"Self Sum: {self.sum}")
             self.sum = self.sum + np.sum(image_value, axis=(0, 1))
-            logger.info("xv")
+            logger.info(f"Self Sum: {self.sum}")
             self.square_sum = self.square_sum + np.sum(image_uint32**2, axis=(0, 1))
-            logger.info("barbar")
-            self.count += nb_pixels
-            logger.info("lawiss")
+            self.count = self.count + nb_pixels
 
         logger.info("Image stats update complete")
 
@@ -926,8 +904,10 @@ class Stats(BaseModel):
         # This makes it easier to normalize the imags
         self.mean = self.mean.reshape(3, 1, 1)
         self.std = self.std.reshape(3, 1, 1)
-        self.min = self.min.reshape(3, 1, 1)
-        self.max = self.max.reshape(3, 1, 1)
+        if self.min.shape != (3, 1, 3):
+            self.min = self.min.reshape(3, 1, 1)
+        if self.max.shape != (3, 1, 3):
+            self.max = self.max.reshape(3, 1, 1)
 
 
 class StatsModel(BaseModel):
@@ -1462,36 +1442,24 @@ class InfoModel(BaseModel):
         with open(f"{meta_folder_path}/info.json", "w") as f:
             f.write(json.dumps(self.to_dict(), indent=4))
 
+    def update(self, episode: Episode) -> None:
+        """
+        Update the info given a new recorded Episode.
+        """
+        self.total_episodes += 1
+        self.total_frames += len(episode.steps)
+        self.total_videos += len(self.features.observation_images.keys())
+        self.splits = {"train": f"0:{self.total_episodes}"}
+        # TODO: Handle multiple language instructions
+        # TODO: Implement support for multiple chunks
+
     def save(
         self,
         meta_folder_path: str,
-        total_frames: int,
-        fps: int,
-        tasks_model: "TasksModel",
-        episodes_model: "EpisodesModel",
-        codec: VideoCodecs,
     ) -> None:
         """
         Save the info to the meta folder path.
         """
-        # Compute
-        self.total_frames += total_frames
-        self.total_episodes = len(episodes_model.episodes)
-        self.total_tasks = len(tasks_model.tasks)
-        # Read the nb cameras from the features. It's the number of keys with images.
-        nb_cameras = len(self.features.observation_images.keys())
-        self.total_videos += nb_cameras
-        # TODO: Implement support for multiple chunks
-        self.total_chunks = 1
-        self.chunks_size = 1000
-        self.fps = fps
-        # Splits are 100% of the dataset
-        self.splits = {"train": f"0:{self.total_episodes}"}
-
-        # For videos, we update the codec with the one provided
-        for key, value in self.features.observation_images.items():
-            value.info.video_codec = codec
-
         self.to_json(meta_folder_path)
 
     def update_before_episode_removal(self, parquet_path: str) -> None:
@@ -1639,7 +1607,10 @@ class EpisodesModel(BaseModel):
         episode_index is the index of the episode of the current step.
         """
         # If episode_index is not in the episodes, add it
+        logger.info("Updating episodes")
+        logger.info(f"Episodes: {self.episodes}")
         if episode_index not in [episode.episode_index for episode in self.episodes]:
+            logger.info(f"Adding episode: {episode_index}")
             self.episodes.append(
                 EpisodesFeatures(
                     episode_index=episode_index,
@@ -1647,10 +1618,12 @@ class EpisodesModel(BaseModel):
                     length=1,
                 )
             )
+            logger.info(f"Episodes: {self.episodes}")
         else:
             # Increase the nb frames counter
+            logger.info(f"Updating episode: {episode_index}")
             self.episodes[episode_index].length += 1
-
+            logger.info(f"Episodes: {self.episodes}")
             # Add the language instruction if it's a new one
             if (
                 str(step.observation.language_instruction)
@@ -1659,6 +1632,7 @@ class EpisodesModel(BaseModel):
                 self.episodes[episode_index].tasks.append(
                     str(step.observation.language_instruction)
                 )
+        logger.info("Episodes update complete")
 
     def to_jsonl(self, meta_folder_path: str) -> None:
         """
