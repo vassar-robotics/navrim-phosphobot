@@ -236,7 +236,6 @@ class Episode(BaseModel):
         dataset_name: str,
         fps: int,
         codec: VideoCodecs,
-        target_size: tuple[int, int],  # All videos need to have the same size
         format_to_save: Literal["json", "lerobot_v2"] = "json",
     ):
         """
@@ -339,13 +338,13 @@ class Episode(BaseModel):
 
             assert len(main_camera_size) == 2, "Main camera size must be 2D"
 
-            logger.debug(f"Main camera target size: {target_size}")
+            logger.debug(f"Main camera target size: {main_camera_size}")
 
             # Create the main video file and path
             video_path = create_video_path(folder_name, "main")
             saved_path = create_video_file(
                 frames=np.array(self.get_frames_main_camera()),
-                target_size=target_size,
+                target_size=main_camera_size,
                 output_path=video_path,
                 fps=fps,
                 codec=codec,
@@ -369,7 +368,9 @@ class Episode(BaseModel):
                 img_shape = camera_frames[0].shape
                 logger.debug(f"Secondary cameras are arrays of dimension: {img_shape}")
                 secondary_camera_image_size = (img_shape[1], img_shape[0])
-                logger.debug(f"Secondary cameras target size: {target_size}")
+                logger.debug(
+                    f"Secondary cameras target size: {secondary_camera_image_size}"
+                )
                 if len(secondary_camera_image_size) != 2:
                     logger.error(
                         f"Secondary camera {index} image must be 2D, skipping video creation"
@@ -378,11 +379,14 @@ class Episode(BaseModel):
 
                 os.makedirs(os.path.dirname(video_path), exist_ok=True)
                 create_video_file(
-                    target_size=target_size,
+                    target_size=secondary_camera_image_size,
                     frames=camera_frames,
                     output_path=video_path,
                     fps=fps,
                     codec=codec,
+                )
+                assert main_camera_size == secondary_camera_image_size, (
+                    f"Main and secondary camera sizes must be the same, found {main_camera_size} and {secondary_camera_image_size}"
                 )
                 if os.path.exists(video_path):
                     logger.info(f"Video for camera {index} saved to {video_path}")
