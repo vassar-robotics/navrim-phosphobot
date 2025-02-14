@@ -310,13 +310,15 @@ class Episode(BaseModel):
                 f"Saving Episode {episode_index} data in LeRobot format to: {filename}"
             )
             lerobot_episode_parquet: LeRobotEpisodeParquet = (
-                self.convert_episode_data_to_LeRobot(fps=fps)
+                self.convert_episode_data_to_LeRobot(
+                    fps=fps, episodes_path=data_path, episode_index=episode_index
+                )
             )
             # Ensure the directory for the file exists
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             df = pd.DataFrame(lerobot_episode_parquet.model_dump())
 
-            # Rename observation_state too observation.state
+            # Rename observation_state to observation.state
             df.rename(columns={"observation_state": "observation.state"}, inplace=True)
             df.to_parquet(filename, index=False)
 
@@ -520,7 +522,12 @@ class Episode(BaseModel):
         """
         self.metadata["index"] = value
 
-    def convert_episode_data_to_LeRobot(self, fps: int, episode_index: int = 0):
+    def convert_episode_data_to_LeRobot(
+        self,
+        fps: int,
+        episodes_path: str,  # We need the episodes path to load the value of the last frame index
+        episode_index: int = 0,
+    ):
         """
         Convert a dataset to the LeRobot format
         """
@@ -549,6 +556,20 @@ class Episode(BaseModel):
         # episode_data["timestamp"] = [step.observation.timestamp for step in self.steps]
         episode_data["timestamp"] = (np.arange(len(self.steps)) / fps).tolist()
 
+        # Fetch the last frame index of the previous episode to continue the indexation of "index" if episode is not the first one
+        if episode_index > 0:
+            previous_episode_path = os.path.join(
+                episodes_path,
+                f"episode_{episode_index - 1:06d}.parquet",
+            )
+            # We load only the last frame index of the previous episode
+            previous_episode = pd.read_parquet(
+                previous_episode_path, columns=["frame_index"], filters=None
+            ).tail(1)
+            last_frame_index = 1 + previous_episode["frame_index"].iloc[0]
+        else:
+            last_frame_index = 0
+
         for frame_index, step in enumerate(self.steps):
             # Fill in the data for each step
             episode_data["episode_index"].append(episode_index)
@@ -556,7 +577,7 @@ class Episode(BaseModel):
             episode_data["observation.state"].append(
                 step.observation.joints_position.astype(np.float32)
             )
-            episode_data["index"].append(frame_index)
+            episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
             assert step.action is not None, (
