@@ -236,11 +236,8 @@ class Episode(BaseModel):
         dataset_name: str,
         fps: int,
         codec: VideoCodecs,
+        target_size: tuple[int, int],  # All videos need to have the same size
         format_to_save: Literal["json", "lerobot_v2"] = "json",
-        target_size: tuple[int, int] | None = (
-            320,
-            240,
-        ),  # All videos need to have the same size
     ):
         """
         Save the episode to a JSON file with numpy array handling for phospho recording to RLDS format
