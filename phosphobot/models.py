@@ -894,29 +894,30 @@ class Stats(BaseModel):
         if image_value is None:
             return None
 
+        image_norm_32 = image_value.astype(dtype=np.float32) / 255.0
+
         # Update the max and min
         if self.max is None:
-            self.max = np.max(image_value, axis=(0, 1))
+            self.max = np.max(image_norm_32, axis=(0, 1))
         else:
             # maximum is the max in each channel
-            self.max = np.maximum(self.max, np.max(image_value, axis=(0, 1)))
+            self.max = np.maximum(self.max, np.max(image_norm_32, axis=(0, 1)))
 
         if self.min is None:
-            self.min = np.min(image_value, axis=(0, 1))
+            self.min = np.min(image_norm_32, axis=(0, 1))
         else:
-            self.min = np.minimum(self.min, np.min(image_value, axis=(0, 1)))
+            self.min = np.minimum(self.min, np.min(image_norm_32, axis=(0, 1)))
 
         # Update the rolling sum and square sum
-        nb_pixels = image_value.shape[0] * image_value.shape[1]
+        nb_pixels = image_norm_32.shape[0] * image_norm_32.shape[1]
         # Convert to int32 to avoid overflow when computing the square sum
-        image_uint32 = image_value.astype(dtype=np.int32)
         if self.sum is None or self.square_sum is None:
-            self.sum = np.sum(image_value, axis=(0, 1))
-            self.square_sum = np.sum(image_uint32**2, axis=(0, 1))
+            self.sum = np.sum(image_norm_32, axis=(0, 1))
+            self.square_sum = np.sum(image_norm_32**2, axis=(0, 1))
             self.count = nb_pixels
         else:
-            self.sum += np.sum(image_value, axis=(0, 1))
-            self.square_sum += np.sum(image_uint32**2, axis=(0, 1))
+            self.sum += np.sum(image_norm_32, axis=(0, 1))
+            self.square_sum += np.sum(image_norm_32**2, axis=(0, 1))
             self.count += nb_pixels
 
     def compute_from_rolling_images(self):
