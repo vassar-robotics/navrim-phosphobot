@@ -126,6 +126,9 @@ def create_video_file(
         left_path = f"{path[0]}.left/episode{path[1]}"
         right_path = f"{path[0]}.right/episode{path[1]}"
 
+        # Split width in half for stereo
+        target_size = (target_size[0] // 2, target_size[1])
+
         logger.info(
             f"Splitting stereo video into left and right - paths: {left_path}, {right_path}"
         )

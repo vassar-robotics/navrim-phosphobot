@@ -387,9 +387,6 @@ class Episode(BaseModel):
                     fps=fps,
                     codec=codec,
                 )
-                assert main_camera_size == secondary_camera_image_size, (
-                    f"Main and secondary camera sizes must be the same, found {main_camera_size} and {secondary_camera_image_size}"
-                )
                 if os.path.exists(video_path):
                     logger.info(f"Video for camera {index} saved to {video_path}")
                 else:
@@ -1026,14 +1023,16 @@ class StatsModel(BaseModel):
             left_image = main_image[:, : width // 2, :]
             right_image = main_image[:, width // 2 :, :]
             if (
-                "observation.images.left" not in self.observation_images.keys()
-                or "observation.images.right" not in self.observation_images.keys()
+                "observation.images.main.left" not in self.observation_images.keys()
+                or "observation.images.main.right" not in self.observation_images.keys()
             ):
                 # Initialize
-                self.observation_images["observation.images.left"] = Stats()
-                self.observation_images["observation.images.right"] = Stats()
-            self.observation_images["observation.images.left"].update_image(left_image)
-            self.observation_images["observation.images.right"].update_image(
+                self.observation_images["observation.images.main.left"] = Stats()
+                self.observation_images["observation.images.main.right"] = Stats()
+            self.observation_images["observation.images.main.left"].update_image(
+                left_image
+            )
+            self.observation_images["observation.images.main.right"].update_image(
                 right_image
             )
 
