@@ -237,6 +237,10 @@ class Episode(BaseModel):
         fps: int,
         codec: VideoCodecs,
         format_to_save: Literal["json", "lerobot_v2"] = "json",
+        target_size: tuple[int, int] | None = (
+            320,
+            240,
+        ),  # All videos need to have the same size
     ):
         """
         Save the episode to a JSON file with numpy array handling for phospho recording to RLDS format
@@ -270,9 +274,6 @@ class Episode(BaseModel):
         |   |   |   |   ---- info.json
 
         """
-
-        # Target size, all videos need to have the same size
-        TARGET_SIZE = (640, 480)
 
         # Update the metadata with the format used to save the episode
         self.metadata["format"] = format_to_save
@@ -341,13 +342,13 @@ class Episode(BaseModel):
 
             assert len(main_camera_size) == 2, "Main camera size must be 2D"
 
-            logger.debug(f"Main camera target size: {TARGET_SIZE}")
+            logger.debug(f"Main camera target size: {target_size}")
 
             # Create the main video file and path
             video_path = create_video_path(folder_name, "main")
             saved_path = create_video_file(
-                target_size=TARGET_SIZE,
                 frames=np.array(self.get_frames_main_camera()),
+                target_size=target_size,
                 output_path=video_path,
                 fps=fps,
                 codec=codec,
@@ -371,7 +372,7 @@ class Episode(BaseModel):
                 img_shape = camera_frames[0].shape
                 logger.debug(f"Secondary cameras are arrays of dimension: {img_shape}")
                 secondary_camera_image_size = (img_shape[1], img_shape[0])
-                logger.debug(f"Secondary cameras target size: {TARGET_SIZE}")
+                logger.debug(f"Secondary cameras target size: {target_size}")
                 if len(secondary_camera_image_size) != 2:
                     logger.error(
                         f"Secondary camera {index} image must be 2D, skipping video creation"
@@ -380,7 +381,7 @@ class Episode(BaseModel):
 
                 os.makedirs(os.path.dirname(video_path), exist_ok=True)
                 create_video_file(
-                    target_size=TARGET_SIZE,
+                    target_size=target_size,
                     frames=camera_frames,
                     output_path=video_path,
                     fps=fps,
