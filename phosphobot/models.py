@@ -1004,36 +1004,27 @@ class StatsModel(BaseModel):
         """
         Updates the stats with the given step.
         """
-        logger.info("Updating action stats")
         self.action.update(step.action)
 
-        logger.info("Updating observation state stats")
         # We do not update self.action, as it's updated in .update_previous()
         self.observation_state.update(step.observation.joints_position)
 
-        logger.info("Updating timestamp stats")
         self.timestamp.update(np.array([step.observation.timestamp]))
 
-        logger.info("Updating frame index stats")
         self.frame_index.update(np.array([self.frame_index.count + 1]))
 
-        logger.info("Updating episode index stats")
         self.episode_index.update(np.array([episode_index]))
 
-        logger.info("Updating index stats")
         self.index.update(np.array([self.index.count + 1]))
 
-        logger.info("Updating task index stats")
         # TODO: Implement multiple language instructions
         # This should be the index of the instruction as it's in tasks.jsonl (TasksModel)
         self.task_index.update(np.array([0]))
 
-        logger.info("Processing main image")
         main_image = step.observation.main_image
         (height, width, channel) = main_image.shape
         aspect_ratio: float = width / height
         if aspect_ratio >= 8 / 3:
-            logger.info("Detected stereo image, splitting into left and right")
             # Stereo image detected: split in half
             left_image = main_image[:, : width // 2, :]
             right_image = main_image[:, width // 2 :, :]
@@ -1041,7 +1032,6 @@ class StatsModel(BaseModel):
                 "observation.images.main.left" not in self.observation_images.keys()
                 or "observation.images.main.right" not in self.observation_images.keys()
             ):
-                logger.info("Initializing stereo image stats")
                 # Initialize
                 self.observation_images["observation.images.main.left"] = Stats()
                 self.observation_images["observation.images.main.right"] = Stats()
@@ -1053,35 +1043,24 @@ class StatsModel(BaseModel):
             )
 
         else:
-            logger.info("Processing mono image")
             if "observation.images.main" not in self.observation_images.keys():
-                logger.info("Initializing mono image stats")
                 # Initialize
                 self.observation_images["observation.images.main"] = Stats()
-            logger.info("Updating mono image stats")
             self.observation_images["observation.images.main"].update_image(main_image)
 
-        logger.info(
-            f"Processing {len(step.observation.secondary_images)} secondary images"
-        )
         for image_index, image in enumerate(step.observation.secondary_images):
-            logger.info(f"Processing secondary image {image_index}")
             if (
                 f"observation.images.secondary_{image_index}"
                 not in self.observation_images.keys()
             ):
-                logger.info(f"Initializing secondary image {image_index} stats")
                 # Initialize
                 self.observation_images[
                     f"observation.images.secondary_{image_index}"
                 ] = Stats()
 
-            logger.info(f"Updating secondary image {image_index} stats")
             self.observation_images[
                 f"observation.images.secondary_{image_index}"
             ].update_image(step.observation.secondary_images[image_index])
-
-        logger.info("Stats update complete")
 
     def save(self, meta_folder_path: str) -> None:
         """
