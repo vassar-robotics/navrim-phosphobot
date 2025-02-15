@@ -183,6 +183,9 @@ EOL'
 
     sudo systemctl enable led-monitor
     sudo systemctl start led-monitor
+
+    echo "Checking LED monitor service status..."
+    sudo systemctl status led-monitor --no-pager
 }
 
 install_rpi_specific() {
@@ -290,6 +293,12 @@ EOL'
         sudo systemctl enable phosphobot-update.timer
         sudo systemctl start phosphobot
         sudo systemctl start phosphobot-update.timer
+
+        echo "Checking phosphobot service status..."
+        sudo systemctl status phosphobot --no-pager
+
+        echo "Checking update timer status..."
+        sudo systemctl list-timers phosphobot-update.timer        
 }
 
 # Main installation flow
