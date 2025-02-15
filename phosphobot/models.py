@@ -909,9 +909,16 @@ class Stats(BaseModel):
             self.square_sum = np.sum(image_norm_32**2, axis=(0, 1))
             self.count = nb_pixels
         else:
-            self.sum = self.sum + np.sum(image_value, axis=(0, 1))
-            self.square_sum = self.square_sum + np.sum(image_uint32**2, axis=(0, 1))
+            self.sum += np.sum(image_value, axis=(0, 1))
+            self.square_sum += np.sum(image_uint32**2, axis=(0, 1))
             self.count += nb_pixels
+
+        # Print a small corner of the image
+        logger.debug(f"Image norm: {image_norm_32[:3, :3]}")
+
+        logger.debug(
+            f"Image stats sum: {self.sum}, square_sum: {self.square_sum}, count: {self.count}"
+        )
 
     def compute_from_rolling_images(self):
         """
@@ -955,6 +962,10 @@ class StatsModel(BaseModel):
 
     @classmethod
     def from_json(cls, meta_folder_path: str) -> "StatsModel":
+        """
+        Read the stats.json file in the meta folder path.
+        If the file does not exist, return an empty StatsModel.
+        """
         if (
             not os.path.exists(f"{meta_folder_path}/stats.json")
             or os.stat(f"{meta_folder_path}/stats.json").st_size == 0
@@ -1005,14 +1016,11 @@ class StatsModel(BaseModel):
         Updates the stats with the given step.
         """
         self.action.update(step.action)
-
         # We do not update self.action, as it's updated in .update_previous()
         self.observation_state.update(step.observation.joints_position)
-
         self.timestamp.update(np.array([step.observation.timestamp]))
 
         self.frame_index.update(np.array([self.frame_index.count + 1]))
-
         self.episode_index.update(np.array([episode_index]))
 
         self.index.update(np.array([self.index.count + 1]))
