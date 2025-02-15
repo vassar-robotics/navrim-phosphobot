@@ -878,6 +878,7 @@ class Stats(BaseModel):
         The stats are in dim 3 for RGB.
         We normalize with the number of pixels.
         """
+
         assert image_value.ndim == 3, "Image value must be 3D"
 
         if image_value is None:
@@ -886,8 +887,6 @@ class Stats(BaseModel):
         image_norm_32 = image_value.astype(dtype=np.float32) / 255.0
 
         # Update the max and min
-        # TODO: Is this code ok with the new shape of image_value?
-        # TODO: Check if shape are ok for ex: min or max with shape (3, 1, 3)
         if self.max is None:
             self.max = np.max(image_norm_32, axis=(0, 1))
         else:
@@ -902,23 +901,14 @@ class Stats(BaseModel):
         # Update the rolling sum and square sum
         nb_pixels = image_norm_32.shape[0] * image_norm_32.shape[1]
         # Convert to int32 to avoid overflow when computing the square sum
-        image_uint32 = image_value.astype(dtype=np.int32)
-
         if self.sum is None or self.square_sum is None:
             self.sum = np.sum(image_norm_32, axis=(0, 1))
             self.square_sum = np.sum(image_norm_32**2, axis=(0, 1))
             self.count = nb_pixels
         else:
-            self.sum += np.sum(image_value, axis=(0, 1))
-            self.square_sum += np.sum(image_uint32**2, axis=(0, 1))
+            self.sum += np.sum(image_norm_32, axis=(0, 1))
+            self.square_sum += np.sum(image_norm_32**2, axis=(0, 1))
             self.count += nb_pixels
-
-        # Print a small corner of the image
-        logger.debug(f"Image norm: {image_norm_32[:3, :3]}")
-
-        logger.debug(
-            f"Image stats sum: {self.sum}, square_sum: {self.square_sum}, count: {self.count}"
-        )
 
     def compute_from_rolling_images(self):
         """
