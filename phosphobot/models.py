@@ -462,7 +462,8 @@ class Episode(BaseModel):
         Update the previous step with the given step.
         """
         # The action is an order in absolute on the postion of the robots joints (radians angles)
-        self.steps[-1].action = step.observation.joints_position
+        if len(self.steps) > 0:
+            self.steps[-1].action = step.observation.joints_position.copy()
 
     async def play(self, robot: BaseRobot):
         """
