@@ -228,6 +228,11 @@ install_linux_specific() {
 }
 
 setup_services() {
+        echo "Stopping any existing phosphobot services and processes..."
+        sudo systemctl stop phosphobot.service 2>/dev/null || true
+        sudo systemctl disable phosphobot.service 2>/dev/null || true
+        sudo pkill -f "phosphobot run" 2>/dev/null || true
+
         echo "Creating systemd service file for phosphobot..."
         sudo bash -c 'cat > /etc/systemd/system/phosphobot.service <<EOL
 [Unit]
@@ -238,7 +243,7 @@ After=network.target
 Type=simple
 User=root
 ExecStart=/usr/local/bin/phosphobot run
-Restart=always
+Restart=on-failure
 WorkingDirectory=/root
 Environment="PATH=/usr/local/bin:/usr/bin"
 
