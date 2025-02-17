@@ -253,8 +253,9 @@ EOL'
 
         # Create and configure update service
         echo "Creating update script and service..."
-        sudo bash -c 'cat > /usr/local/bin/phosphobot-update <<EOL
+    sudo bash -c 'cat > /usr/local/bin/phosphobot-update <<EOL
 #!/bin/bash
+
 apt update
 apt install -y phosphobot
 if [ \$? -eq 0 ]; then
@@ -303,7 +304,7 @@ EOL'
         sudo systemctl status phosphobot --no-pager
 
         echo "Checking update timer status..."
-        sudo systemctl list-timers phosphobot-update.timer        
+        sudo systemctl list-timers phosphobot-update.timer --no-pager
 }
 
 # Main installation flow
@@ -356,7 +357,7 @@ main() {
     fi
 
     # Setup services
-    if [[ "$PLATFORM" != "darwin" ]]; then
+    if [[ "$PLATFORM" == "rpi" ]]; then
         setup_services
     fi
 
