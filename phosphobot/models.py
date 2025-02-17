@@ -898,7 +898,9 @@ class Stats(BaseModel):
             self.square_sum = np.sum(image_norm_32**2, axis=(0, 1))
             self.count = nb_pixels
         else:
-            self.sum = self.sum + np.sum(image_norm_32, axis=(0, 1))
+            self.sum = self.sum + np.sum(
+                image_norm_32, axis=(0, 1)
+            )  # We need to copy to avoid modifying the value in place
             self.square_sum = self.square_sum + np.sum(image_norm_32**2, axis=(0, 1))
             self.count += nb_pixels
 
