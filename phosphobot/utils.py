@@ -199,7 +199,8 @@ def get_home_app_path() -> Path:
 def compute_sum_squaresum_framecount_from_video(video_path: str) -> List[np.ndarray]:
     """
     Process a video file and calculate the sum of RGB values and sum of squares of RGB values for each frame.
-    Returns a list of np.ndarray corresponding respectively to the sum of RGB values, sum of squares of RGB values and frame count
+    Returns a list of np.ndarray corresponding respectively to the sum of RGB values, sum of squares of RGB values and nb_pixel.
+    We divide by 255.0 RGB values to normalize the values to the range [0, 1].
     """
     # Open the video file
     cap = cv2.VideoCapture(video_path)
