@@ -1107,9 +1107,10 @@ class StatsModel(BaseModel):
         logger.info(f"Column sums: {column_sums}")
         # Update stats for each field in the StatsModel
         for field_name, field in StatsModel.model_fields.items():
-            # task_index is not updated since we do not support multiple tasks
+            # TODO task_index is not updated since we do not support multiple tasks
+            logger.warning(f"Field name: {field_name}")
             # observation_images has a special treatment
-            if field_name in ["task_index", "observation_images"]:
+            if field_name in ["observation_images"]:
                 continue
             logger.info(f"Updating field {field_name}")
             # Get the field value from the instance

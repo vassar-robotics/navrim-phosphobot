@@ -223,14 +223,15 @@ def compute_sum_squaresum_framecount_from_video(
             break
 
         # Convert the frame from BGR to RGB (OpenCV uses BGR by default)
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) / 255.0
+        logger.info(f"Frame first value {frame_rgb[0, 0]}")
         # Calculate the sum of RGB values for the frame
-        sum_rgb = np.sum(frame_rgb, axis=(0, 1)) / 255.0
+        sum_rgb = np.sum(frame_rgb, axis=(0, 1))
         # Calculate the sum of squares of RGB values for the frame
-        sum_squares = np.sum(frame_rgb**2, axis=(0, 1)) / (255.0**2)
+        sum_squares = np.sum(frame_rgb**2, axis=(0, 1))
         # Accumulate the sums
         # Cannot cast ufunc 'add' output from dtype('float64') to dtype('uint64') with casting rule 'same_kind'
-        total_sum_rgb = total_sum_squares + sum_rgb
+        total_sum_rgb = total_sum_rgb + sum_rgb
         total_sum_squares = total_sum_squares + sum_squares
 
         # nb Pixel
