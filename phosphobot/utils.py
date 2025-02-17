@@ -207,7 +207,6 @@ def compute_sum_squaresum_framecount_from_video(video_path: str) -> List[np.ndar
     if not cap.isOpened():
         raise FileNotFoundError(f"Error: Could not open video at path: {video_path}")
 
-    frame_count = 0
     total_sum_rgb = np.zeros(3, dtype=np.uint64)  # To store sum of RGB values
     total_sum_squares = np.zeros(
         3, dtype=np.uint64
@@ -222,16 +221,17 @@ def compute_sum_squaresum_framecount_from_video(video_path: str) -> List[np.ndar
         # Convert the frame from BGR to RGB (OpenCV uses BGR by default)
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         # Calculate the sum of RGB values for the frame
-        sum_rgb = np.sum(frame_rgb, axis=(0, 1))
+        sum_rgb = np.sum(frame_rgb, axis=(0, 1)) / 255.0
         # Calculate the sum of squares of RGB values for the frame
-        sum_squares = np.sum(frame_rgb**2, axis=(0, 1))
+        sum_squares = np.sum(frame_rgb**2, axis=(0, 1)) / (255.0**2)
         # Accumulate the sums
         total_sum_rgb += sum_rgb
         total_sum_squares += sum_squares
 
-        frame_count += 1
+        # nb Pixel
+        nb_pixel = frame_rgb.shape[0] * frame_rgb.shape[1]
 
     # Release the video capture object
     # TODO: If problem of dimension maybe transposing arrays is needed.
     cap.release()
-    return [total_sum_rgb, total_sum_squares, np.array([frame_count])]
+    return [total_sum_rgb, total_sum_squares, np.array([nb_pixel])]
