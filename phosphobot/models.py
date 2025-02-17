@@ -870,7 +870,7 @@ class Stats(BaseModel):
         Compute the mean and std from the rolling sum and square sum.
         """
         self.mean = self.sum / self.count
-        self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
+        self.std = np.sqrt(abs(self.square_sum / self.count - self.mean**2))
 
     def update_image(self, image_value: np.ndarray) -> None:
         """
@@ -906,8 +906,8 @@ class Stats(BaseModel):
             self.square_sum = np.sum(image_norm_32**2, axis=(0, 1))
             self.count = nb_pixels
         else:
-            self.sum += np.sum(image_norm_32, axis=(0, 1))
-            self.square_sum += np.sum(image_norm_32**2, axis=(0, 1))
+            self.sum = self.sum + np.sum(image_norm_32, axis=(0, 1))
+            self.square_sum = self.square_sum + np.sum(image_norm_32**2, axis=(0, 1))
             self.count += nb_pixels
 
     def compute_from_rolling_images(self):
@@ -915,7 +915,7 @@ class Stats(BaseModel):
         Compute the mean and std from the rolling sum and square sum for images.
         """
         self.mean = self.sum / self.count
-        self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
+        self.std = np.sqrt(abs(self.square_sum / self.count - self.mean**2))
         # We want .tolist() to yield [[[mean_r, mean_g, mean_b]]] and not [mean_r, mean_g, mean_b]
         # Reshape to have the same shape as the mean and std
         # This makes it easier to normalize the imags
