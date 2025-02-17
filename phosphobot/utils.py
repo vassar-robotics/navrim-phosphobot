@@ -211,9 +211,9 @@ def compute_sum_squaresum_framecount_from_video(
         raise FileNotFoundError(f"Error: Could not open video at path: {video_path}")
 
     nb_pixel = 0
-    total_sum_rgb = np.zeros(3, dtype=np.uint64)  # To store sum of RGB values
+    total_sum_rgb = np.zeros(3, dtype=np.float32)  # To store sum of RGB values
     total_sum_squares = np.zeros(
-        3, dtype=np.uint64
+        3, dtype=np.float32
     )  # To store sum of squares of RGB values
     while True:
         # Read a frame from the video
@@ -229,8 +229,9 @@ def compute_sum_squaresum_framecount_from_video(
         # Calculate the sum of squares of RGB values for the frame
         sum_squares = np.sum(frame_rgb**2, axis=(0, 1)) / (255.0**2)
         # Accumulate the sums
-        total_sum_rgb += sum_rgb
-        total_sum_squares += sum_squares
+        # Cannot cast ufunc 'add' output from dtype('float64') to dtype('uint64') with casting rule 'same_kind'
+        total_sum_rgb = total_sum_squares + sum_rgb
+        total_sum_squares = total_sum_squares + sum_squares
 
         # nb Pixel
         nb_pixel += frame_rgb.shape[0] * frame_rgb.shape[1]
