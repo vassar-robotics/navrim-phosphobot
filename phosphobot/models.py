@@ -1108,11 +1108,9 @@ class StatsModel(BaseModel):
         # Update stats for each field in the StatsModel
         for field_name, field in StatsModel.model_fields.items():
             # TODO task_index is not updated since we do not support multiple tasks
-            logger.warning(f"Field name: {field_name}")
             # observation_images has a special treatment
             if field_name in ["observation_images"]:
                 continue
-            logger.info(f"Updating field {field_name}")
             # Get the field value from the instance
             field_value = getattr(self, field_name)
             # Convert observation_state to observation.state
@@ -1129,8 +1127,6 @@ class StatsModel(BaseModel):
                 # Subtract sums
                 field_value.sum -= column_sums[field_name]["sum"]
                 field_value.square_sum -= column_sums[field_name]["square_sum"]
-
-                logger.info(f"Field value sum: {field_value.sum}")
 
                 # Update min/max
                 if (
@@ -1665,6 +1661,16 @@ class EpisodesModel(BaseModel):
         """
         self.to_jsonl(meta_folder_path)
 
+    def removal_save(self, meta_folder_path: str) -> None:
+        """
+        Save the episodes to the meta folder path.
+        We overwrite the file instead of appending to it.
+        This is used when removing an episode from the dataset.
+        """
+        with open(f"{meta_folder_path}/episodes.jsonl", "w") as f:
+            for episode in self.episodes:
+                f.write(episode.model_dump_json() + "\n")
+
     def update_before_episode_removal(self, parquet_path: str):
         """
         Update the episodes model before removing an episode from the dataset.
@@ -1683,3 +1689,7 @@ class EpisodesModel(BaseModel):
             for episode in self.episodes
             if episode.episode_index != index_deleted_episode
         ]
+
+        # Reindex the episodes in episodes_model
+        for index, episode in enumerate(self.episodes):
+            episode.episode_index = index

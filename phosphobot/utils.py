@@ -224,7 +224,6 @@ def compute_sum_squaresum_framecount_from_video(
 
         # Convert the frame from BGR to RGB (OpenCV uses BGR by default)
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) / 255.0
-        logger.info(f"Frame first value {frame_rgb[0, 0]}")
         # Calculate the sum of RGB values for the frame
         sum_rgb = np.sum(frame_rgb, axis=(0, 1))
         # Calculate the sum of squares of RGB values for the frame
