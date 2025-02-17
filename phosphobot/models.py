@@ -1178,12 +1178,19 @@ class StatsModel(BaseModel):
                 compute_sum_squaresum_framecount_from_video(video_path)
             )
 
+            assert isinstance(sum_array, np.ndarray), "sum_array must be a numpy array"
+            assert isinstance(square_sum_array, np.ndarray), (
+                "square_sum_array must be a numpy array"
+            )
+            assert isinstance(nb_pixel, int), "nb_pixel must be an integer"
             sum_array = sum_array.astype(np.float32)
             square_sum_array = square_sum_array.astype(np.float32)
 
             logger.info(f"sum_array: {sum_array}")
             logger.info(f"square_sum_array: {square_sum_array}")
-            logger.info(f"frame_count_array: {nb_pixel}")
+            logger.info(f"nb_pixel: {nb_pixel}")
+
+            logger.info(f"Old sum: {self.observation_images[camera_folder].sum}")
 
             # Update the stats_model
             self.observation_images[camera_folder].sum = (
@@ -1193,7 +1200,7 @@ class StatsModel(BaseModel):
                 self.observation_images[camera_folder].square_sum - square_sum_array
             )
             self.observation_images[camera_folder].count = (
-                self.observation_images[camera_folder].count - nb_pixel[0]
+                self.observation_images[camera_folder].count - nb_pixel
             )
             field_value.count -= nb_steps_deleted_episode
             field_value.mean = field_value.sum / field_value.count

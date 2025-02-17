@@ -196,7 +196,9 @@ def get_home_app_path() -> Path:
     return home_path
 
 
-def compute_sum_squaresum_framecount_from_video(video_path: str) -> List[np.ndarray]:
+def compute_sum_squaresum_framecount_from_video(
+    video_path: str,
+) -> List[np.ndarray | int]:
     """
     Process a video file and calculate the sum of RGB values and sum of squares of RGB values for each frame.
     Returns a list of np.ndarray corresponding respectively to the sum of RGB values, sum of squares of RGB values and nb_pixel.
@@ -208,6 +210,7 @@ def compute_sum_squaresum_framecount_from_video(video_path: str) -> List[np.ndar
     if not cap.isOpened():
         raise FileNotFoundError(f"Error: Could not open video at path: {video_path}")
 
+    nb_pixel = 0
     total_sum_rgb = np.zeros(3, dtype=np.uint64)  # To store sum of RGB values
     total_sum_squares = np.zeros(
         3, dtype=np.uint64
@@ -230,9 +233,9 @@ def compute_sum_squaresum_framecount_from_video(video_path: str) -> List[np.ndar
         total_sum_squares += sum_squares
 
         # nb Pixel
-        nb_pixel = frame_rgb.shape[0] * frame_rgb.shape[1]
+        nb_pixel += frame_rgb.shape[0] * frame_rgb.shape[1]
 
     # Release the video capture object
     # TODO: If problem of dimension maybe transposing arrays is needed.
     cap.release()
-    return [total_sum_rgb, total_sum_squares, np.array([nb_pixel])]
+    return [total_sum_rgb, total_sum_squares, nb_pixel]
