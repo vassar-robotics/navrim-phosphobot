@@ -178,7 +178,7 @@ class Observation(BaseModel):
     main_image: np.ndarray
     # We store any other images from other cameras here
     secondary_images: List[np.ndarray] = Field(default_factory=list)
-    # Size 7 array with the robot end effector (absolute, in the robot referencial)
+    # Size 6 array with the robot end effector (absolute, in the robot referencial)
     # Warning: this is not the same 'state' used in lerobot examples
     state: np.ndarray
     # Current joints positions of the robot
@@ -463,7 +463,8 @@ class Episode(BaseModel):
         Update the previous step with the given step.
         """
         # The action is an order in absolute on the postion of the robots joints (radians angles)
-        self.steps[-1].action = step.observation.joints_position
+        if len(self.steps) > 0:
+            self.steps[-1].action = step.observation.joints_position.copy()
 
     async def play(self, robot: BaseRobot):
         """
@@ -549,7 +550,6 @@ class Episode(BaseModel):
 
         logger.info(f"Number of steps during conversion: {len(self.steps)}")
 
-        # episode_data["timestamp"] = [step.observation.timestamp for step in self.steps]
         episode_data["timestamp"] = (np.arange(len(self.steps)) / fps).tolist()
 
         # Fetch the last frame index of the previous episode to continue the indexation of "index" if episode is not the first one
@@ -600,22 +600,6 @@ class Episode(BaseModel):
             frame_index=episode_data["frame_index"],
             index=episode_data["index"],
         )
-
-    def get_delta_joints_position(self) -> np.ndarray:
-        """
-        Return the delta joints position between each step
-        """
-
-        deltas_joints_position = np.diff(
-            np.array([step.observation.joints_position for step in self.steps]),
-            axis=0,
-        )
-
-        deltas_joints_position = np.vstack(
-            [deltas_joints_position, np.zeros_like(deltas_joints_position[0])]
-        )
-
-        return deltas_joints_position
 
     def get_fps(self) -> float:
         """
@@ -857,12 +841,14 @@ class Stats(BaseModel):
 
         # Update the rolling sum and square sum
         if self.sum is None or self.square_sum is None:
-            self.sum = value
-            self.square_sum = value**2
+            self.sum = (
+                value.copy()
+            )  # We need to copy to avoid modifying the value in place
+            self.square_sum = value.copy() ** 2
             self.count = 1
         else:
-            self.sum += value
-            self.square_sum += value**2
+            self.sum = self.sum + value
+            self.square_sum = self.square_sum + value**2
             self.count += 1
 
     def compute_from_rolling(self):
@@ -906,7 +892,9 @@ class Stats(BaseModel):
             self.square_sum = np.sum(image_norm_32**2, axis=(0, 1))
             self.count = nb_pixels
         else:
-            self.sum = self.sum + np.sum(image_norm_32, axis=(0, 1))
+            self.sum = self.sum + np.sum(
+                image_norm_32, axis=(0, 1)
+            )  # We need to copy to avoid modifying the value in place
             self.square_sum = self.square_sum + np.sum(image_norm_32**2, axis=(0, 1))
             self.count += nb_pixels
 

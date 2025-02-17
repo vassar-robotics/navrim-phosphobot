@@ -228,6 +228,11 @@ install_linux_specific() {
 }
 
 setup_services() {
+        echo "Stopping any existing phosphobot services and processes..."
+        sudo systemctl stop phosphobot.service 2>/dev/null || true
+        sudo systemctl disable phosphobot.service 2>/dev/null || true
+        sudo pkill -f "phosphobot run" 2>/dev/null || true
+
         echo "Creating systemd service file for phosphobot..."
         sudo bash -c 'cat > /etc/systemd/system/phosphobot.service <<EOL
 [Unit]
@@ -238,7 +243,7 @@ After=network.target
 Type=simple
 User=root
 ExecStart=/usr/local/bin/phosphobot run
-Restart=always
+Restart=on-failure
 WorkingDirectory=/root
 Environment="PATH=/usr/local/bin:/usr/bin"
 
@@ -248,8 +253,9 @@ EOL'
 
         # Create and configure update service
         echo "Creating update script and service..."
-        sudo bash -c 'cat > /usr/local/bin/phosphobot-update <<EOL
+    sudo bash -c 'cat > /usr/local/bin/phosphobot-update <<EOL
 #!/bin/bash
+
 apt update
 apt install -y phosphobot
 if [ \$? -eq 0 ]; then
@@ -298,7 +304,7 @@ EOL'
         sudo systemctl status phosphobot --no-pager
 
         echo "Checking update timer status..."
-        sudo systemctl list-timers phosphobot-update.timer        
+        sudo systemctl list-timers phosphobot-update.timer --no-pager
 }
 
 # Main installation flow
@@ -351,7 +357,7 @@ main() {
     fi
 
     # Setup services
-    if [[ "$PLATFORM" != "darwin" ]]; then
+    if [[ "$PLATFORM" == "rpi" ]]; then
         setup_services
     fi
 
