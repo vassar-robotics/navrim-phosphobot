@@ -7,6 +7,7 @@ from typing import Annotated, Any, List, Tuple, Union
 import cv2
 import numpy as np
 from loguru import logger
+import pandas as pd
 from pydantic import BeforeValidator, PlainSerializer
 from rich import print
 
@@ -240,3 +241,44 @@ def compute_sum_squaresum_framecount_from_video(
     # TODO: If problem of dimension maybe transposing arrays is needed.
     cap.release()
     return [total_sum_rgb, total_sum_squares, nb_pixel]
+
+
+def get_field_min_max(df: pd.DataFrame, field_name: str) -> tuple:
+    """
+    Compute the minimum value for the given field in the DataFrame.
+
+    If the field values are numeric, returns a scalar minimum.
+    If the field values are lists/arrays, returns an element-wise minimum array.
+
+    Parameters:
+        df (pd.DataFrame): DataFrame containing the data.
+        field_name (str): The name of the field/column to compute the min for.
+
+    Returns:
+        The minimum value(s) for the specified field.
+
+    Raises:
+        ValueError: If the field does not exist or if list/array values have inconsistent shapes.
+    """
+    if field_name not in df.columns:
+        raise ValueError(f"Field '{field_name}' not found in DataFrame")
+
+    # Get a sample value (skip any nulls)
+    sample_value = df[field_name].dropna().iloc[0]
+
+    # If the field values are lists or arrays, compute element-wise min, max
+    if isinstance(sample_value, (list, np.ndarray)):
+        try:
+            # Convert series of lists/arrays into a 2D NumPy array.
+            # Each row is one entry from the DataFrame.
+            stacked = np.stack(df[field_name].tolist(), axis=0)
+        except Exception as e:
+            raise ValueError(
+                "Ensure all entries in the field are lists/arrays of the same length."
+            ) from e
+
+        # Compute element-wise minimum along the rows.
+        return (np.min(stacked, axis=0), np.max(stacked, axis=0))
+    else:
+        # Otherwise, assume the field is numeric and return the scalar min.
+        return (df[field_name].min(), df[field_name].max())

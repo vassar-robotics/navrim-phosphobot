@@ -17,6 +17,7 @@ from phosphobot.utils import (
     create_video_file,
     get_home_app_path,
     decode_numpy,
+    get_field_min_max,
     NdArrayAsList,
 )
 from phosphobot.types import VideoCodecs
@@ -1083,24 +1084,36 @@ class StatsModel(BaseModel):
         if not os.path.exists(parquet_path):
             raise ValueError(f"Parquet file {parquet_path} does not exist")
 
+        data_folder_path = "/".join(parquet_path.split("/")[:-1])
+
         # Load the parquet file
-        episode_df = pd.read_parquet(parquet_path)
-        nb_steps_deleted_episode = len(episode_df)
+        deleted_episode_df = pd.read_parquet(parquet_path)
+        nb_steps_deleted_episode = len(deleted_episode_df)
+
+        # Load all the other parquet files in one dataFrame
+        all_episodes_df = pd.concat(
+            [
+                pd.read_parquet(str(os.path.join(data_folder_path, file)))
+                for file in os.listdir(data_folder_path)
+                if str(os.path.join(data_folder_path, file)) != parquet_path
+            ]
+        )
 
         # For each column in the parquet file, compute sum along first axis, min/max along last axis
         logger.info("Updating stats before removing episode")
-        logger.info(f"Episode df action: {episode_df['action']}")
+        logger.info(f"Episode df action: {deleted_episode_df['action']}")
 
         column_sums = {
             col: {
-                "sum": np.sum(np.array(episode_df[col].tolist()), axis=0),
-                "max": np.max(np.array(episode_df[col].tolist()), axis=0),
-                "min": np.min(np.array(episode_df[col].tolist()), axis=0),
-                "square_sum": np.sum(np.array(episode_df[col].tolist()) ** 2, axis=0),
+                "sum": np.sum(np.array(deleted_episode_df[col].tolist()), axis=0),
+                "max": np.max(np.array(deleted_episode_df[col].tolist()), axis=0),
+                "min": np.min(np.array(deleted_episode_df[col].tolist()), axis=0),
+                "square_sum": np.sum(
+                    np.array(deleted_episode_df[col].tolist()) ** 2, axis=0
+                ),
             }
-            for col in episode_df.columns
+            for col in deleted_episode_df.columns
         }
-
         logger.info(f"Column sums: {column_sums}")
         # Update stats for each field in the StatsModel
         for field_name, field in StatsModel.model_fields.items():
@@ -1126,6 +1139,7 @@ class StatsModel(BaseModel):
                 field_value.sum -= column_sums[field_name]["sum"]
                 field_value.square_sum -= column_sums[field_name]["square_sum"]
 
+                (min_value, max_value) = get_field_min_max(all_episodes_df, field_name)
                 logger.info(f"Field value sum: {field_value.sum}")
 
                 # Update min/max
@@ -1135,21 +1149,16 @@ class StatsModel(BaseModel):
                 ):
                     logger.info(f"Updating min for {field_name}")
                     logger.info(f"Current min: {field_value.min}")
-                    logger.info(f"New min: {column_sums[field_name]['min']}")
-                    field_value.min = np.minimum(
-                        field_value.min, column_sums[field_name]["min"]
-                    )
-                    logger.info(f"Updated min: {field_value.min}")
+                    logger.info(f"New min: {min_value}")
+                    field_value.min = min_value
                 if (
                     field_value.max is not None
                     and column_sums[field_name]["max"] is not None
                 ):
                     logger.info(f"Updating max for {field_name}")
                     logger.info(f"Current max: {field_value.max}")
-                    logger.info(f"New max: {column_sums[field_name]['max']}")
-                    field_value.max = np.maximum(
-                        field_value.max, column_sums[field_name]["max"]
-                    )
+                    logger.info(f"New max: {max_value}")
+                    field_value.max = max_value
                     logger.info(f"Updated max: {field_value.max}")
 
                 # Update count
