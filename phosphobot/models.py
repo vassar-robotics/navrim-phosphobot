@@ -978,26 +978,17 @@ class StatsModel(BaseModel):
 
             f.write(json.dumps(model_dict, indent=4))
 
-    def update_previous(self, step: Step) -> None:
-        """
-        Updates the previous action with the given step.
-        """
-        self.action.update(step.action)
-
-    def update(self, step: Step, episode_index: int) -> None:
+    def update(self, step: Step, episode_index: int, current_step: int) -> None:
         """
         Updates the stats with the given step.
         """
 
         self.action.update(step.action)
-        # We do not update self.action, as it's updated in .update_previous()
         self.observation_state.update(step.observation.joints_position)
         self.timestamp.update(np.array([step.observation.timestamp]))
-
-        self.frame_index.update(np.array([self.frame_index.count + 1]))
+        self.index.update(np.array([self.index.count]))
         self.episode_index.update(np.array([episode_index]))
-
-        self.index.update(np.array([self.index.count + 1]))
+        self.frame_index.update(np.array([current_step]))
 
         # TODO: Implement multiple language instructions
         # This should be the index of the instruction as it's in tasks.jsonl (TasksModel)
