@@ -1002,19 +1002,24 @@ class StatsModel(BaseModel):
         """
         self.action.update(step.action)
 
-    def update(self, step: Step, episode_index: int) -> None:
+    def update(
+        self,
+        step: Step,
+        episode_index: int,
+        current_step_index: int,
+    ) -> None:
         """
         Updates the stats with the given step.
         """
-        self.action.update(step.action)
-        # We do not update self.action, as it's updated in .update_previous()
+
+        self.action.update(
+            step.observation.joints_position
+        )  # Because action lags behind by one step, we approximate it with the current observation
         self.observation_state.update(step.observation.joints_position)
         self.timestamp.update(np.array([step.observation.timestamp]))
-
-        self.frame_index.update(np.array([self.frame_index.count + 1]))
+        self.index.update(np.array([self.index.count]))
         self.episode_index.update(np.array([episode_index]))
-
-        self.index.update(np.array([self.index.count + 1]))
+        self.frame_index.update(np.array([current_step_index]))
 
         # TODO: Implement multiple language instructions
         # This should be the index of the instruction as it's in tasks.jsonl (TasksModel)
@@ -1137,16 +1142,24 @@ class StatsModel(BaseModel):
                     field_value.min is not None
                     and column_sums[field_name]["min"] is not None
                 ):
+                    logger.info(f"Updating min for {field_name}")
+                    logger.info(f"Current min: {field_value.min}")
+                    logger.info(f"New min: {column_sums[field_name]['min']}")
                     field_value.min = np.minimum(
                         field_value.min, column_sums[field_name]["min"]
                     )
+                    logger.info(f"Updated min: {field_value.min}")
                 if (
                     field_value.max is not None
                     and column_sums[field_name]["max"] is not None
                 ):
+                    logger.info(f"Updating max for {field_name}")
+                    logger.info(f"Current max: {field_value.max}")
+                    logger.info(f"New max: {column_sums[field_name]['max']}")
                     field_value.max = np.maximum(
                         field_value.max, column_sums[field_name]["max"]
                     )
+                    logger.info(f"Updated max: {field_value.max}")
 
                 # Update count
                 field_value.count -= nb_steps_deleted_episode
