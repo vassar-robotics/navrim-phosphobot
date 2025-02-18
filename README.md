@@ -20,7 +20,7 @@ This repository contains demo code and community projects developed using the ph
 
 2. **Control your Robot**: Donwload the Meta Quest app, connect it to your robot, start teleoperating it.
 
-3. **Record a Dataset**: Record a dataset using the app. Do the same gesture 30 times to create a dataset.
+3. **Record a Dataset**: Record a dataset using the app. Do the same gesture 30-50 times (depending on the task complexity) to create a dataset.
 
 4. **Install the Package**:
 
