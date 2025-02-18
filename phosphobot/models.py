@@ -178,7 +178,7 @@ class Observation(BaseModel):
     main_image: np.ndarray
     # We store any other images from other cameras here
     secondary_images: List[np.ndarray] = Field(default_factory=list)
-    # Size 6 array with the robot end effector (absolute, in the robot referencial)
+    # Size 7 array with the robot end effector (absolute, in the robot referencial)
     # Warning: this is not the same 'state' used in lerobot examples
     state: np.ndarray
     # Current joints positions of the robot
@@ -550,21 +550,22 @@ class Episode(BaseModel):
 
         logger.info(f"Number of steps during conversion: {len(self.steps)}")
 
+        # episode_data["timestamp"] = [step.observation.timestamp for step in self.steps]
         episode_data["timestamp"] = (np.arange(len(self.steps)) / fps).tolist()
 
-        # Fetch the last index of the previous episode to continue the indexation of "index" if episode is not the first one
+        # Fetch the last frame index of the previous episode to continue the indexation of "index" if episode is not the first one
         if episode_index > 0:
             previous_episode_path = os.path.join(
                 episodes_path,
                 f"episode_{episode_index - 1:06d}.parquet",
             )
-            # We load only the last index of the previous episode
+            # We load only the last frame index of the previous episode
             previous_episode = pd.read_parquet(
-                previous_episode_path, columns=["index"], filters=None
+                previous_episode_path, columns=["frame_index"], filters=None
             ).tail(1)
-            last_index = 1 + previous_episode["index"].iloc[0]
+            last_frame_index = 1 + previous_episode["frame_index"].iloc[0]
         else:
-            last_index = 0
+            last_frame_index = 0
 
         for frame_index, step in enumerate(self.steps):
             # Fill in the data for each step
@@ -573,7 +574,7 @@ class Episode(BaseModel):
             episode_data["observation.state"].append(
                 step.observation.joints_position.astype(np.float32)
             )
-            episode_data["index"].append(frame_index + last_index)
+            episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
             assert step.action is not None, (
@@ -600,6 +601,22 @@ class Episode(BaseModel):
             frame_index=episode_data["frame_index"],
             index=episode_data["index"],
         )
+
+    def get_delta_joints_position(self) -> np.ndarray:
+        """
+        Return the delta joints position between each step
+        """
+
+        deltas_joints_position = np.diff(
+            np.array([step.observation.joints_position for step in self.steps]),
+            axis=0,
+        )
+
+        deltas_joints_position = np.vstack(
+            [deltas_joints_position, np.zeros_like(deltas_joints_position[0])]
+        )
+
+        return deltas_joints_position
 
     def get_fps(self) -> float:
         """
@@ -841,14 +858,12 @@ class Stats(BaseModel):
 
         # Update the rolling sum and square sum
         if self.sum is None or self.square_sum is None:
-            self.sum = (
-                value.copy()
-            )  # We need to copy to avoid modifying the value in place
-            self.square_sum = value.copy() ** 2
+            self.sum = value
+            self.square_sum = value**2
             self.count = 1
         else:
-            self.sum = self.sum + value
-            self.square_sum = self.square_sum + value**2
+            self.sum += value
+            self.square_sum += value**2
             self.count += 1
 
     def compute_from_rolling(self):
@@ -856,7 +871,7 @@ class Stats(BaseModel):
         Compute the mean and std from the rolling sum and square sum.
         """
         self.mean = self.sum / self.count
-        self.std = np.sqrt(abs(self.square_sum / self.count - self.mean**2))
+        self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
 
     def update_image(self, image_value: np.ndarray) -> None:
         """
@@ -892,10 +907,8 @@ class Stats(BaseModel):
             self.square_sum = np.sum(image_norm_32**2, axis=(0, 1))
             self.count = nb_pixels
         else:
-            self.sum = self.sum + np.sum(
-                image_norm_32, axis=(0, 1)
-            )  # We need to copy to avoid modifying the value in place
-            self.square_sum = self.square_sum + np.sum(image_norm_32**2, axis=(0, 1))
+            self.sum += np.sum(image_norm_32, axis=(0, 1))
+            self.square_sum += np.sum(image_norm_32**2, axis=(0, 1))
             self.count += nb_pixels
 
     def compute_from_rolling_images(self):
@@ -903,7 +916,7 @@ class Stats(BaseModel):
         Compute the mean and std from the rolling sum and square sum for images.
         """
         self.mean = self.sum / self.count
-        self.std = np.sqrt(abs(self.square_sum / self.count - self.mean**2))
+        self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
         # We want .tolist() to yield [[[mean_r, mean_g, mean_b]]] and not [mean_r, mean_g, mean_b]
         # Reshape to have the same shape as the mean and std
         # This makes it easier to normalize the imags
@@ -983,24 +996,25 @@ class StatsModel(BaseModel):
 
             f.write(json.dumps(model_dict, indent=4))
 
-    def update(
-        self,
-        step: Step,
-        episode_index: int,
-        current_step_index: int,
-    ) -> None:
+    def update_previous(self, step: Step) -> None:
+        """
+        Updates the previous action with the given step.
+        """
+        self.action.update(step.action)
+
+    def update(self, step: Step, episode_index: int) -> None:
         """
         Updates the stats with the given step.
         """
-
-        self.action.update(
-            step.observation.joints_position
-        )  # Because action lags behind by one step, we approximate it with the current observation
+        self.action.update(step.action)
+        # We do not update self.action, as it's updated in .update_previous()
         self.observation_state.update(step.observation.joints_position)
         self.timestamp.update(np.array([step.observation.timestamp]))
-        self.index.update(np.array([self.index.count]))
+
+        self.frame_index.update(np.array([self.frame_index.count + 1]))
         self.episode_index.update(np.array([episode_index]))
-        self.frame_index.update(np.array([current_step_index]))
+
+        self.index.update(np.array([self.index.count + 1]))
 
         # TODO: Implement multiple language instructions
         # This should be the index of the instruction as it's in tasks.jsonl (TasksModel)
@@ -1094,10 +1108,11 @@ class StatsModel(BaseModel):
         logger.info(f"Column sums: {column_sums}")
         # Update stats for each field in the StatsModel
         for field_name, field in StatsModel.model_fields.items():
-            # TODO task_index is not updated since we do not support multiple tasks
+            # task_index is not updated since we do not support multiple tasks
             # observation_images has a special treatment
-            if field_name in ["observation_images"]:
+            if field_name in ["task_index", "observation_images"]:
                 continue
+            logger.info(f"Updating field {field_name}")
             # Get the field value from the instance
             field_value = getattr(self, field_name)
             # Convert observation_state to observation.state
@@ -1115,25 +1130,23 @@ class StatsModel(BaseModel):
                 field_value.sum -= column_sums[field_name]["sum"]
                 field_value.square_sum -= column_sums[field_name]["square_sum"]
 
+                logger.info(f"Field value sum: {field_value.sum}")
+
                 # Update min/max
                 if (
                     field_value.min is not None
                     and column_sums[field_name]["min"] is not None
                 ):
-                    logger.success(f"Field value min before: {field_value.min}")
                     field_value.min = np.minimum(
                         field_value.min, column_sums[field_name]["min"]
                     )
-                    logger.success(f"Field value min after: {field_value.min}")
                 if (
                     field_value.max is not None
                     and column_sums[field_name]["max"] is not None
                 ):
-                    logger.success(f"Field value max before: {field_value.max}")
                     field_value.max = np.maximum(
                         field_value.max, column_sums[field_name]["max"]
                     )
-                    logger.success(f"Field value max after: {field_value.max}")
 
                 # Update count
                 field_value.count -= nb_steps_deleted_episode
@@ -1162,23 +1175,16 @@ class StatsModel(BaseModel):
             video_path = os.path.join(
                 folder_videos_path, camera_folder, f"episode_{episode_index:06d}.mp4"
             )
-            sum_array, square_sum_array, nb_pixel = (
+            sum_array, square_sum_array, frame_count_array = (
                 compute_sum_squaresum_framecount_from_video(video_path)
             )
 
-            assert isinstance(sum_array, np.ndarray), "sum_array must be a numpy array"
-            assert isinstance(square_sum_array, np.ndarray), (
-                "square_sum_array must be a numpy array"
-            )
-            assert isinstance(nb_pixel, int), "nb_pixel must be an integer"
             sum_array = sum_array.astype(np.float32)
             square_sum_array = square_sum_array.astype(np.float32)
 
             logger.info(f"sum_array: {sum_array}")
             logger.info(f"square_sum_array: {square_sum_array}")
-            logger.info(f"nb_pixel: {nb_pixel}")
-
-            logger.info(f"Old sum: {self.observation_images[camera_folder].sum}")
+            logger.info(f"frame_count_array: {frame_count_array}")
 
             # Update the stats_model
             self.observation_images[camera_folder].sum = (
@@ -1188,7 +1194,7 @@ class StatsModel(BaseModel):
                 self.observation_images[camera_folder].square_sum - square_sum_array
             )
             self.observation_images[camera_folder].count = (
-                self.observation_images[camera_folder].count - nb_pixel
+                self.observation_images[camera_folder].count - frame_count_array[0]
             )
             field_value.count -= nb_steps_deleted_episode
             field_value.mean = field_value.sum / field_value.count
@@ -1652,10 +1658,10 @@ class EpisodesModel(BaseModel):
         """
         self.to_jsonl(meta_folder_path)
 
-    def removal_save(self, meta_folder_path: str) -> None:
+    def save_writing_file(self, meta_folder_path: str) -> None:
         """
         Save the episodes to the meta folder path.
-        We overwrite the file instead of appending to it.
+        This overwrite the file instead of appending to it.
         This is used when removing an episode from the dataset.
         """
         with open(f"{meta_folder_path}/episodes.jsonl", "w") as f:
@@ -1680,7 +1686,3 @@ class EpisodesModel(BaseModel):
             for episode in self.episodes
             if episode.episode_index != index_deleted_episode
         ]
-
-        # Reindex the episodes in episodes_model
-        for index, episode in enumerate(self.episodes):
-            episode.episode_index = index
