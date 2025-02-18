@@ -552,19 +552,19 @@ class Episode(BaseModel):
 
         episode_data["timestamp"] = (np.arange(len(self.steps)) / fps).tolist()
 
-        # Fetch the last frame index of the previous episode to continue the indexation of "index" if episode is not the first one
+        # Fetch the last index of the previous episode to continue the indexation of "index" if episode is not the first one
         if episode_index > 0:
             previous_episode_path = os.path.join(
                 episodes_path,
                 f"episode_{episode_index - 1:06d}.parquet",
             )
-            # We load only the last frame index of the previous episode
+            # We load only the last index of the previous episode
             previous_episode = pd.read_parquet(
-                previous_episode_path, columns=["frame_index"], filters=None
+                previous_episode_path, columns=["index"], filters=None
             ).tail(1)
-            last_frame_index = 1 + previous_episode["frame_index"].iloc[0]
+            last_index = 1 + previous_episode["index"].iloc[0]
         else:
-            last_frame_index = 0
+            last_index = 0
 
         for frame_index, step in enumerate(self.steps):
             # Fill in the data for each step
@@ -573,7 +573,7 @@ class Episode(BaseModel):
             episode_data["observation.state"].append(
                 step.observation.joints_position.astype(np.float32)
             )
-            episode_data["index"].append(frame_index + last_frame_index)
+            episode_data["index"].append(frame_index + last_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
             assert step.action is not None, (
@@ -983,25 +983,16 @@ class StatsModel(BaseModel):
 
             f.write(json.dumps(model_dict, indent=4))
 
-    def update_previous(self, step: Step) -> None:
-        """
-        Updates the previous action with the given step.
-        """
-        self.action.update(step.action)
-
-    def update(self, step: Step, episode_index: int) -> None:
+    def update(self, step: Step, episode_index: int, current_step: int) -> None:
         """
         Updates the stats with the given step.
         """
         self.action.update(step.action)
-        # We do not update self.action, as it's updated in .update_previous()
         self.observation_state.update(step.observation.joints_position)
         self.timestamp.update(np.array([step.observation.timestamp]))
-
-        self.frame_index.update(np.array([self.frame_index.count + 1]))
+        self.index.update(np.array([self.index.count]))
         self.episode_index.update(np.array([episode_index]))
-
-        self.index.update(np.array([self.index.count + 1]))
+        self.frame_index.update(np.array([current_step]))
 
         # TODO: Implement multiple language instructions
         # This should be the index of the instruction as it's in tasks.jsonl (TasksModel)
