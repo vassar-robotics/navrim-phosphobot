@@ -553,19 +553,19 @@ class Episode(BaseModel):
 
         episode_data["timestamp"] = (np.arange(len(self.steps)) / fps).tolist()
 
-        # Fetch the last frame index of the previous episode to continue the indexation of "index" if episode is not the first one
+        # Fetch the last index of the previous episode to continue the indexation of "index" if episode is not the first one
         if episode_index > 0:
             previous_episode_path = os.path.join(
                 episodes_path,
                 f"episode_{episode_index - 1:06d}.parquet",
             )
-            # We load only the last frame index of the previous episode
+            # We load only the last index of the previous episode
             previous_episode = pd.read_parquet(
-                previous_episode_path, columns=["frame_index"], filters=None
+                previous_episode_path, columns=["index"], filters=None
             ).tail(1)
-            last_frame_index = 1 + previous_episode["frame_index"].iloc[0]
+            last_index = 1 + previous_episode["index"].iloc[0]
         else:
-            last_frame_index = 0
+            last_index = 0
 
         for frame_index, step in enumerate(self.steps):
             # Fill in the data for each step
@@ -574,7 +574,7 @@ class Episode(BaseModel):
             episode_data["observation.state"].append(
                 step.observation.joints_position.astype(np.float32)
             )
-            episode_data["index"].append(frame_index + last_frame_index)
+            episode_data["index"].append(frame_index + last_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
             assert step.action is not None, (
