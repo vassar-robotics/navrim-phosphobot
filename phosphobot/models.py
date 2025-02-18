@@ -238,6 +238,7 @@ class Episode(BaseModel):
         fps: int,
         codec: VideoCodecs,
         format_to_save: Literal["json", "lerobot_v2"] = "json",
+        last_frame_index: int = 0,
     ):
         """
         Save the episode to a JSON file with numpy array handling for phospho recording to RLDS format
@@ -312,7 +313,10 @@ class Episode(BaseModel):
             )
             lerobot_episode_parquet: LeRobotEpisodeParquet = (
                 self.convert_episode_data_to_LeRobot(
-                    fps=fps, episodes_path=data_path, episode_index=episode_index
+                    fps=fps,
+                    episodes_path=data_path,
+                    episode_index=episode_index,
+                    last_frame_index=last_frame_index,
                 )
             )
             # Ensure the directory for the file exists
@@ -526,6 +530,7 @@ class Episode(BaseModel):
         fps: int,
         episodes_path: str,  # We need the episodes path to load the value of the last frame index
         episode_index: int = 0,
+        last_frame_index: int = 0,
     ):
         """
         Convert a dataset to the LeRobot format
@@ -552,20 +557,6 @@ class Episode(BaseModel):
 
         # episode_data["timestamp"] = [step.observation.timestamp for step in self.steps]
         episode_data["timestamp"] = (np.arange(len(self.steps)) / fps).tolist()
-
-        # Fetch the last frame index of the previous episode to continue the indexation of "index" if episode is not the first one
-        if episode_index > 0:
-            previous_episode_path = os.path.join(
-                episodes_path,
-                f"episode_{episode_index - 1:06d}.parquet",
-            )
-            # We load only the last frame index of the previous episode
-            previous_episode = pd.read_parquet(
-                previous_episode_path, columns=["frame_index"], filters=None
-            ).tail(1)
-            last_frame_index = 1 + previous_episode["frame_index"].iloc[0]
-        else:
-            last_frame_index = 0
 
         for frame_index, step in enumerate(self.steps):
             # Fill in the data for each step
@@ -1201,7 +1192,7 @@ class StatsModel(BaseModel):
 
             logger.info(f"sum_array: {sum_array}")
             logger.info(f"square_sum_array: {square_sum_array}")
-            logger.info(f"frame_count_array: {nb_pixel}")
+            logger.info(f"nb pixel: {nb_pixel}")
 
             # Update the stats_model
             self.observation_images[camera_folder].sum = (
