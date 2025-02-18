@@ -1079,6 +1079,8 @@ class StatsModel(BaseModel):
     def update_before_episode_removal(self, parquet_path: str) -> None:
         """
         Update the stats before removing an episode from the dataset.
+        We do not compute the new min and max.
+        We prefer to do it after the episode removal to directly access new indexes and episodes indexes.
         """
         # Check the parquet file exists
         if not os.path.exists(parquet_path):
@@ -1090,24 +1092,14 @@ class StatsModel(BaseModel):
         deleted_episode_df = pd.read_parquet(parquet_path)
         nb_steps_deleted_episode = len(deleted_episode_df)
 
-        # Load all the other parquet files in one dataFrame
-        all_episodes_df = pd.concat(
-            [
-                pd.read_parquet(str(os.path.join(data_folder_path, file)))
-                for file in os.listdir(data_folder_path)
-                if str(os.path.join(data_folder_path, file)) != parquet_path
-            ]
-        )
-
         # For each column in the parquet file, compute sum along first axis, min/max along last axis
         logger.info("Updating stats before removing episode")
         logger.info(f"Episode df action: {deleted_episode_df['action']}")
 
+        # Compute the sum and square sum for each column
         column_sums = {
             col: {
                 "sum": np.sum(np.array(deleted_episode_df[col].tolist()), axis=0),
-                "max": np.max(np.array(deleted_episode_df[col].tolist()), axis=0),
-                "min": np.min(np.array(deleted_episode_df[col].tolist()), axis=0),
                 "square_sum": np.sum(
                     np.array(deleted_episode_df[col].tolist()) ** 2, axis=0
                 ),
@@ -1117,7 +1109,7 @@ class StatsModel(BaseModel):
         logger.info(f"Column sums: {column_sums}")
         # Update stats for each field in the StatsModel
         for field_name, field in StatsModel.model_fields.items():
-            # task_index is not updated since we do not support multiple tasks
+            # TODO task_index is not updated since we do not support multiple tasks
             # observation_images has a special treatment
             if field_name in ["task_index", "observation_images"]:
                 continue
@@ -1139,27 +1131,7 @@ class StatsModel(BaseModel):
                 field_value.sum -= column_sums[field_name]["sum"]
                 field_value.square_sum -= column_sums[field_name]["square_sum"]
 
-                (min_value, max_value) = get_field_min_max(all_episodes_df, field_name)
                 logger.info(f"Field value sum: {field_value.sum}")
-
-                # Update min/max
-                if (
-                    field_value.min is not None
-                    and column_sums[field_name]["min"] is not None
-                ):
-                    logger.info(f"Updating min for {field_name}")
-                    logger.info(f"Current min: {field_value.min}")
-                    logger.info(f"New min: {min_value}")
-                    field_value.min = min_value
-                if (
-                    field_value.max is not None
-                    and column_sums[field_name]["max"] is not None
-                ):
-                    logger.info(f"Updating max for {field_name}")
-                    logger.info(f"Current max: {field_value.max}")
-                    logger.info(f"New max: {max_value}")
-                    field_value.max = max_value
-                    logger.info(f"Updated max: {field_value.max}")
 
                 # Update count
                 field_value.count -= nb_steps_deleted_episode
@@ -1223,6 +1195,37 @@ class StatsModel(BaseModel):
                 abs((field_value.square_sum / field_value.count) - field_value.mean**2)
             )
             logger.info(f"std: {field_value.std}")
+
+    def update_min_max_after_episode_removal(self, data_folder_path: str) -> None:
+        """
+        Update the min and max in stats after removing an episode from the dataset.
+        Be sure to call this function after update_before_episode_removal and after reindexing the data.
+        """
+
+        # Load all the other parquet files in one dataFrame
+        all_episodes_df = pd.concat(
+            [
+                pd.read_parquet(str(os.path.join(data_folder_path, file)))
+                for file in os.listdir(data_folder_path)
+                if str(os.path.join(data_folder_path, file))
+            ]
+        )
+        for field_name, field in StatsModel.model_fields.items():
+            # TODO task_index is not updated since we do not support multiple tasks
+            if field_name in ["task_index", "observation_images"]:
+                continue
+            logger.info(f"Updating field {field_name}")
+            # Get the field value from the instance
+            field_value = getattr(self, field_name)
+            # Convert observation_state to observation.state
+            field_name = (
+                "observation.state" if field_name == "observation_state" else field_name
+            )
+            # Update statistics
+            if field_name in all_episodes_df.keys():
+                (field_value.min, field_value.max) = get_field_min_max(
+                    all_episodes_df, field_name
+                )
 
 
 class FeatureDetails(BaseModel):
@@ -1430,6 +1433,7 @@ class InfoModel(BaseModel):
                             info=VideoInfo(video_codec=codec, video_fps=fps),
                         )
                     )
+
             return info_model
 
         with open(f"{meta_folder_path}/info.json", "r") as f:
@@ -1703,3 +1707,11 @@ class EpisodesModel(BaseModel):
             for episode in self.episodes
             if episode.episode_index != index_deleted_episode
         ]
+
+        # Extract the episode index from the parquet file name
+        episode_index = int(parquet_path.split("_")[-1].split(".")[0])
+
+        # Reindex the episodes
+        for episode in self.episodes:
+            if episode.episode_index > episode_index:
+                episode.episode_index -= 1
