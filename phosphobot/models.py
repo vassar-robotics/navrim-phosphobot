@@ -1175,16 +1175,20 @@ class StatsModel(BaseModel):
             video_path = os.path.join(
                 folder_videos_path, camera_folder, f"episode_{episode_index:06d}.mp4"
             )
-            sum_array, square_sum_array, frame_count_array = (
+            sum_array, square_sum_array, nb_pixel = (
                 compute_sum_squaresum_framecount_from_video(video_path)
             )
-
+            assert isinstance(nb_pixel, int), "nb_pixel must be an integer"
+            assert isinstance(sum_array, np.ndarray), "sum_array must be a numpy array"
+            assert isinstance(square_sum_array, np.ndarray), (
+                "square_sum_array must be a numpy array"
+            )
             sum_array = sum_array.astype(np.float32)
             square_sum_array = square_sum_array.astype(np.float32)
 
             logger.info(f"sum_array: {sum_array}")
             logger.info(f"square_sum_array: {square_sum_array}")
-            logger.info(f"frame_count_array: {frame_count_array}")
+            logger.info(f"frame_count_array: {nb_pixel}")
 
             # Update the stats_model
             self.observation_images[camera_folder].sum = (
@@ -1194,7 +1198,7 @@ class StatsModel(BaseModel):
                 self.observation_images[camera_folder].square_sum - square_sum_array
             )
             self.observation_images[camera_folder].count = (
-                self.observation_images[camera_folder].count - frame_count_array[0]
+                self.observation_images[camera_folder].count - nb_pixel
             )
             field_value.count -= nb_steps_deleted_episode
             field_value.mean = field_value.sum / field_value.count
