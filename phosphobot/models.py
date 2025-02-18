@@ -1112,16 +1112,20 @@ class StatsModel(BaseModel):
                     field_value.min is not None
                     and column_sums[field_name]["min"] is not None
                 ):
+                    logger.success(f"Field value min before: {field_value.min}")
                     field_value.min = np.minimum(
                         field_value.min, column_sums[field_name]["min"]
                     )
+                    logger.success(f"Field value min after: {field_value.min}")
                 if (
                     field_value.max is not None
                     and column_sums[field_name]["max"] is not None
                 ):
+                    logger.success(f"Field value max before: {field_value.max}")
                     field_value.max = np.maximum(
                         field_value.max, column_sums[field_name]["max"]
                     )
+                    logger.success(f"Field value max after: {field_value.max}")
 
                 # Update count
                 field_value.count -= nb_steps_deleted_episode
