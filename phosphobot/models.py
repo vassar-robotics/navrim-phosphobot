@@ -978,17 +978,24 @@ class StatsModel(BaseModel):
 
             f.write(json.dumps(model_dict, indent=4))
 
-    def update(self, step: Step, episode_index: int, current_step: int) -> None:
+    def update(
+        self,
+        step: Step,
+        episode_index: int,
+        current_step_index: int,
+    ) -> None:
         """
         Updates the stats with the given step.
         """
 
-        self.action.update(step.action)
+        self.action.update(
+            step.observation.joints_position
+        )  # Because action lags behind by one step, we approximate it with the current observation
         self.observation_state.update(step.observation.joints_position)
         self.timestamp.update(np.array([step.observation.timestamp]))
         self.index.update(np.array([self.index.count]))
         self.episode_index.update(np.array([episode_index]))
-        self.frame_index.update(np.array([current_step]))
+        self.frame_index.update(np.array([current_step_index]))
 
         # TODO: Implement multiple language instructions
         # This should be the index of the instruction as it's in tasks.jsonl (TasksModel)
