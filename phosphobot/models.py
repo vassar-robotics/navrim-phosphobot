@@ -353,13 +353,9 @@ class Episode(BaseModel):
                     isinstance(saved_path, tuple)
                     and all(os.path.exists(path) for path in saved_path)
                 ):
-                    logger.info(
-                        f"{'Video' if isinstance(saved_path, str) else 'Stereo video'} saved to {video_path}"
-                    )
+                    logger.info(f"Video {key} {i} saved to {video_path}")
                 else:
-                    logger.error(
-                        f"{'Video' if isinstance(saved_path, str) else 'Stereo video'} not saved to {video_path}"
-                    )
+                    logger.error(f"Video {key} {i} not saved to {video_path}")
 
         # Case where we save the episode in JSON format
         # Save the episode to a JSON file
