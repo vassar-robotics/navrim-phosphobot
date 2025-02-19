@@ -959,7 +959,7 @@ class StatsModel(BaseModel):
             return cls()
 
         with open(f"{meta_folder_path}/stats.json", "r") as f:
-            stats_dict = json.load(f)
+            stats_dict: Dict[str, Stats] = json.load(f)
             # Rename observation.state to observation_state
             stats_dict["observation_state"] = stats_dict.pop("observation.state")
 
@@ -967,7 +967,7 @@ class StatsModel(BaseModel):
             observation_images = {}
             for key in stats_dict.keys():
                 if "images" in key:
-                    observation_images[key] = Stats(**stats_dict.pop(key))
+                    observation_images[key] = stats_dict.pop(key)
 
         # Pass observation_images into the model constructor
         return cls(**stats_dict, observation_images=observation_images)
@@ -990,12 +990,6 @@ class StatsModel(BaseModel):
             model_dict.pop("observation_images")
 
             f.write(json.dumps(model_dict, indent=4))
-
-    def update_previous(self, step: Step) -> None:
-        """
-        Updates the previous action with the given step.
-        """
-        self.action.update(step.action)
 
     def update(
         self,
@@ -1102,9 +1096,9 @@ class StatsModel(BaseModel):
         # Compute the sum and square sum for each column
         column_sums = {
             col: {
-                "sum": np.sum(np.array(deleted_episode_df[col].tolist()), axis=0),
+                "sum": np.array(deleted_episode_df[col].sum(axis=0)),
                 "square_sum": np.sum(
-                    np.array(deleted_episode_df[col].tolist()) ** 2, axis=0
+                    np.array((deleted_episode_df[col] ** 2).sum(axis=0))
                 ),
             }
             for col in deleted_episode_df.columns
@@ -1131,8 +1125,10 @@ class StatsModel(BaseModel):
                 logger.info(f"Field value mean: {field_value.mean}")
 
                 # Subtract sums
-                field_value.sum -= column_sums[field_name]["sum"]
-                field_value.square_sum -= column_sums[field_name]["square_sum"]
+                field_value.sum = field_value.sum - column_sums[field_name]["sum"]
+                field_value.square_sum = (
+                    field_value.square_sum - column_sums[field_name]["square_sum"]
+                )
 
                 logger.info(f"Field value sum: {field_value.sum}")
 
