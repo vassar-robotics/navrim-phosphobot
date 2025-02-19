@@ -268,19 +268,18 @@ def get_field_min_max(df: pd.DataFrame, field_name: str) -> tuple:
 
     # If the field values are lists or arrays, compute element-wise min, max
     if isinstance(sample_value, (list, np.ndarray)):
-        try:
-            logger.debug(f"Computing min/max for field: {field_name}")
-            logger.debug(f"Values: {df[field_name].values}")
-            logger.debug(f"Values type: {type(df[field_name].values)}")
-            stacked = np.stack(df[field_name].tolist(), axis=0)
-        except Exception as e:
+        # Check that df[field_name].values is a np.ndarray
+        array_values = df[field_name].values
+        if not isinstance(array_values, np.ndarray):
             raise ValueError(
-                "Ensure all entries in the field are lists/arrays of the same length."
-            ) from e
-
-        # Compute element-wise minimum along the rows.
-        # TODO: Change that
-        return np.min(stacked, axis=0), np.max(stacked, axis=0)
+                f"Field '{field_name}' values are not stored as a numpy array in the DataFrame"
+            )
+        else:
+            # No overload variant of "vstack" matches argument type "ndarray[Any, Any]"
+            return np.min(np.vstack(array_values), axis=1), np.max(  # type: ignore
+                np.vstack(array_values),  # type: ignore
+                axis=1,
+            )
 
     else:
         # Otherwise, assume the field is numeric and return the scalar min.
