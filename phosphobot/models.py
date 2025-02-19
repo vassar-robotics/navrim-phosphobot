@@ -914,9 +914,12 @@ class Stats(BaseModel):
         # This makes it easier to normalize the imags
         self.mean = self.mean.reshape(3, 1, 1)
         self.std = self.std.reshape(3, 1, 1)
-        if self.min.shape != (3, 1, 3):
+        # For the first episode the shape is (3,)
+        # For the next ones the shape is (3,1,3)
+        # We keep min and max of the first episode only
+        if self.min.shape == (3,):
             self.min = self.min.reshape(3, 1, 1)
-        if self.max.shape != (3, 1, 3):
+        if self.max.shape == (3,):
             self.max = self.max.reshape(3, 1, 1)
 
 
