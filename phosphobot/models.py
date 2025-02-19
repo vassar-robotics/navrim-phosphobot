@@ -170,6 +170,10 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
 
+class BaseCamera(ABC):
+    camera_type: str
+
+
 class Observation(BaseModel):
     # Main image (reference for OpenVLA actions)
     # TODO PLB: what size?
@@ -237,12 +241,13 @@ class Episode(BaseModel):
         fps: int,
         codec: VideoCodecs,
         format_to_save: Literal["json", "lerobot_v2"] = "json",
+        info_model: Optional["InfoModel"] = None,
     ):
         """
         Save the episode to a JSON file with numpy array handling for phospho recording to RLDS format
         Save the episode to a parquet file with an mp4 video for LeRobot recording
 
-        # Episode are saved in a folder with the following structure:
+        Episode are saved in a folder with the following structure:
 
         ---- <folder_name>
         |   ---- json
@@ -277,12 +282,12 @@ class Episode(BaseModel):
         dataset_path = os.path.join(folder_name, format_to_save, dataset_name)
 
         if format_to_save == "lerobot_v2":
+            if not info_model:
+                raise ValueError("InfoModel is required to save in LeRobot format")
+
             data_path = os.path.join(dataset_path, "data", "chunk-000")
             # Ensure there is a older folder_name/episode_format/dataset_name/data/chunk-000/
-            os.makedirs(
-                data_path,
-                exist_ok=True,
-            )
+            os.makedirs(data_path, exist_ok=True)
 
             # Check the elements in the folder folder_name/lerobot_v2-format/dataset_name/data/chunk-000/
             # the episode index is the max index + 1
@@ -300,97 +305,53 @@ class Episode(BaseModel):
                 else 0
             )
 
-            secondary_camera_frames = self.get_frames_secondary_cameras()
-
-            filename = os.path.join(
+            parquet_filename = os.path.join(
                 data_path,
                 f"episode_{episode_index:06d}.parquet",
             )
-            logger.debug(
-                f"Saving Episode {episode_index} data in LeRobot format to: {filename}"
-            )
-            lerobot_episode_parquet: LeRobotEpisodeParquet = (
+            lerobot_episode_parquet: LeRobotEpisodeModel = (
                 self.convert_episode_data_to_LeRobot(
                     fps=fps, episodes_path=data_path, episode_index=episode_index
                 )
             )
-            # Ensure the directory for the file exists
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
-            df = pd.DataFrame(lerobot_episode_parquet.model_dump())
+            lerobot_episode_parquet.to_parquet(parquet_filename)
 
-            # Rename observation_state to observation.state
-            df.rename(columns={"observation_state": "observation.state"}, inplace=True)
-            df.to_parquet(filename, index=False)
-
-            logger.info(f"Data of episode {episode_index} saved to {filename}")
-
-            def create_video_path(folder_name: str, camera_name: str) -> str:
-                logger.info(f"Creating video path for {camera_name}")
-                return os.path.join(
+            # Create the main video file and path
+            # Get the video_path from the InfoModel
+            secondary_camera_frames = self.get_frames_secondary_cameras()
+            for i, (key, feature) in enumerate(
+                info_model.features.observation_images.items()
+            ):
+                if i == 0:
+                    # First video is the main camera
+                    frames = np.array(self.get_frames_main_camera())
+                else:
+                    # Following videos are the secondary cameras
+                    frames = np.array(secondary_camera_frames[i - 1])
+                video_path = os.path.join(
                     folder_name,
                     "lerobot_v2",
                     dataset_name,
+                    # TODO: Support chunking
                     "videos/chunk-000",
-                    f"observation.images.{camera_name}/episode_{episode_index:06d}.mp4",
+                    f"{key}/episode_{episode_index:06d}.mp4",
                 )
-
-            # numpy are shape: height, width, channels
-            img_shape = self.steps[0].observation.main_image.shape[:2]
-            main_camera_size = (img_shape[1], img_shape[0])
-
-            assert len(main_camera_size) == 2, "Main camera size must be 2D"
-
-            logger.debug(f"Main camera target size: {main_camera_size}")
-
-            # Create the main video file and path
-            video_path = create_video_path(folder_name, "main")
-            saved_path = create_video_file(
-                frames=np.array(self.get_frames_main_camera()),
-                target_size=main_camera_size,
-                output_path=video_path,
-                fps=fps,
-                codec=codec,
-            )
-            # check if the video was saved
-            if (isinstance(saved_path, str) and os.path.exists(saved_path)) or (
-                isinstance(saved_path, tuple)
-                and all(os.path.exists(path) for path in saved_path)
-            ):
-                logger.info(
-                    f"{'Video' if isinstance(saved_path, str) else 'Stereo video'} saved to {video_path}"
-                )
-            else:
-                logger.error(
-                    f"{'Video' if isinstance(saved_path, str) else 'Stereo video'} not saved to {video_path}"
-                )
-
-            # Create the secondary camera videos and paths
-            for index, camera_frames in enumerate(secondary_camera_frames):
-                video_path = create_video_path(folder_name, f"secondary_{index}")
-                img_shape = camera_frames[0].shape
-                logger.debug(f"Secondary cameras are arrays of dimension: {img_shape}")
-                secondary_camera_image_size = (img_shape[1], img_shape[0])
-                logger.debug(
-                    f"Secondary cameras target size: {secondary_camera_image_size}"
-                )
-                if len(secondary_camera_image_size) != 2:
-                    logger.error(
-                        f"Secondary camera {index} image must be 2D, skipping video creation"
-                    )
-                    continue
-
-                os.makedirs(os.path.dirname(video_path), exist_ok=True)
-                create_video_file(
-                    target_size=secondary_camera_image_size,
-                    frames=camera_frames,
+                saved_path = create_video_file(
+                    frames=frames,
                     output_path=video_path,
-                    fps=fps,
-                    codec=codec,
+                    target_size=(feature.shape[1], feature.shape[0]),
+                    fps=feature.info.video_fps,
+                    codec=feature.info.video_codec,
                 )
-                if os.path.exists(video_path):
-                    logger.info(f"Video for camera {index} saved to {video_path}")
+
+                # Check if the video was saved
+                if (isinstance(saved_path, str) and os.path.exists(saved_path)) or (
+                    isinstance(saved_path, tuple)
+                    and all(os.path.exists(path) for path in saved_path)
+                ):
+                    logger.info(f"Video {key} {i} saved to {video_path}")
                 else:
-                    logger.error(f"Video for camera {index} not saved to {video_path}")
+                    logger.error(f"Video {key} {i} not saved to {video_path}")
 
         # Case where we save the episode in JSON format
         # Save the episode to a JSON file
@@ -577,9 +538,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -592,7 +553,7 @@ class Episode(BaseModel):
                 "All frames must have the same dimensions and be 3-channel RGB images."
             )
 
-        return LeRobotEpisodeParquet(
+        return LeRobotEpisodeModel(
             action=episode_data["action"],
             observation_state=episode_data["observation.state"],
             timestamp=episode_data["timestamp"],
@@ -651,9 +612,11 @@ class Episode(BaseModel):
         return all_images
 
 
-class LeRobotEpisodeParquet(BaseModel):
+class LeRobotEpisodeModel(BaseModel):
     """
-    Episode class for LeRobot
+    Data model for LeRobot episode in Parquet format
+
+    Stored in a parquet in dataset_name/data/chunk-000/episode_xxxxxx.parquet
     """
 
     action: List[List[float]]
@@ -686,6 +649,15 @@ class LeRobotEpisodeParquet(BaseModel):
                 "All items in LeRobotEpisodeParquet must have the same length."
             )
         return values
+
+    def to_parquet(self, filename: str):
+        """
+        Save the episode to a Parquet file
+        """
+        df = pd.DataFrame(self.model_dump())
+        # Rename the columns to match the expected names in the Parquet file
+        df.rename(columns={"observation_state": "observation.state"}, inplace=True)
+        df.to_parquet(filename, index=False)
 
 
 class Dataset(BaseModel):
@@ -1201,16 +1173,17 @@ class InfoModel(BaseModel):
         fps: int | None = None,
         codec: VideoCodecs | None = None,
         robot: BaseRobot | None = None,
-        main_image: np.ndarray | None = None,
-        secondary_images: List[np.ndarray] | None = None,
+        target_size: tuple[int, int] | None = None,
+        secondary_cameras: List[BaseCamera] | None = None,
         main_is_stereo: bool = False,
     ) -> "InfoModel":
         """
         Read the info.json file in the meta folder path.
-        If the file does not exist, try to create the InfoModel from the provided robot.
+        If the file does not exist, try to create the InfoModel from the provided data.
 
-        raise ValueError if no robot is provided and the file does not exist.
+        raise ValueError if the file does not exist and no data is provided to create the InfoModel.
         """
+        # Check if the file existes.
         if (
             not os.path.exists(f"{meta_folder_path}/info.json")
             or os.stat(f"{meta_folder_path}/info.json").st_size == 0
@@ -1223,49 +1196,69 @@ class InfoModel(BaseModel):
                 raise ValueError("No codec provided to create the InfoModel")
             if fps is None:
                 raise ValueError("No fps provided to create the InfoModel")
+            if target_size is None:
+                raise ValueError("No target_size provided to create the InfoModel")
+            if secondary_cameras is None:
+                raise ValueError(
+                    "No secondary_camera_ids provided to create the InfoModel"
+                )
 
             info_model = cls.from_robot(robot)
-            if main_image is not None:
-                if not main_is_stereo:
-                    info_model.features.observation_images[
-                        "observation.images.main"
-                    ] = VideoFeatureDetails(
-                        shape=list(main_image.shape),
-                        names=["height", "width", "channel"],
-                        info=VideoInfo(video_codec=codec, video_fps=fps),
-                    )
-                else:
-                    # Split along the width in 2 imaes
-                    new_shape = [
-                        main_image.shape[0],
-                        main_image.shape[1] // 2,
-                        main_image.shape[2],
-                    ]
-                    info_model.features.observation_images[
-                        "observation.images.main.left"
-                    ] = VideoFeatureDetails(
-                        shape=new_shape,
-                        names=["height", "width", "channel"],
-                        info=VideoInfo(video_codec=codec, video_fps=fps),
-                    )
-                    info_model.features.observation_images[
-                        "observation.images.main.right"
-                    ] = VideoFeatureDetails(
-                        shape=new_shape,
-                        names=["height", "width", "channel"],
-                        info=VideoInfo(video_codec=codec, video_fps=fps),
-                    )
+            video_shape = [target_size[1], target_size[0], 3]
+            video_info = VideoInfo(video_codec=codec, video_fps=fps)
 
-            if secondary_images is not None:
-                for index_image, image in enumerate(secondary_images):
-                    key_name = f"observation.images.secondary_{index_image}"
+            if not main_is_stereo:
+                info_model.features.observation_images["observation.images.main"] = (
+                    VideoFeatureDetails(
+                        shape=video_shape,
+                        names=["height", "width", "channel"],
+                        info=video_info,
+                    )
+                )
+            else:
+                # Two images: left and right
+                info_model.features.observation_images[
+                    "observation.images.main.left"
+                ] = VideoFeatureDetails(
+                    shape=video_shape,
+                    names=["height", "width", "channel"],
+                    info=video_info,
+                )
+                info_model.features.observation_images[
+                    "observation.images.main.right"
+                ] = VideoFeatureDetails(
+                    shape=video_shape,
+                    names=["height", "width", "channel"],
+                    info=video_info,
+                )
+            # Add secondary cameras
+            for camera_id, camera in enumerate(secondary_cameras):
+                if camera.camera_type != "stereo":
+                    key_name = f"observation.images.secondary_{camera_id}"
                     info_model.features.observation_images[key_name] = (
                         VideoFeatureDetails(
-                            shape=list(image.shape),
+                            shape=video_shape,
                             names=["height", "width", "channel"],
-                            info=VideoInfo(video_codec=codec, video_fps=fps),
+                            info=video_info,
                         )
                     )
+                else:
+                    key_name = f"observation.images.secondary_{camera_id}"
+                    info_model.features.observation_images[f"{key_name}.left"] = (
+                        VideoFeatureDetails(
+                            shape=video_shape,
+                            names=["height", "width", "channel"],
+                            info=video_info,
+                        )
+                    )
+                    info_model.features.observation_images[f"{key_name}.right"] = (
+                        VideoFeatureDetails(
+                            shape=video_shape,
+                            names=["height", "width", "channel"],
+                            info=video_info,
+                        )
+                    )
+
             return info_model
 
         with open(f"{meta_folder_path}/info.json", "r") as f:
