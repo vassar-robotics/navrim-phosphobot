@@ -4,6 +4,7 @@ import json
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
+import shutil
 from typing import Dict, List, Literal, Optional, Union
 
 from huggingface_hub import (
@@ -11,6 +12,8 @@ from huggingface_hub import (
     create_branch,
     create_repo,
     delete_file,
+    delete_folder,
+    delete_repo,
     upload_folder,
 )
 import numpy as np
@@ -29,7 +32,9 @@ from phosphobot.utils import (
 )
 from phosphobot.types import VideoCodecs
 
+# Cannot find implementation or library stub for module named "teleop.teleop.utils"
 from teleop.teleop.utils import get_hf_username_or_orgid  # type: ignore
+from training.phospho_lerobot.scripts.push_dataset_to_hf import push_dataset_to_hub  # type: ignore
 
 
 class BaseRobotPIDGains(BaseModel):
@@ -752,7 +757,7 @@ class Dataset(BaseModel):
             else f"episode_{episode_id:06d}.{self.data_file_extension}"
         )
 
-    def push_to_hub(self, token: str | None = None):
+    def push_to_hub(self):
         """Reupload the dataset folder to HuggingFace"""
         username_or_orgid = get_hf_username_or_orgid()
         if username_or_orgid is None:
@@ -765,11 +770,68 @@ class Dataset(BaseModel):
             self.get_repo_id()
         ):
             upload_folder(
-                folder_path=os.path.join(ROOT_DIR, path),
-                repo_id=repo_id,
+                folder_path=self.folder_full_path,
+                repo_id=self.get_repo_id(),
                 repo_type="dataset",
                 token=True,
             )
+
+    def sync_local_to_hub(self):
+        # Reupload the dataset folder to HuggingFace
+        username_or_orgid = get_hf_username_or_orgid()
+        if username_or_orgid is None:
+            logger.warning(
+                "No HuggingFace token found. Please add a token in the Admin page.",
+            )
+            return
+
+        HF_API = HfApi()
+        repository_exists = HF_API.repo_exists(
+            repo_id=self.get_repo_id(), repo_type="dataset"
+        )
+
+        # If the repository does not exist, push the dataset to HuggingFace
+        if not repository_exists:
+            push_dataset_to_hub(
+                dataset_path=self.data_folder_full_path, dataset_name=self.dataset_name
+            )
+
+        # else, Delete the folders and reupload the dataset.
+        else:
+            # Delete the dataset folders from HuggingFace
+            delete_folder(
+                repo_id=self.get_repo_id(), path_in_repo="./data", repo_type="dataset"
+            )
+            delete_folder(
+                repo_id=self.get_repo_id(), path_in_repo="./videos", repo_type="dataset"
+            )
+            delete_folder(
+                repo_id=self.get_repo_id(), path_in_repo="./meta", repo_type="dataset"
+            )
+            # Reupload the dataset folder to HuggingFace
+            upload_folder(
+                folder_path=self.folder_full_path,
+                repo_id=self.get_repo_id(),
+                repo_type="dataset",
+            )
+
+    def delete(self) -> None:
+        """Delete the dataset from the local folder and HuggingFace"""
+        # Delete locally
+        if not os.path.exists(self.folder_full_path):
+            logger.error(f"Dataset not found in {self.folder_full_path}")
+            return
+
+        # Remove the data file if confirmation is correct
+        if os.path.isdir(self.folder_full_path):
+            shutil.rmtree(self.folder_full_path)
+            logger.success(f"Dataset deleted: {self.folder_full_path}")
+        else:
+            logger.error(f"The Dataset is a file: {self.folder_full_path}")
+
+        # Remove the dataset from HuggingFace
+        if self.check_repo_exists(self.get_repo_id()):
+            delete_repo(repo_id=self.get_repo_id(), repo_type="dataset")
 
     def reindex_episodes(
         self,
@@ -1495,7 +1557,7 @@ class StatsModel(BaseModel):
             sum_array = sum_array.astype(np.float32)
             square_sum_array = square_sum_array.astype(np.float32)
 
-            # Update the stats_model
+            # Update the stats_model for sum square_sum and count
             self.observation_images[camera_folder].sum = (
                 self.observation_images[camera_folder].sum - sum_array
             )
@@ -1505,16 +1567,20 @@ class StatsModel(BaseModel):
             self.observation_images[camera_folder].count = (
                 self.observation_images[camera_folder].count - nb_pixel
             )
-            # Update the stats_model
-            # TODO: Fix MyPy error check that arrays are not None
-            self.observation_images[camera_folder].mean = (
-                self.observation_images[camera_folder].sum
-                / self.observation_images[camera_folder].count
-            )
-            self.observation_images[camera_folder].square_sum = (
-                self.observation_images[camera_folder].square_sum
-                - self.observation_images[camera_folder].mean ** 2
-            )
+            # Update the stats_model for mean and std
+            if (
+                self.observation_images[camera_folder].sum is not None
+                and self.observation_images[camera_folder].count
+            ):
+                mean_val = (
+                    np.array(self.observation_images[camera_folder].sum)
+                    / self.observation_images[camera_folder].count
+                )
+                self.observation_images[camera_folder].mean = mean_val
+                self.observation_images[camera_folder].square_sum = (
+                    self.observation_images[camera_folder].square_sum
+                    - np.square(mean_val)
+                )
 
     def update_min_max_for_episode_removal(self, data_folder_path: str) -> None:
         """
