@@ -170,6 +170,10 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
 
+class BaseCamera(ABC):
+    camera_type: str
+
+
 class Observation(BaseModel):
     # Main image (reference for OpenVLA actions)
     # TODO PLB: what size?
@@ -577,9 +581,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -1201,16 +1205,17 @@ class InfoModel(BaseModel):
         fps: int | None = None,
         codec: VideoCodecs | None = None,
         robot: BaseRobot | None = None,
-        main_image: np.ndarray | None = None,
-        secondary_images: List[np.ndarray] | None = None,
+        target_size: tuple[int, int] | None = None,
+        secondary_cameras: List[BaseCamera] | None = None,
         main_is_stereo: bool = False,
     ) -> "InfoModel":
         """
         Read the info.json file in the meta folder path.
-        If the file does not exist, try to create the InfoModel from the provided robot.
+        If the file does not exist, try to create the InfoModel from the provided data.
 
-        raise ValueError if no robot is provided and the file does not exist.
+        raise ValueError if the file does not exist and no data is provided to create the InfoModel.
         """
+        # Check if the file existes.
         if (
             not os.path.exists(f"{meta_folder_path}/info.json")
             or os.stat(f"{meta_folder_path}/info.json").st_size == 0
@@ -1223,49 +1228,69 @@ class InfoModel(BaseModel):
                 raise ValueError("No codec provided to create the InfoModel")
             if fps is None:
                 raise ValueError("No fps provided to create the InfoModel")
+            if target_size is None:
+                raise ValueError("No target_size provided to create the InfoModel")
+            if secondary_cameras is None:
+                raise ValueError(
+                    "No secondary_camera_ids provided to create the InfoModel"
+                )
 
             info_model = cls.from_robot(robot)
-            if main_image is not None:
-                if not main_is_stereo:
-                    info_model.features.observation_images[
-                        "observation.images.main"
-                    ] = VideoFeatureDetails(
-                        shape=list(main_image.shape),
-                        names=["height", "width", "channel"],
-                        info=VideoInfo(video_codec=codec, video_fps=fps),
-                    )
-                else:
-                    # Split along the width in 2 imaes
-                    new_shape = [
-                        main_image.shape[0],
-                        main_image.shape[1] // 2,
-                        main_image.shape[2],
-                    ]
-                    info_model.features.observation_images[
-                        "observation.images.main.left"
-                    ] = VideoFeatureDetails(
-                        shape=new_shape,
-                        names=["height", "width", "channel"],
-                        info=VideoInfo(video_codec=codec, video_fps=fps),
-                    )
-                    info_model.features.observation_images[
-                        "observation.images.main.right"
-                    ] = VideoFeatureDetails(
-                        shape=new_shape,
-                        names=["height", "width", "channel"],
-                        info=VideoInfo(video_codec=codec, video_fps=fps),
-                    )
+            video_shape = [target_size[1], target_size[0], 3]
+            video_info = VideoInfo(video_codec=codec, video_fps=fps)
 
-            if secondary_images is not None:
-                for index_image, image in enumerate(secondary_images):
-                    key_name = f"observation.images.secondary_{index_image}"
+            if not main_is_stereo:
+                info_model.features.observation_images["observation.images.main"] = (
+                    VideoFeatureDetails(
+                        shape=video_shape,
+                        names=["height", "width", "channel"],
+                        info=video_info,
+                    )
+                )
+            else:
+                # Two images: left and right
+                info_model.features.observation_images[
+                    "observation.images.main.left"
+                ] = VideoFeatureDetails(
+                    shape=video_shape,
+                    names=["height", "width", "channel"],
+                    info=video_info,
+                )
+                info_model.features.observation_images[
+                    "observation.images.main.right"
+                ] = VideoFeatureDetails(
+                    shape=video_shape,
+                    names=["height", "width", "channel"],
+                    info=video_info,
+                )
+            # Add secondary cameras
+            for camera_id, camera in enumerate(secondary_cameras):
+                if camera.camera_type != "stereo":
+                    key_name = f"observation.images.secondary_{camera_id}"
                     info_model.features.observation_images[key_name] = (
                         VideoFeatureDetails(
-                            shape=list(image.shape),
+                            shape=video_shape,
                             names=["height", "width", "channel"],
-                            info=VideoInfo(video_codec=codec, video_fps=fps),
+                            info=video_info,
                         )
                     )
+                else:
+                    key_name = f"observation.images.secondary_{camera_id}"
+                    info_model.features.observation_images[f"{key_name}.left"] = (
+                        VideoFeatureDetails(
+                            shape=video_shape,
+                            names=["height", "width", "channel"],
+                            info=video_info,
+                        )
+                    )
+                    info_model.features.observation_images[f"{key_name}.right"] = (
+                        VideoFeatureDetails(
+                            shape=video_shape,
+                            names=["height", "width", "channel"],
+                            info=video_info,
+                        )
+                    )
+
             return info_model
 
         with open(f"{meta_folder_path}/info.json", "r") as f:
