@@ -309,16 +309,12 @@ class Episode(BaseModel):
                 data_path,
                 f"episode_{episode_index:06d}.parquet",
             )
-            lerobot_episode_parquet: LeRobotEpisodeParquet = (
+            lerobot_episode_parquet: LeRobotEpisodeModel = (
                 self.convert_episode_data_to_LeRobot(
                     fps=fps, episodes_path=data_path, episode_index=episode_index
                 )
             )
-            df = pd.DataFrame(lerobot_episode_parquet.model_dump())
-
-            # Rename observation_state to observation.state
-            df.rename(columns={"observation_state": "observation.state"}, inplace=True)
-            df.to_parquet(parquet_filename, index=False)
+            lerobot_episode_parquet.to_parquet(parquet_filename)
 
             # Create the main video file and path
             # Get the video_path from the InfoModel
@@ -557,7 +553,7 @@ class Episode(BaseModel):
                 "All frames must have the same dimensions and be 3-channel RGB images."
             )
 
-        return LeRobotEpisodeParquet(
+        return LeRobotEpisodeModel(
             action=episode_data["action"],
             observation_state=episode_data["observation.state"],
             timestamp=episode_data["timestamp"],
@@ -616,9 +612,11 @@ class Episode(BaseModel):
         return all_images
 
 
-class LeRobotEpisodeParquet(BaseModel):
+class LeRobotEpisodeModel(BaseModel):
     """
-    Episode class for LeRobot
+    Data model for LeRobot episode in Parquet format
+
+    Stored in a parquet in dataset_name/data/chunk-000/episode_xxxxxx.parquet
     """
 
     action: List[List[float]]
@@ -651,6 +649,15 @@ class LeRobotEpisodeParquet(BaseModel):
                 "All items in LeRobotEpisodeParquet must have the same length."
             )
         return values
+
+    def to_parquet(self, filename: str):
+        """
+        Save the episode to a Parquet file
+        """
+        df = pd.DataFrame(self.model_dump())
+        # Rename the columns to match the expected names in the Parquet file
+        df.rename(columns={"observation_state": "observation.state"}, inplace=True)
+        df.to_parquet(filename, index=False)
 
 
 class Dataset(BaseModel):
