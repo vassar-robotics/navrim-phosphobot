@@ -965,7 +965,9 @@ class StatsModel(BaseModel):
 
             # Create a temporary dictionary for observation_images
             observation_images = {}
-            for key in stats_dict.keys():
+            # We need to create a list of keys in order not to modify
+            # the dictionary while iterating over it
+            for key in list(stats_dict.keys()):
                 if "images" in key:
                     observation_images[key] = stats_dict.pop(key)
 
@@ -1073,36 +1075,34 @@ class StatsModel(BaseModel):
 
         self.to_json(meta_folder_path)
 
-    def update_before_episode_removal(self, parquet_path: str) -> None:
+    def update_before_episode_removal(self, parquet_to_remove_path: str) -> None:
         """
         Update the stats before removing an episode from the dataset.
         We do not compute the new min and max.
         We prefer to do it after the episode removal to directly access new indexes and episodes indexes.
         """
         # Check the parquet file exists
-        if not os.path.exists(parquet_path):
-            raise ValueError(f"Parquet file {parquet_path} does not exist")
+        if not os.path.exists(parquet_to_remove_path):
+            raise ValueError(f"Parquet file {parquet_to_remove_path} does not exist")
 
-        data_folder_path = "/".join(parquet_path.split("/")[:-1])
+        data_folder_path = "/".join(parquet_to_remove_path.split("/")[:-1])
 
         # Load the parquet file
-        deleted_episode_df = pd.read_parquet(parquet_path)
+        deleted_episode_df = pd.read_parquet(parquet_to_remove_path)
         nb_steps_deleted_episode = len(deleted_episode_df)
 
-        # For each column in the parquet file, compute sum along first axis, min/max along last axis
-        logger.info("Updating stats before removing episode")
-        logger.info(f"Episode df action: {deleted_episode_df['action']}")
+        logger.warning(f"Columns summed: {deleted_episode_df.sum(axis=0)}")
+        logger.warning(f"Columns square summed: {(deleted_episode_df**2).sum(axis=0)}")
 
         # Compute the sum and square sum for each column
         column_sums = {
             col: {
-                "sum": np.array(deleted_episode_df[col].sum(axis=0)),
-                "square_sum": np.sum(
-                    np.array((deleted_episode_df[col] ** 2).sum(axis=0))
-                ),
+                "sum": (deleted_episode_df[col].sum(axis=0)).to_numpy(),
+                "square_sum": ((deleted_episode_df[col] ** 2).sum(axis=0)).to_numpy(),
             }
             for col in deleted_episode_df.columns
         }
+
         logger.info(f"Column sums: {column_sums}")
         # Update stats for each field in the StatsModel
         for field_name, field in StatsModel.model_fields.items():
@@ -1146,11 +1146,11 @@ class StatsModel(BaseModel):
         # For image we need to load the mp4 video
         logger.info("Updating stats for images")
         # Extract the episode index from the parquet file name
-        episode_index = int(parquet_path.split("_")[-1].split(".")[0])
+        episode_index = int(parquet_to_remove_path.split("_")[-1].split(".")[0])
 
         # List cameras_folder:
         folder_videos_path = (
-            "/".join(parquet_path.split("/")[:-3]) + "/videos/chunk-000"
+            "/".join(parquet_to_remove_path.split("/")[:-3]) + "/videos/chunk-000"
         )
 
         cameras_folder = os.listdir(folder_videos_path)
@@ -1480,16 +1480,16 @@ class InfoModel(BaseModel):
         """
         self.to_json(meta_folder_path)
 
-    def update_before_episode_removal(self, parquet_path: str) -> None:
+    def update_before_episode_removal(self, parquet_to_remove_path: str) -> None:
         """
         Update the info before removing an episode from the dataset.
         """
         # Ensure the parquet file exist
-        if not os.path.exists(parquet_path):
-            raise ValueError(f"Parquet file {parquet_path} does not exist.")
+        if not os.path.exists(parquet_to_remove_path):
+            raise ValueError(f"Parquet file {parquet_to_remove_path} does not exist.")
 
         # Load parquet file with pandas
-        df_episode = pd.read_parquet(parquet_path)
+        df_episode = pd.read_parquet(parquet_to_remove_path)
 
         self.total_episodes -= 1
         self.total_frames -= len(df_episode)
@@ -1562,21 +1562,21 @@ class TasksModel(BaseModel):
                 )
             )
 
-    def update_before_episode_removal(self, parquet_path: str) -> None:
+    def update_before_episode_removal(self, parquet_to_remove_path: str) -> None:
         """
         Update the tasks before removing an episode from the dataset.
         We count the number of occurences of task_index in the dataset.
         If the episode is the only one with this task_index, we remove it from the tasks.jsonl file.
         """
         # Ensure the parquet file exist
-        if not os.path.exists(parquet_path):
-            raise ValueError(f"Parquet file {parquet_path} does not exist.")
+        if not os.path.exists(parquet_to_remove_path):
+            raise ValueError(f"Parquet file {parquet_to_remove_path} does not exist.")
 
         # Load parquet file with pandas
-        df_episode = pd.read_parquet(parquet_path)
+        df_episode = pd.read_parquet(parquet_to_remove_path)
 
         # Create the path of the data folder
-        parquet_path_parts = parquet_path.split("/")
+        parquet_path_parts = parquet_to_remove_path.split("/")
         data_folder_path = "/".join(parquet_path_parts[:-2])
 
         # For each file in the data folder get the task indexes (unique)
@@ -1688,17 +1688,17 @@ class EpisodesModel(BaseModel):
             for episode in self.episodes:
                 f.write(episode.model_dump_json() + "\n")
 
-    def update_before_episode_removal(self, parquet_path: str):
+    def update_before_episode_removal(self, parquet_to_remove_path: str):
         """
         Update the episodes model before removing an episode from the dataset.
         We just remove the line corresponding to the episode_index of the parquet file.
         """
         # Ensure the parquet file exist
-        if not os.path.exists(parquet_path):
-            raise ValueError(f"Parquet file {parquet_path} does not exist.")
+        if not os.path.exists(parquet_to_remove_path):
+            raise ValueError(f"Parquet file {parquet_to_remove_path} does not exist.")
 
         index_deleted_episode = int(
-            parquet_path.split("/")[-1].split(".")[0].split("_")[-1]
+            parquet_to_remove_path.split("/")[-1].split(".")[0].split("_")[-1]
         )
 
         self.episodes = [
@@ -1708,7 +1708,7 @@ class EpisodesModel(BaseModel):
         ]
 
         # Extract the episode index from the parquet file name
-        episode_index = int(parquet_path.split("_")[-1].split(".")[0])
+        episode_index = int(parquet_to_remove_path.split("_")[-1].split(".")[0])
 
         # Reindex the episodes
         for episode in self.episodes:
