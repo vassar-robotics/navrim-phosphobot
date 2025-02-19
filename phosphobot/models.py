@@ -854,8 +854,8 @@ class Stats(BaseModel):
             self.square_sum = value**2
             self.count = 1
         else:
-            self.sum += value
-            self.square_sum += value**2
+            self.sum = self.sum + value
+            self.square_sum = self.square_sum + value**2
             self.count += 1
 
     def compute_from_rolling(self):
@@ -899,8 +899,8 @@ class Stats(BaseModel):
             self.square_sum = np.sum(image_norm_32**2, axis=(0, 1))
             self.count = nb_pixels
         else:
-            self.sum += np.sum(image_norm_32, axis=(0, 1))
-            self.square_sum += np.sum(image_norm_32**2, axis=(0, 1))
+            self.sum = self.sum + np.sum(image_norm_32, axis=(0, 1))
+            self.square_sum = self.square_sum + np.sum(image_norm_32**2, axis=(0, 1))
             self.count += nb_pixels
 
     def compute_from_rolling_images(self):
