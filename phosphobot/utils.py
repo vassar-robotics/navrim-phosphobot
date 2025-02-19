@@ -199,7 +199,7 @@ def get_home_app_path() -> Path:
 
 def compute_sum_squaresum_framecount_from_video(
     video_path: str,
-) -> List[np.ndarray | int]:
+) -> Tuple[np.ndarray, np.ndarray, int]:
     """
     Process a video file and calculate the sum of RGB values and sum of squares of RGB values for each frame.
     Returns a list of np.ndarray corresponding respectively to the sum of RGB values, sum of squares of RGB values and nb_pixel.
@@ -240,7 +240,7 @@ def compute_sum_squaresum_framecount_from_video(
     # Release the video capture object
     # TODO: If problem of dimension maybe transposing arrays is needed.
     cap.release()
-    return [total_sum_rgb, total_sum_squares, nb_pixel]
+    return (total_sum_rgb, total_sum_squares, nb_pixel)
 
 
 def get_field_min_max(df: pd.DataFrame, field_name: str) -> tuple:
@@ -252,7 +252,7 @@ def get_field_min_max(df: pd.DataFrame, field_name: str) -> tuple:
 
     Parameters:
         df (pd.DataFrame): DataFrame containing the data.
-        field_name (str): The name of the field/column to compute the min for.
+        field_name (str): The name of the field/column to compute the min,max for.
 
     Returns:
         The minimum value(s) for the specified field.
@@ -269,7 +269,10 @@ def get_field_min_max(df: pd.DataFrame, field_name: str) -> tuple:
     # If the field values are lists or arrays, compute element-wise min, max
     if isinstance(sample_value, (list, np.ndarray)):
         try:
-            array_values = df[field_name].values
+            logger.debug(f"Computing min/max for field: {field_name}")
+            logger.debug(f"Values: {df[field_name].values}")
+            logger.debug(f"Values type: {type(df[field_name].values)}")
+            stacked = np.stack(df[field_name].tolist(), axis=0)
         except Exception as e:
             raise ValueError(
                 "Ensure all entries in the field are lists/arrays of the same length."
@@ -277,7 +280,7 @@ def get_field_min_max(df: pd.DataFrame, field_name: str) -> tuple:
 
         # Compute element-wise minimum along the rows.
         # TODO: Change that
-        return 0, 0
+        return np.min(stacked, axis=0), np.max(stacked, axis=0)
 
     else:
         # Otherwise, assume the field is numeric and return the scalar min.

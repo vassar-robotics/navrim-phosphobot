@@ -555,42 +555,6 @@ class Episode(BaseModel):
             index=episode_data["index"],
         )
 
-    def get_delta_joints_position(self) -> np.ndarray:
-        """
-        Return the delta joints position between each step
-        """
-
-        deltas_joints_position = np.diff(
-            np.array([step.observation.joints_position for step in self.steps]),
-            axis=0,
-        )
-
-        deltas_joints_position = np.vstack(
-            [deltas_joints_position, np.zeros_like(deltas_joints_position[0])]
-        )
-
-        return deltas_joints_position
-
-    def get_fps(self) -> float:
-        """
-        Return the average FPS of the episode
-        """
-        # Calculate FPS for each episode
-
-        timestamps = np.array([step.observation.timestamp for step in self.steps])
-        if (
-            len(timestamps) > 1
-        ):  # Ensure we have at least 2 timestamps to calculate diff
-            fps = 1 / np.mean(np.diff(timestamps))
-
-        return fps
-
-    def get_episode_chunk(self) -> int:
-        """
-        Return the episode chunk
-        """
-        raise NotImplementedError
-
     def get_frames_main_camera(self) -> List[np.ndarray]:
         """
         Return the frames of the main camera
