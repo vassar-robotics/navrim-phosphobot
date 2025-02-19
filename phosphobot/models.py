@@ -287,10 +287,7 @@ class Episode(BaseModel):
 
             data_path = os.path.join(dataset_path, "data", "chunk-000")
             # Ensure there is a older folder_name/episode_format/dataset_name/data/chunk-000/
-            os.makedirs(
-                data_path,
-                exist_ok=True,
-            )
+            os.makedirs(data_path, exist_ok=True)
 
             # Check the elements in the folder folder_name/lerobot_v2-format/dataset_name/data/chunk-000/
             # the episode index is the max index + 1
@@ -308,31 +305,24 @@ class Episode(BaseModel):
                 else 0
             )
 
-            secondary_camera_frames = self.get_frames_secondary_cameras()
-
-            filename = os.path.join(
+            parquet_filename = os.path.join(
                 data_path,
                 f"episode_{episode_index:06d}.parquet",
-            )
-            logger.debug(
-                f"Saving Episode {episode_index} data in LeRobot format to: {filename}"
             )
             lerobot_episode_parquet: LeRobotEpisodeParquet = (
                 self.convert_episode_data_to_LeRobot(
                     fps=fps, episodes_path=data_path, episode_index=episode_index
                 )
             )
-            # Ensure the directory for the file exists
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
             df = pd.DataFrame(lerobot_episode_parquet.model_dump())
 
             # Rename observation_state to observation.state
             df.rename(columns={"observation_state": "observation.state"}, inplace=True)
-            df.to_parquet(filename, index=False)
+            df.to_parquet(parquet_filename, index=False)
 
-            logger.info(f"Data of episode {episode_index} saved to {filename}")
             # Create the main video file and path
             # Get the video_path from the InfoModel
+            secondary_camera_frames = self.get_frames_secondary_cameras()
             for i, (key, feature) in enumerate(
                 info_model.features.observation_images.items()
             ):
