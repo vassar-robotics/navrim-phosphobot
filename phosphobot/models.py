@@ -1085,8 +1085,6 @@ class StatsModel(BaseModel):
         if not os.path.exists(parquet_to_remove_path):
             raise ValueError(f"Parquet file {parquet_to_remove_path} does not exist")
 
-        data_folder_path = "/".join(parquet_to_remove_path.split("/")[:-1])
-
         # Load the parquet file
         deleted_episode_df = pd.read_parquet(parquet_to_remove_path)
         nb_steps_deleted_episode = len(deleted_episode_df)
@@ -1097,8 +1095,8 @@ class StatsModel(BaseModel):
         # Compute the sum and square sum for each column
         column_sums = {
             col: {
-                "sum": (deleted_episode_df[col].sum(axis=0)).to_numpy(),
-                "square_sum": ((deleted_episode_df[col] ** 2).sum(axis=0)).to_numpy(),
+                "sum": (deleted_episode_df[col].sum(axis=0)),
+                "square_sum": ((deleted_episode_df[col] ** 2).sum(axis=0)),
             }
             for col in deleted_episode_df.columns
         }
@@ -1645,13 +1643,22 @@ class EpisodesModel(BaseModel):
                     str(step.observation.language_instruction)
                 )
 
-    def to_jsonl(self, meta_folder_path: str) -> None:
+    def to_jsonl(
+        self, meta_folder_path: str, save_mode: Literal["append", "overwrite"]
+    ) -> None:
         """
         Write the episodes.jsonl file in the meta folder path.
         """
-        with open(f"{meta_folder_path}/episodes.jsonl", "a") as f:
-            for episode in self.episodes[self._original_nb_total_episodes :]:
-                f.write(episode.model_dump_json() + "\n")
+        if save_mode == "append":
+            with open(f"{meta_folder_path}/episodes.jsonl", "a") as f:
+                for episode in self.episodes[self._original_nb_total_episodes :]:
+                    f.write(episode.model_dump_json() + "\n")
+        elif save_mode == "overwrite":
+            with open(f"{meta_folder_path}/episodes.jsonl", "w") as f:
+                for episode in self.episodes:
+                    f.write(episode.model_dump_json() + "\n")
+        else:
+            raise ValueError("save_mode must be 'append' or 'overwrite'")
 
     @classmethod
     def from_jsonl(cls, meta_folder_path: str) -> "EpisodesModel":
@@ -1672,21 +1679,15 @@ class EpisodesModel(BaseModel):
         episode._original_nb_total_episodes = len(episodes_model)
         return episode
 
-    def save(self, meta_folder_path: str) -> None:
+    def save(
+        self,
+        meta_folder_path: str,
+        save_mode: Literal["append", "overwrite"] = "append",
+    ) -> None:
         """
         Save the episodes to the meta folder path.
         """
-        self.to_jsonl(meta_folder_path)
-
-    def save_writing_file(self, meta_folder_path: str) -> None:
-        """
-        Save the episodes to the meta folder path.
-        This overwrite the file instead of appending to it.
-        This is used when removing an episode from the dataset.
-        """
-        with open(f"{meta_folder_path}/episodes.jsonl", "w") as f:
-            for episode in self.episodes:
-                f.write(episode.model_dump_json() + "\n")
+        self.to_jsonl(meta_folder_path=meta_folder_path, save_mode=save_mode)
 
     def update_before_episode_removal(self, parquet_to_remove_path: str):
         """
