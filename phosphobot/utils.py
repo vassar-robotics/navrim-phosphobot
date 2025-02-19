@@ -270,6 +270,7 @@ def get_field_min_max(df: pd.DataFrame, field_name: str) -> tuple:
     if isinstance(sample_value, (list, np.ndarray)):
         # Check that df[field_name].values is a np.ndarray
         array_values = df[field_name].values
+
         if not isinstance(array_values, np.ndarray):
             raise ValueError(
                 f"Field '{field_name}' values are not stored as a numpy array in the DataFrame"

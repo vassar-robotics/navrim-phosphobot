@@ -6,6 +6,13 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union
 
+from huggingface_hub import (
+    HfApi,
+    create_branch,
+    create_repo,
+    delete_file,
+    upload_folder,
+)
 import numpy as np
 from loguru import logger
 import pandas as pd  # type: ignore
@@ -21,6 +28,8 @@ from phosphobot.utils import (
     NdArrayAsList,
 )
 from phosphobot.types import VideoCodecs
+
+from teleop.teleop.utils import get_hf_username_or_orgid  # type: ignore
 
 
 class BaseRobotPIDGains(BaseModel):
@@ -643,6 +652,163 @@ class Dataset(BaseModel):
 
     episodes: List[Episode]
     metadata: dict = Field(default_factory=dict)
+    path: str
+    dataset_name: str
+    episode_format: Literal["json", "lerobot_v2"]
+    data_file_extension: str
+    folder_path: str
+    full_path: str
+    data_folder_full_path: str
+
+    def __init__(self, path: str, ROOT_DIR: str = "") -> None:
+        # Check path format
+        path_parts = path.split("/")
+        if len(path_parts) < 2 or path_parts[-2] not in ["json", "lerobot_v2"]:
+            raise ValueError(
+                "Wrong dataset path provided. Path must contain json or lerobot_v2 format."
+            )
+
+        # Initialize fields
+        super().__init__(
+            path=path,
+            dataset_name=path_parts[-1],
+            episode_format=path_parts[-2],
+            full_path=os.path.join(ROOT_DIR, path),
+            data_file_extension="json" if path_parts[-2] == "json" else "parquet",
+            data_folder_full_path=os.path.join(ROOT_DIR, path, "data", "chunk-000"),
+            repo_id=f"{get_hf_username_or_orgid()}/{path_parts[-1]}",
+        )
+
+        # Validate dataset name
+        if not self.check_dataset_name():
+            raise ValueError(
+                "Dataset name contains invalid characters. Should not contain spaces or /"
+            )
+
+        # Check that the dataset folder exists
+        if not os.path.exists(self.folder_path):
+            raise ValueError(f"Dataset folder {self.folder_path} does not exist")
+
+    def check_dataset_name(self) -> bool:
+        """Validate dataset name format"""
+        return " " not in self.dataset_name and "/" not in self.dataset_name
+
+    def get_episode_data_path(self, episode_id: int) -> str:
+        """Get the full path to the data with episode id"""
+        if self.episode_format == "json":
+            return str(
+                os.path.join(
+                    os.path.dirname(self.folder_path),
+                    f"episode_{episode_id:06d}.{self.data_file_extension}",
+                )
+            )
+
+        else:
+            return os.path.join(
+                self.folder_path,
+                f"episode_{episode_id:06d}.{self.data_file_extension}",
+            )
+
+    def get_df_episode(self, episode_id: int) -> pd.DataFrame:
+        """Get the episode data as a pandas DataFrame"""
+        return (
+            pd.read_parquet(self.get_episode_data_path(episode_id))
+            if self.episode_format == "lerobot_v2"
+            else pd.read_json(self.get_episode_data_path(episode_id))
+        )
+
+    def get_repo_id(self) -> str:
+        """Return the huggingface repository id"""
+        repo_id = f"{get_hf_username_or_orgid()}/{self.dataset_name}"
+        # Check that the repository exists
+        if not self.check_repo_exists(repo_id):
+            logger.warning(f"Repository {repo_id} does not exist on HuggingFace")
+        return repo_id
+
+    def check_repo_exists(self, repo_id: str) -> bool:
+        """Check if a repository exists on HuggingFace"""
+        HF_API = HfApi()
+        return HF_API.repo_exists(repo_id=repo_id, repo_type="dataset")
+
+    def get_episode_data_path_in_repo(self, episode_id: int) -> str:
+        """Get the full path to the data with episode id in the repository"""
+        return (
+            f"data/chunk-000/episode_{episode_id:06d}.{self.data_file_extension}"
+            if self.episode_format == "lerobot_v2"
+            else f"episode_{episode_id:06d}.{self.data_file_extension}"
+        )
+
+    def reindex_episodes(
+        self,
+        folder_path: str,
+        episode_to_remove_id: int,
+        nb_steps_deleted_episode: int = 0,
+    ):
+        """
+        Reindex the episode after removing one.
+        This is used for videos or for parquet file
+
+        Parameters:
+        -----------
+        folder_path: str
+            The path to the folder where the episodes data or videos are stored. May be users/Downloads/dataset_name/data/chunk-000/
+            or  users/Downloads/dataset_name/videos/chunk-000/observation.main_image.right
+        episode_to_remove_id: int
+            The id of the episode to remove
+        nb_steps_deleted_episode: int
+            The number of steps deleted in the episode
+
+        Example:
+        --------
+        episodes in data are [episode_000000.parquet, episode_000001.parquet, episode_000003.parquet] after we removed episode_000002.parquet
+        the result will be [episode_000000.parquet, episode_000001.parquet, episode_000002.parquet]
+        """
+        for filename in os.listdir(folder_path):
+            if filename.startswith("episode_"):
+                # Check the episode files and extract the index
+                # Also extract the file extension
+                file_extension = filename.split(".")[-1]
+                episode_index = int(filename.split("_")[-1].split(".")[0])
+                if episode_index > episode_to_remove_id:
+                    new_filename = f"episode_{episode_index - 1:06d}.{file_extension}"
+                    os.rename(
+                        os.path.join(folder_path, filename),
+                        os.path.join(folder_path, new_filename),
+                    )
+
+                    # Update the episode index inside the parquet file
+                    if file_extension == "parquet":
+                        assert nb_steps_deleted_episode > 0, "Received 0 step deleted"
+                        # Read the parquet file
+                        df = pd.read_parquet(os.path.join(folder_path, new_filename))
+                        # I want to decrement episode index by 1 for indexes superior to the removed episode
+                        df["episode_index"] = df["episode_index"] - 1
+                        # I want to decrement the global index by the number of steps deleted in the episode
+                        df["index"] = df["index"] - nb_steps_deleted_episode
+                        # Save the updated parquet file
+                        df.to_parquet(os.path.join(folder_path, new_filename))
+
+                    if file_extension == "json":
+                        # Update the episode index inside the json file with pandas
+                        df = pd.read_json(os.path.join(folder_path, new_filename))
+                        df["episode_index"] = df["episode_index"] - 1
+                        df.to_json(os.path.join(folder_path, new_filename))
+
+    def delete_episode_data(self, episode_id: int, delete_in_hub: bool = True) -> None:
+        """
+        Delete the episode data from the dataset
+        If delete_in_hub is True, also delete the episode data from the HuggingFace repository
+        """
+        # Get the full path to the data with episode id
+        full_path_data_to_remove = self.get_episode_data_path(episode_id)
+        # Remove the episode data file
+        os.remove(full_path_data_to_remove)
+        repo_id = self.get_repo_id()
+        if self.check_repo_exists(repo_id) and delete_in_hub:
+            data_path_in_repo = self.get_episode_data_path_in_repo(episode_id)
+            delete_file(
+                repo_id=repo_id, path_in_repo=data_path_in_repo, repo_type="dataset"
+            )
 
     def save(self, filename: str):
         """
@@ -741,6 +907,165 @@ class Dataset(BaseModel):
                 episode_fps.append(fps)
 
         return np.mean(episode_fps)
+
+    def consolidate_dataset_name(self) -> None:
+        """
+        Check if the dataset name is valid.
+        To be valid, the dataset name must be a string without spaces, /, or -.
+
+        If not we replace them with underscores.
+        """
+        if not self.check_dataset_name():
+            logger.warning(
+                "Dataset name contains invalid characters. Replacing them with underscores."
+            )
+            self.dataset_name.replace(" ", "_").replace("/", "_").replace("-", "_")
+
+    def push_dataset_to_hub(
+        self, dataset_path: str, dataset_name: str, branch_path: str | None = "2.0"
+    ):
+        """
+        Push a dataset to the Hugging Face Hub.
+
+        Args:
+            dataset_path (str): Path to the dataset folder
+            dataset_name (str): Name of the dataset
+            branch_path (str, optional): Additional branch to push to besides main
+        """
+        try:
+            # Initialize HF API with token
+            hf_api = HfApi(token=True)
+
+            # Try to get username/org ID from token
+            username_or_org_id = None
+            try:
+                # Get user info from token
+                user_info = hf_api.whoami()
+                username_or_org_id = user_info.get("name")
+
+                if not username_or_org_id:
+                    logger.error("Could not get username or org ID from token")
+                    return
+
+            except Exception as e:
+                logger.error(f"Error getting user info: {e}")
+                logger.warning(
+                    "No user or org with write access found. Won't be able to push to Hugging Face."
+                )
+                return
+
+            # Create README if it doesn't exist
+            readme_path = os.path.join(dataset_path, "README.md")
+            if not os.path.exists(readme_path):
+                with open(readme_path, "w") as readme_file:
+                    readme_file.write(f"""
+    ---
+    tags:
+    - phosphobot
+    - so100
+    - phospho-dk1
+    task_categories:
+    - robotics                                                   
+    ---
+
+    # {dataset_name}
+
+    **This dataset was generated using a [phospho dev kit](https://robots.phospho.ai).**
+
+    This dataset contains a series of episodes recorded with a robot and multiple cameras. \
+    It can be directly used to train a policy using imitation learning. \
+    It's compatible with LeRobot and RLDS.
+    """)
+
+            # Construct full repo name
+            dataset_repo_name = f"{username_or_org_id}/{dataset_name}"
+            create_2_0_branch = False
+
+            # Check if repo exists, create if it doesn't
+            try:
+                hf_api.repo_info(repo_id=dataset_repo_name, repo_type="dataset")
+                logger.info(f"Repository {dataset_repo_name} already exists.")
+            except Exception as e:
+                logger.info(
+                    f"Repository {dataset_repo_name} does not exist. Creating it..."
+                )
+                create_repo(
+                    repo_id=dataset_repo_name,
+                    repo_type="dataset",
+                    exist_ok=True,
+                    token=True,
+                )
+                logger.info(f"Repository {dataset_repo_name} created.")
+                create_2_0_branch = True
+
+            # Push to main branch
+            logger.info(
+                f"Pushing the dataset to the main branch in repository {dataset_repo_name}"
+            )
+            upload_folder(
+                folder_path=dataset_path,
+                repo_id=dataset_repo_name,
+                repo_type="dataset",
+                token=True,
+            )
+
+            # Create and push to v2.0 branch if needed
+            if create_2_0_branch:
+                try:
+                    logger.info(f"Creating branch v2.0 for dataset {dataset_repo_name}")
+                    create_branch(
+                        dataset_repo_name,
+                        repo_type="dataset",
+                        branch="v2.0",
+                        token=True,
+                    )
+                    logger.info(f"Branch v2.0 created for dataset {dataset_repo_name}")
+
+                    # Push to v2.0 branch
+                    logger.info(
+                        f"Pushing the dataset to the branch v2.0 in repository {dataset_repo_name}"
+                    )
+                    upload_folder(
+                        folder_path=dataset_path,
+                        repo_id=dataset_repo_name,
+                        repo_type="dataset",
+                        token=True,
+                        revision="v2.0",
+                    )
+                except Exception as e:
+                    logger.error(f"Error handling v2.0 branch: {e}")
+
+            # Push to additional branch if specified
+            if branch_path:
+                try:
+                    logger.info(
+                        f"Creating branch {branch_path} for dataset {dataset_repo_name}"
+                    )
+                    create_branch(
+                        dataset_repo_name,
+                        repo_type="dataset",
+                        branch=branch_path,
+                        token=True,
+                    )
+                    logger.info(
+                        f"Branch {branch_path} created for dataset {dataset_repo_name}"
+                    )
+
+                    # Push to specified branch
+                    logger.info(f"Pushing the dataset to branch {branch_path}")
+                    upload_folder(
+                        folder_path=dataset_path,
+                        repo_id=dataset_repo_name,
+                        repo_type="dataset",
+                        token=True,
+                        revision=branch_path,
+                    )
+                    logger.info(f"Dataset pushed to branch {branch_path}")
+                except Exception as e:
+                    logger.error(f"Error handling custom branch: {e}")
+
+        except Exception as e:
+            logger.error(f"An error occurred: {e}")
 
 
 class Stats(BaseModel):
@@ -1011,7 +1336,7 @@ class StatsModel(BaseModel):
 
         self.to_json(meta_folder_path)
 
-    def update_before_episode_removal(self, parquet_to_remove_path: str) -> None:
+    def update_after_episode_removal(self, parquet_to_remove_path: str) -> None:
         """
         Update the stats before removing an episode from the dataset.
         We do not compute the new min and max.
@@ -1069,36 +1394,25 @@ class StatsModel(BaseModel):
                         - np.square(field_value.mean)
                     )
 
-        # For image we need to load the mp4 video
-        logger.info("Updating stats for images")
-        # Extract the episode index from the parquet file name
-        episode_index = int(parquet_to_remove_path.split("_")[-1].split(".")[0])
-
-        # List cameras_folder:
-        folder_videos_path = (
-            "/".join(parquet_to_remove_path.split("/")[:-3]) + "/videos/chunk-000"
-        )
-
+    def update_images_after_episode_removal(
+        self, folder_videos_path: str, episode_to_delete_index: int
+    ) -> None:
+        """
+        Update the stats for images.
+        """
         cameras_folder = os.listdir(folder_videos_path)
         for camera_folder in cameras_folder:
             # Create the path of the video episode_{episode_index:06d}.mp4
             video_path = os.path.join(
-                folder_videos_path, camera_folder, f"episode_{episode_index:06d}.mp4"
+                folder_videos_path,
+                camera_folder,
+                f"episode_{episode_to_delete_index:06d}.mp4",
             )
             sum_array, square_sum_array, nb_pixel = (
                 compute_sum_squaresum_framecount_from_video(video_path)
             )
-            assert isinstance(nb_pixel, int), "nb_pixel must be an integer"
-            assert isinstance(sum_array, np.ndarray), "sum_array must be a numpy array"
-            assert isinstance(square_sum_array, np.ndarray), (
-                "square_sum_array must be a numpy array"
-            )
             sum_array = sum_array.astype(np.float32)
             square_sum_array = square_sum_array.astype(np.float32)
-
-            logger.info(f"sum_array: {sum_array}")
-            logger.info(f"square_sum_array: {square_sum_array}")
-            logger.info(f"nb pixel: {nb_pixel}")
 
             # Update the stats_model
             self.observation_images[camera_folder].sum = (
@@ -1110,16 +1424,16 @@ class StatsModel(BaseModel):
             self.observation_images[camera_folder].count = (
                 self.observation_images[camera_folder].count - nb_pixel
             )
-            field_value.count -= nb_steps_deleted_episode
-            field_value.mean = field_value.sum / field_value.count
-            logger.info(f"mean: {field_value.mean}")
-            logger.info(f"count: {field_value.count}")
-            logger.info(f"square_sum: {field_value.square_sum}")
-
-            field_value.std = np.sqrt(
-                abs((field_value.square_sum / field_value.count) - field_value.mean**2)
+            # Update the stats_model
+            # TODO: Fix MyPy error
+            self.observation_images[camera_folder].mean = (
+                self.observation_images[camera_folder].sum
+                / self.observation_images[camera_folder].count
             )
-            logger.info(f"std: {field_value.std}")
+            self.observation_images[camera_folder].square_sum = (
+                self.observation_images[camera_folder].square_sum
+                - self.observation_images[camera_folder].mean ** 2
+            )
 
     def update_min_max_after_episode_removal(self, data_folder_path: str) -> None:
         """
