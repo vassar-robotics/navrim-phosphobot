@@ -965,7 +965,7 @@ class StatsModel(BaseModel):
 
             # Create a temporary dictionary for observation_images
             observation_images = {}
-            for key in list(stats_dict.keys()):
+            for key in stats_dict.keys():
                 if "images" in key:
                     observation_images[key] = Stats(**stats_dict.pop(key))
 
