@@ -1025,19 +1025,14 @@ class StatsModel(BaseModel):
         deleted_episode_df = pd.read_parquet(parquet_to_remove_path)
         nb_steps_deleted_episode = len(deleted_episode_df)
 
-        logger.warning(f"Columns summed: {deleted_episode_df.sum(axis=0)}")
-        logger.warning(f"Columns square summed: {(deleted_episode_df**2).sum(axis=0)}")
-
         # Compute the sum and square sum for each column
-        column_sums = {
-            col: {
-                "sum": (deleted_episode_df[col].sum(axis=0)),
-                "square_sum": ((deleted_episode_df[col] ** 2).sum(axis=0)),
-            }
-            for col in deleted_episode_df.columns
-        }
+        df_sums_squaresums = pd.concat(
+            [deleted_episode_df.sum(), (deleted_episode_df**2).sum()], axis=1
+        )
+        df_sums_squaresums = df_sums_squaresums.rename(
+            columns={0: "sums", 1: "squaresums"}
+        )
 
-        logger.info(f"Column sums: {column_sums}")
         # Update stats for each field in the StatsModel
         for field_name, field in StatsModel.model_fields.items():
             # TODO task_index is not updated since we do not support multiple tasks
@@ -1045,29 +1040,26 @@ class StatsModel(BaseModel):
             if field_name in ["task_index", "observation_images"]:
                 continue
             logger.info(f"Updating field {field_name}")
-            # Get the field value from the instance
             field_value = getattr(self, field_name)
-            # Convert observation_state to observation.state
+            # The key in StatsModel is observation_state
             field_name = (
                 "observation.state" if field_name == "observation_state" else field_name
             )
             # Update statistics
-            if field_name in column_sums:
-                # Maximum of debug info
-                logger.info(f"Column sums for {field_name}: {column_sums[field_name]}")
-                logger.info(f"Field value: {field_value}")
-                logger.info(f"Field value mean: {field_value.mean}")
-
+            if field_name in deleted_episode_df.columns:
                 # Subtract sums
-                field_value.sum = field_value.sum - column_sums[field_name]["sum"]
-                field_value.square_sum = (
-                    field_value.square_sum - column_sums[field_name]["square_sum"]
+                logger.info(f"Field value sum before: {field_value.sum}")
+                field_value.sum = (
+                    field_value.sum - df_sums_squaresums["sums"][field_name]
                 )
-
-                logger.info(f"Field value sum: {field_value.sum}")
+                field_value.square_sum = (
+                    field_value.square_sum
+                    - df_sums_squaresums["squaresums"][field_name]
+                )
+                logger.info(f"Field value sum after: {field_value.sum}")
 
                 # Update count
-                field_value.count -= nb_steps_deleted_episode
+                field_value.count = field_value.count - nb_steps_deleted_episode
 
                 # Recalculate mean and standard deviation
                 if field_value.count > 0:
