@@ -656,9 +656,8 @@ class Dataset(BaseModel):
     dataset_name: str
     episode_format: Literal["json", "lerobot_v2"]
     data_file_extension: str
-    folder_path: str
-    full_path: str
-    data_folder_full_path: str
+    # Full path to the dataset folder
+    folder_full_path: str
 
     def __init__(self, path: str, ROOT_DIR: str = "") -> None:
         # Check path format
@@ -675,7 +674,6 @@ class Dataset(BaseModel):
             episode_format=path_parts[-2],
             full_path=os.path.join(ROOT_DIR, path),
             data_file_extension="json" if path_parts[-2] == "json" else "parquet",
-            data_folder_full_path=os.path.join(ROOT_DIR, path, "data", "chunk-000"),
             repo_id=f"{get_hf_username_or_orgid()}/{path_parts[-1]}",
         )
 
@@ -686,8 +684,8 @@ class Dataset(BaseModel):
             )
 
         # Check that the dataset folder exists
-        if not os.path.exists(self.folder_path):
-            raise ValueError(f"Dataset folder {self.folder_path} does not exist")
+        if not os.path.exists(self.folder_full_path):
+            raise ValueError(f"Dataset folder {self.folder_full_path} does not exist")
 
     def check_dataset_name(self) -> bool:
         """Validate dataset name format"""
@@ -698,16 +696,31 @@ class Dataset(BaseModel):
         if self.episode_format == "json":
             return str(
                 os.path.join(
-                    os.path.dirname(self.folder_path),
+                    os.path.dirname(self.folder_full_path),
                     f"episode_{episode_id:06d}.{self.data_file_extension}",
                 )
             )
 
         else:
             return os.path.join(
-                self.folder_path,
+                self.folder_full_path,
                 f"episode_{episode_id:06d}.{self.data_file_extension}",
             )
+
+    @property
+    def meta_folder_full_path(self) -> str:
+        """Get the folder path of the dataset"""
+        return os.path.join(self.folder_full_path, "meta")
+
+    @property
+    def data_folder_full_path(self) -> str:
+        """Get the full path to the data folder"""
+        return os.path.join(self.folder_full_path, "data", "chunk-000")
+
+    @property
+    def videos_folder_full_path(self) -> str:
+        """Get the full path to the videos folder"""
+        return os.path.join(self.folder_full_path, "videos", "chunk-000")
 
     def get_df_episode(self, episode_id: int) -> pd.DataFrame:
         """Get the episode data as a pandas DataFrame"""
@@ -725,9 +738,10 @@ class Dataset(BaseModel):
             logger.warning(f"Repository {repo_id} does not exist on HuggingFace")
         return repo_id
 
-    def check_repo_exists(self, repo_id: str) -> bool:
+    def check_repo_exists(self, repo_id: str | None) -> bool:
         """Check if a repository exists on HuggingFace"""
         HF_API = HfApi()
+        repo_id = repo_id or self.get_repo_id()
         return HF_API.repo_exists(repo_id=repo_id, repo_type="dataset")
 
     def get_episode_data_path_in_repo(self, episode_id: int) -> str:
@@ -737,6 +751,25 @@ class Dataset(BaseModel):
             if self.episode_format == "lerobot_v2"
             else f"episode_{episode_id:06d}.{self.data_file_extension}"
         )
+
+    def push_to_hub(self, token: str | None = None):
+        """Reupload the dataset folder to HuggingFace"""
+        username_or_orgid = get_hf_username_or_orgid()
+        if username_or_orgid is None:
+            logger.warning(
+                "No HuggingFace token found. Please add a token in the Admin page.",
+            )
+            return
+
+        if self.episode_format == "lerobot_v2" and self.check_repo_exists(
+            self.get_repo_id()
+        ):
+            upload_folder(
+                folder_path=os.path.join(ROOT_DIR, path),
+                repo_id=repo_id,
+                repo_type="dataset",
+                token=True,
+            )
 
     def reindex_episodes(
         self,
@@ -809,6 +842,56 @@ class Dataset(BaseModel):
             delete_file(
                 repo_id=repo_id, path_in_repo=data_path_in_repo, repo_type="dataset"
             )
+
+    def get_camera_folders_full_paths(self) -> List[str]:
+        """
+        Return the full path to the camera folders.
+        This contains episode_000000.mp4, episode_000001.mp4, etc.
+        """
+        if self.episode_format == "json":
+            raise ValueError("This method is only available for LeRobot datasets")
+        return [
+            os.path.join(self.videos_folder_full_path, camera_name)
+            for camera_name in os.listdir(self.videos_folder_full_path)
+        ]
+
+    def get_camera_folders_repo_paths(self) -> List[str]:
+        """
+        Return the path to the camera folder in the repository
+        """
+        return [
+            f"videos/chunk-000/{camera_name}"
+            for camera_name in os.listdir(self.videos_folder_full_path)
+        ]
+
+    def delete_episode_videos(
+        self, episode_to_remove_id: int, delete_in_hub: bool = True
+    ) -> None:
+        """
+        Delete the episode videos from the dataset
+        If delete_in_hub is True, also delete the episode videos from the HuggingFace
+        """
+        # Iterate over the camera folders and remove the episode inside
+        for camera_folder_full_path in self.get_camera_folders_full_paths():
+            video_full_path = os.path.join(
+                camera_folder_full_path, f"episode_{episode_to_remove_id:06d}.mp4"
+            )
+
+            # Remove the video file
+            os.remove(video_full_path)
+
+        # Remove the video files from the HF repository
+        for camera_folder_path_in_repo in self.get_camera_folders_repo_paths():
+            video_path_in_repo = os.path.join(
+                camera_folder_path_in_repo, f"episode_{episode_to_remove_id:06d}.mp4"
+            )
+
+            if self.check_repo_exists(self.get_repo_id()) and delete_in_hub:
+                delete_file(
+                    repo_id=self.get_repo_id(),
+                    path_in_repo=video_path_in_repo,
+                    repo_type="dataset",
+                )
 
     def save(self, filename: str):
         """
@@ -1336,23 +1419,21 @@ class StatsModel(BaseModel):
 
         self.to_json(meta_folder_path)
 
-    def update_after_episode_removal(self, parquet_to_remove_path: str) -> None:
+    def update_mean_std_count_for_episode_removal(
+        self, df_episode_to_delete: pd.DataFrame
+    ) -> None:
         """
         Update the stats before removing an episode from the dataset.
         We do not compute the new min and max.
         We prefer to do it after the episode removal to directly access new indexes and episodes indexes.
+        This only updates mean, std, sum, square_sum, and count.
         """
-        # Check the parquet file exists
-        if not os.path.exists(parquet_to_remove_path):
-            raise ValueError(f"Parquet file {parquet_to_remove_path} does not exist")
-
         # Load the parquet file
-        deleted_episode_df = pd.read_parquet(parquet_to_remove_path)
-        nb_steps_deleted_episode = len(deleted_episode_df)
+        nb_steps_deleted_episode = len(df_episode_to_delete)
 
         # Compute the sum and square sum for each column
         df_sums_squaresums = pd.concat(
-            [deleted_episode_df.sum(), (deleted_episode_df**2).sum()], axis=1
+            [df_episode_to_delete.sum(), (df_episode_to_delete**2).sum()], axis=1
         )
         df_sums_squaresums = df_sums_squaresums.rename(
             columns={0: "sums", 1: "squaresums"}
@@ -1371,7 +1452,7 @@ class StatsModel(BaseModel):
                 "observation.state" if field_name == "observation_state" else field_name
             )
             # Update statistics
-            if field_name in deleted_episode_df.columns:
+            if field_name in df_episode_to_delete.columns:
                 # Subtract sums
                 logger.info(f"Field value sum before: {field_value.sum}")
                 field_value.sum = (
@@ -1394,7 +1475,7 @@ class StatsModel(BaseModel):
                         - np.square(field_value.mean)
                     )
 
-    def update_images_after_episode_removal(
+    def update_images_stats_for_episode_removal(
         self, folder_videos_path: str, episode_to_delete_index: int
     ) -> None:
         """
@@ -1425,7 +1506,7 @@ class StatsModel(BaseModel):
                 self.observation_images[camera_folder].count - nb_pixel
             )
             # Update the stats_model
-            # TODO: Fix MyPy error
+            # TODO: Fix MyPy error check that arrays are not None
             self.observation_images[camera_folder].mean = (
                 self.observation_images[camera_folder].sum
                 / self.observation_images[camera_folder].count
@@ -1435,7 +1516,7 @@ class StatsModel(BaseModel):
                 - self.observation_images[camera_folder].mean ** 2
             )
 
-    def update_min_max_after_episode_removal(self, data_folder_path: str) -> None:
+    def update_min_max_for_episode_removal(self, data_folder_path: str) -> None:
         """
         Update the min and max in stats after removing an episode from the dataset.
         Be sure to call this function after update_before_episode_removal and after reindexing the data.
@@ -1740,19 +1821,13 @@ class InfoModel(BaseModel):
         """
         self.to_json(meta_folder_path)
 
-    def update_before_episode_removal(self, parquet_to_remove_path: str) -> None:
+    def update_before_episode_removal(self, df_episode_to_delete: pd.DataFrame) -> None:
         """
         Update the info before removing an episode from the dataset.
         """
-        # Ensure the parquet file exist
-        if not os.path.exists(parquet_to_remove_path):
-            raise ValueError(f"Parquet file {parquet_to_remove_path} does not exist.")
-
-        # Load parquet file with pandas
-        df_episode = pd.read_parquet(parquet_to_remove_path)
 
         self.total_episodes -= 1
-        self.total_frames -= len(df_episode)
+        self.total_frames -= len(df_episode_to_delete)
         self.total_videos -= len(self.features.observation_images.keys())
         self.splits = {"train": f"0:{self.total_episodes}"}
         # TODO(adle): Implement support for multi tasks in dataset
@@ -1822,31 +1897,22 @@ class TasksModel(BaseModel):
                 )
             )
 
-    def update_before_episode_removal(self, parquet_to_remove_path: str) -> None:
+    def update_for_episode_removal(
+        self, df_episode_to_delete: pd.DataFrame, data_folder_full_path=str
+    ) -> None:
         """
-        Update the tasks before removing an episode from the dataset.
+        Update the tasks when removing an episode from the dataset.
         We count the number of occurences of task_index in the dataset.
         If the episode is the only one with this task_index, we remove it from the tasks.jsonl file.
         """
-        # Ensure the parquet file exist
-        if not os.path.exists(parquet_to_remove_path):
-            raise ValueError(f"Parquet file {parquet_to_remove_path} does not exist.")
-
-        # Load parquet file with pandas
-        df_episode = pd.read_parquet(parquet_to_remove_path)
-
-        # Create the path of the data folder
-        parquet_path_parts = parquet_to_remove_path.split("/")
-        data_folder_path = "/".join(parquet_path_parts[:-2])
-
         # For each file in the data folder get the task indexes (unique)
         task_indexes: List[int] = []
-        for file in os.listdir(data_folder_path):
+        for file in os.listdir(data_folder_full_path):
             if file.endswith(".parquet"):
-                df = pd.read_parquet(f"{data_folder_path}/{file}")
+                df = pd.read_parquet(f"{data_folder_full_path}/{file}")
                 task_indexes.extend(df["task_index"].unique())
 
-        for task_index in df_episode["task_index"].unique():
+        for task_index in df_episode_to_delete["task_index"].unique():
             task_index = int(task_index)
             # delete the line in tasks.jsonl if and only if the task index in this episode is the only one in the dataset
             if task_indexes.count(task_index) == 1:
@@ -1951,29 +2017,18 @@ class EpisodesModel(BaseModel):
         """
         self.to_jsonl(meta_folder_path=meta_folder_path, save_mode=save_mode)
 
-    def update_before_episode_removal(self, parquet_to_remove_path: str):
+    def update_for_episode_removal(self, episode_to_delete_index: int):
         """
         Update the episodes model before removing an episode from the dataset.
         We just remove the line corresponding to the episode_index of the parquet file.
         """
-        # Ensure the parquet file exist
-        if not os.path.exists(parquet_to_remove_path):
-            raise ValueError(f"Parquet file {parquet_to_remove_path} does not exist.")
-
-        index_deleted_episode = int(
-            parquet_to_remove_path.split("/")[-1].split(".")[0].split("_")[-1]
-        )
-
         self.episodes = [
             episode
             for episode in self.episodes
-            if episode.episode_index != index_deleted_episode
+            if episode.episode_index != episode_to_delete_index
         ]
-
-        # Extract the episode index from the parquet file name
-        episode_index = int(parquet_to_remove_path.split("_")[-1].split(".")[0])
 
         # Reindex the episodes
         for episode in self.episodes:
-            if episode.episode_index > episode_index:
+            if episode.episode_index > episode_to_delete_index:
                 episode.episode_index -= 1
