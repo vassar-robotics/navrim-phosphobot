@@ -682,6 +682,9 @@ class Dataset(BaseModel):
         if not os.path.exists(self.folder_full_path):
             raise ValueError(f"Dataset folder {self.folder_full_path} does not exist")
 
+        # HF API
+        self.HF_API = HfApi()
+
     def check_dataset_name(self) -> bool:
         """Validate dataset name format"""
         return " " not in self.dataset_name and "/" not in self.dataset_name
@@ -695,7 +698,6 @@ class Dataset(BaseModel):
                     f"episode_{episode_id:06d}.{self.data_file_extension}",
                 )
             )
-
         else:
             return os.path.join(
                 self.folder_full_path,
@@ -719,14 +721,20 @@ class Dataset(BaseModel):
 
     def get_df_episode(self, episode_id: int) -> pd.DataFrame:
         """Get the episode data as a pandas DataFrame"""
-        return (
-            pd.read_parquet(self.get_episode_data_path(episode_id))
-            if self.episode_format == "lerobot_v2"
-            else pd.read_json(self.get_episode_data_path(episode_id))
-        )
+        if self.episode_format == "lerobot_v2":
+            return pd.read_parquet(self.get_episode_data_path(episode_id))
+        elif self.episode_format == "json":
+            return pd.read_json(self.get_episode_data_path(episode_id))
+        else:
+            raise NotImplementedError(
+                f"Episode format {self.episode_format} not supported"
+            )
 
-    def get_repo_id(self) -> str:
-        """Return the huggingface repository id"""
+    @property
+    def repo_id(self) -> str:
+        """
+        Return the huggingface repository id
+        """
         repo_id = f"{get_hf_username_or_orgid()}/{self.dataset_name}"
         # Check that the repository exists
         if not self.check_repo_exists(repo_id):
@@ -735,9 +743,8 @@ class Dataset(BaseModel):
 
     def check_repo_exists(self, repo_id: str | None) -> bool:
         """Check if a repository exists on HuggingFace"""
-        HF_API = HfApi()
-        repo_id = repo_id or self.get_repo_id()
-        return HF_API.repo_exists(repo_id=repo_id, repo_type="dataset")
+        repo_id = repo_id or self.repo_id
+        return self.HF_API.repo_exists(repo_id=repo_id, repo_type="dataset")
 
     def get_episode_data_path_in_repo(self, episode_id: int) -> str:
         """Get the full path to the data with episode id in the repository"""
@@ -756,12 +763,10 @@ class Dataset(BaseModel):
             )
             return
 
-        if self.episode_format == "lerobot_v2" and self.check_repo_exists(
-            self.get_repo_id()
-        ):
+        if self.episode_format == "lerobot_v2" and self.check_repo_exists(self.repo_id):
             upload_folder(
                 folder_path=self.folder_full_path,
-                repo_id=self.get_repo_id(),
+                repo_id=self.repo_id,
                 repo_type="dataset",
                 token=True,
             )
@@ -775,9 +780,8 @@ class Dataset(BaseModel):
             )
             return
 
-        HF_API = HfApi()
-        repository_exists = HF_API.repo_exists(
-            repo_id=self.get_repo_id(), repo_type="dataset"
+        repository_exists = self.HF_API.repo_exists(
+            repo_id=self.repo_id, repo_type="dataset"
         )
 
         # If the repository does not exist, push the dataset to HuggingFace
@@ -790,18 +794,18 @@ class Dataset(BaseModel):
         else:
             # Delete the dataset folders from HuggingFace
             delete_folder(
-                repo_id=self.get_repo_id(), path_in_repo="./data", repo_type="dataset"
+                repo_id=self.repo_id, path_in_repo="./data", repo_type="dataset"
             )
             delete_folder(
-                repo_id=self.get_repo_id(), path_in_repo="./videos", repo_type="dataset"
+                repo_id=self.repo_id, path_in_repo="./videos", repo_type="dataset"
             )
             delete_folder(
-                repo_id=self.get_repo_id(), path_in_repo="./meta", repo_type="dataset"
+                repo_id=self.repo_id, path_in_repo="./meta", repo_type="dataset"
             )
             # Reupload the dataset folder to HuggingFace
             upload_folder(
                 folder_path=self.folder_full_path,
-                repo_id=self.get_repo_id(),
+                repo_id=self.repo_id,
                 repo_type="dataset",
             )
 
@@ -820,8 +824,8 @@ class Dataset(BaseModel):
             logger.error(f"The Dataset is a file: {self.folder_full_path}")
 
         # Remove the dataset from HuggingFace
-        if self.check_repo_exists(self.get_repo_id()):
-            delete_repo(repo_id=self.get_repo_id(), repo_type="dataset")
+        if self.check_repo_exists(self.repo_id):
+            delete_repo(repo_id=self.repo_id, repo_type="dataset")
 
     def reindex_episodes(
         self,
@@ -879,21 +883,111 @@ class Dataset(BaseModel):
                         df["episode_index"] = df["episode_index"] - 1
                         df.to_json(os.path.join(folder_path, new_filename))
 
-    def delete_episode_data(self, episode_id: int, delete_in_hub: bool = True) -> None:
+    def delete_episode(self, episode_id: int, update_hub: bool = True) -> None:
         """
-        Delete the episode data from the dataset
-        If delete_in_hub is True, also delete the episode data from the HuggingFace repository
+        Delete the episode data from the dataset.
+        If format is lerobot_v2, also delete the episode videos from the dataset
+        and updates the meta data.
+
+        If update_hub is True, also delete the episode data from the HuggingFace repository
         """
+        # Load the data of the episode to delete before removing it
+        try:
+            df_episode_to_delete = self.get_df_episode(episode_id=episode_id)
+        except FileNotFoundError:
+            logger.error(f"Episode {episode_id} not found in the dataset")
+            return
+
         # Get the full path to the data with episode id
         full_path_data_to_remove = self.get_episode_data_path(episode_id)
         # Remove the episode data file
         os.remove(full_path_data_to_remove)
-        repo_id = self.get_repo_id()
-        if self.check_repo_exists(repo_id) and delete_in_hub:
+        repo_id = self.repo_id
+        if self.check_repo_exists(repo_id) and update_hub:
             data_path_in_repo = self.get_episode_data_path_in_repo(episode_id)
             delete_file(
                 repo_id=repo_id, path_in_repo=data_path_in_repo, repo_type="dataset"
             )
+
+        if self.episode_format == "lerobot_v2":
+            # Start loading current meta data
+            info_model = InfoModel.from_json(
+                meta_folder_path=self.meta_folder_full_path
+            )
+            stats_model = StatsModel.from_json(
+                meta_folder_path=self.meta_folder_full_path
+            )
+            tasks_model = TasksModel.from_jsonl(
+                meta_folder_path=self.meta_folder_full_path
+            )
+            episodes_model = EpisodesModel.from_jsonl(
+                meta_folder_path=self.meta_folder_full_path
+            )
+
+            # Rename the remaining episodes to keep the numbering consistent
+            # be sure to reindex AFTER deleting the episode data
+            self.reindex_episodes(
+                episode_to_remove_id=episode_id,
+                nb_steps_deleted_episode=len(df_episode_to_delete),
+                folder_path=self.folder_full_path,
+            )
+
+            # Update stats for images before deleting the videos
+            stats_model._update_for_episode_removal_images_stats(
+                folder_videos_path=self.videos_folder_full_path,
+                episode_to_delete_index=episode_id,
+            )
+
+            self.delete_episode_videos(
+                episode_to_remove_id=episode_id,
+                update_hub=True,
+            )
+
+            # Reindex the episode videos
+            for camera_folder_full_path in self.get_camera_folders_full_paths():
+                self.reindex_episodes(
+                    folder_path=camera_folder_full_path,
+                    episode_to_remove_id=episode_id,
+                )
+
+            # Update meta data before episode removal
+            tasks_model.update_for_episode_removal(
+                df_episode_to_delete=df_episode_to_delete,
+                data_folder_full_path=self.data_folder_full_path,
+            )
+            tasks_model.save(meta_folder_path=self.data_folder_full_path)
+            logger.info("Tasks model updated")
+
+            episodes_model.update_for_episode_removal(
+                episode_to_delete_index=episode_id
+            )
+            episodes_model.save(
+                meta_folder_path=self.meta_folder_full_path, save_mode="overwrite"
+            )
+            logger.info("Episodes model updated")
+
+            info_model.update_for_episode_removal(
+                df_episode_to_delete=df_episode_to_delete
+            )
+            info_model.save(meta_folder_path=self.meta_folder_full_path)
+            logger.info("Info model updated")
+
+            stats_model._update_for_episode_removal_mean_std_count(
+                df_episode_to_delete=df_episode_to_delete
+            )
+            stats_model._update_for_episode_removal_min_max(
+                data_folder_path=self.data_folder_full_path
+            )
+            stats_model.save(meta_folder_path=self.meta_folder_full_path)
+            logger.info("Stats model updated")
+
+            if update_hub:
+                upload_folder(
+                    folder_path=self.meta_folder_full_path,
+                    repo_id=self.repo_id,
+                    repo_type="dataset",
+                    path_in_repo="meta",
+                )
 
     def get_camera_folders_full_paths(self) -> List[str]:
         """
@@ -917,7 +1011,7 @@ class Dataset(BaseModel):
         ]
 
     def delete_episode_videos(
-        self, episode_to_remove_id: int, delete_in_hub: bool = True
+        self, episode_to_remove_id: int, update_hub: bool = True
     ) -> None:
         """
         Delete the episode videos from the dataset
@@ -938,38 +1032,12 @@ class Dataset(BaseModel):
                 camera_folder_path_in_repo, f"episode_{episode_to_remove_id:06d}.mp4"
             )
 
-            if self.check_repo_exists(self.get_repo_id()) and delete_in_hub:
+            if self.check_repo_exists(self.repo_id) and update_hub:
                 delete_file(
-                    repo_id=self.get_repo_id(),
+                    repo_id=self.repo_id,
                     path_in_repo=video_path_in_repo,
                     repo_type="dataset",
                 )
-
-    def save(self, filename: str):
-        """
-        Save the dataset to a JSON file with numpy array handling
-        TODO: add compression of images arrays
-        """
-        # Convert the dataset to a dictionary
-        data_dict = self.model_dump()
-
-        # Save to JSON using the custom encoder
-        with open(filename, "w") as f:
-            json.dump(data_dict, f, cls=NumpyEncoder)
-
-    @classmethod
-    def load(cls, filename: str) -> "Dataset":
-        """
-        Load a dataset.
-        """
-
-        if filename.endswith(".json"):
-            with open(filename, "r") as f:
-                data_dict = json.load(f, object_hook=decode_numpy)
-            return cls(**data_dict)
-        else:
-            # Check if dataset is a lerobot_v2 dataset
-            raise NotImplementedError("Only JSON format is supported for now")
 
     def get_total_frames(self) -> int:
         """
@@ -1478,7 +1546,7 @@ class StatsModel(BaseModel):
 
         self.to_json(meta_folder_path)
 
-    def update_mean_std_count_for_episode_removal(
+    def _update_for_episode_removal_mean_std_count(
         self, df_episode_to_delete: pd.DataFrame
     ) -> None:
         """
@@ -1534,7 +1602,7 @@ class StatsModel(BaseModel):
                         - np.square(field_value.mean)
                     )
 
-    def update_images_stats_for_episode_removal(
+    def _update_for_episode_removal_images_stats(
         self, folder_videos_path: str, episode_to_delete_index: int
     ) -> None:
         """
@@ -1579,10 +1647,10 @@ class StatsModel(BaseModel):
                     - np.square(mean_val)
                 )
 
-    def update_min_max_for_episode_removal(self, data_folder_path: str) -> None:
+    def _update_for_episode_removal_min_max(self, data_folder_path: str) -> None:
         """
         Update the min and max in stats after removing an episode from the dataset.
-        Be sure to call this function after update_before_episode_removal and after reindexing the data.
+        Be sure to call this function after reindexing the data.
         """
 
         # Load all the other parquet files in one dataFrame
@@ -1609,6 +1677,10 @@ class StatsModel(BaseModel):
                 (field_value.min, field_value.max) = get_field_min_max(
                     all_episodes_df, field_name
                 )
+
+    def update_for_episode_removal(self, data_folder_path: str) -> None:
+        # TODO: Handle everything in one function
+        pass
 
 
 class FeatureDetails(BaseModel):
@@ -1884,7 +1956,7 @@ class InfoModel(BaseModel):
         """
         self.to_json(meta_folder_path)
 
-    def update_before_episode_removal(self, df_episode_to_delete: pd.DataFrame) -> None:
+    def update_for_episode_removal(self, df_episode_to_delete: pd.DataFrame) -> None:
         """
         Update the info before removing an episode from the dataset.
         """
