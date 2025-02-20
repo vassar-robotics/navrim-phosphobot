@@ -243,7 +243,7 @@ After=network.target
 Type=simple
 User=root
 ExecStart=/usr/local/bin/phosphobot run
-Restart=on-failure
+Restart=always
 WorkingDirectory=/root
 Environment="PATH=/usr/local/bin:/usr/bin"
 
