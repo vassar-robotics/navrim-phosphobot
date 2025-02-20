@@ -1303,8 +1303,9 @@ class Stats(BaseModel):
 
         # Update the rolling sum and square sum
         if self.sum is None or self.square_sum is None:
-            self.sum = value
-            self.square_sum = value**2
+            # We need to copy the value to avoid modifying the original value
+            self.sum = value.copy()
+            self.square_sum = value.copy() ** 2
             self.count = 1
         else:
             self.sum = self.sum + value
