@@ -673,7 +673,7 @@ class Dataset(BaseModel):
         )
 
         # Validate dataset name
-        if not self.check_dataset_name():
+        if not Dataset.check_dataset_name(self.dataset_name):
             raise ValueError(
                 "Dataset name contains invalid characters. Should not contain spaces or /"
             )
@@ -685,9 +685,26 @@ class Dataset(BaseModel):
         # HF API
         self.HF_API = HfApi()
 
-    def check_dataset_name(self) -> bool:
+    @classmethod
+    def check_dataset_name(cls, name: str) -> bool:
         """Validate dataset name format"""
-        return " " not in self.dataset_name and "/" not in self.dataset_name
+        return " " not in name and "/" not in name
+
+    @classmethod
+    def consolidate_dataset_name(cls, name: str) -> str:
+        """
+        Check if the dataset name is valid.
+        To be valid, the dataset name must be a string without spaces, /, or -.
+
+        If not we replace them with underscores.
+        """
+        if not cls.check_dataset_name(name):
+            logger.warning(
+                "Dataset name contains invalid characters. Replacing them with underscores."
+            )
+            name.replace(" ", "_").replace("/", "_").replace("-", "_")
+
+        return name
 
     def get_episode_data_path(self, episode_id: int) -> str:
         """Get the full path to the data with episode id"""
@@ -1117,19 +1134,6 @@ class Dataset(BaseModel):
                 episode_fps.append(fps)
 
         return np.mean(episode_fps)
-
-    def consolidate_dataset_name(self) -> None:
-        """
-        Check if the dataset name is valid.
-        To be valid, the dataset name must be a string without spaces, /, or -.
-
-        If not we replace them with underscores.
-        """
-        if not self.check_dataset_name():
-            logger.warning(
-                "Dataset name contains invalid characters. Replacing them with underscores."
-            )
-            self.dataset_name.replace(" ", "_").replace("/", "_").replace("-", "_")
 
     def push_dataset_to_hub(
         self, dataset_path: str, dataset_name: str, branch_path: str | None = "2.0"
