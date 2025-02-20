@@ -1334,15 +1334,22 @@ class Stats(BaseModel):
 
         # Update the max and min
         if self.max is None:
-            self.max = np.max(image_norm_32, axis=(0, 1))
+            self.max = np.max(image_norm_32, axis=(0, 1)).reshape(3, 1, 1)
         else:
+            image_max_pixel = np.max(image_norm_32, axis=(0, 1)).reshape(3, 1, 1)
             # maximum is the max in each channel
-            self.max = np.maximum(self.max, np.max(image_norm_32, axis=(0, 1)))
+            self.max = np.maximum(self.max, image_max_pixel)
 
         if self.min is None:
-            self.min = np.min(image_norm_32, axis=(0, 1))
+            self.min = np.min(image_norm_32, axis=(0, 1)).reshape(3, 1, 1)
+            # Reshape to have the same shape as the mean and std
+            self.min = self.min.reshape(3, 1, 1)
         else:
-            self.min = np.minimum(self.min, np.min(image_norm_32, axis=(0, 1)))
+            image_min_pixel = np.min(image_norm_32, axis=(0, 1)).reshape(3, 1, 1)
+            # Set the min to the min in each channel
+            self.min = np.minimum(self.min, image_min_pixel)
+            # Reshape to have the same shape as the mean and std
+            self.min = self.min.reshape(3, 1, 1)
 
         # Update the rolling sum and square sum
         nb_pixels = image_norm_32.shape[0] * image_norm_32.shape[1]
@@ -1370,10 +1377,8 @@ class Stats(BaseModel):
         # For the first episode the shape is (3,)
         # For the next ones the shape is (3,1,3)
         # We keep min and max of the first episode only
-        if self.min.shape == (3,):
-            self.min = self.min.reshape(3, 1, 1)
-        if self.max.shape == (3,):
-            self.max = self.max.reshape(3, 1, 1)
+        self.min = self.min.reshape(3, 1, 1)
+        self.max = self.max.reshape(3, 1, 1)
 
 
 class StatsModel(BaseModel):
