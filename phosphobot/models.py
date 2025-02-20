@@ -29,12 +29,9 @@ from phosphobot.utils import (
     decode_numpy,
     get_field_min_max,
     NdArrayAsList,
+    get_hf_username_or_orgid,
 )
 from phosphobot.types import VideoCodecs
-
-# Cannot find implementation or library stub for module named "teleop.teleop.utils"
-from teleop.teleop.utils import get_hf_username_or_orgid  # type: ignore
-from training.phospho_lerobot.scripts.push_dataset_to_hf import push_dataset_to_hub  # type: ignore
 
 
 class BaseRobotPIDGains(BaseModel):
@@ -544,9 +541,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -792,7 +789,7 @@ class Dataset(BaseModel):
 
         # If the repository does not exist, push the dataset to HuggingFace
         if not repository_exists:
-            push_dataset_to_hub(
+            self.push_dataset_to_hub(
                 dataset_path=self.data_folder_full_path, dataset_name=self.dataset_name
             )
 
@@ -969,10 +966,17 @@ class Dataset(BaseModel):
 
     @classmethod
     def load(cls, filename: str) -> "Dataset":
-        """Load a dataset from a JSON file with numpy array handling"""
-        with open(filename, "r") as f:
-            data_dict = json.load(f, object_hook=decode_numpy)
-        return cls(**data_dict)
+        """
+        Load a dataset.
+        """
+
+        if filename.endswith(".json"):
+            with open(filename, "r") as f:
+                data_dict = json.load(f, object_hook=decode_numpy)
+            return cls(**data_dict)
+        else:
+            # Check if dataset is a lerobot_v2 dataset
+            raise NotImplementedError("Only JSON format is supported for now")
 
     def get_total_frames(self) -> int:
         """
@@ -1104,23 +1108,23 @@ class Dataset(BaseModel):
             if not os.path.exists(readme_path):
                 with open(readme_path, "w") as readme_file:
                     readme_file.write(f"""
-    ---
-    tags:
-    - phosphobot
-    - so100
-    - phospho-dk1
-    task_categories:
-    - robotics                                                   
-    ---
+---
+tags:
+- phosphobot
+- so100
+- phospho-dk1
+task_categories:
+- robotics                                                   
+---
 
-    # {dataset_name}
+# {dataset_name}
 
-    **This dataset was generated using a [phospho dev kit](https://robots.phospho.ai).**
+**This dataset was generated using a [phospho dev kit](https://robots.phospho.ai).**
 
-    This dataset contains a series of episodes recorded with a robot and multiple cameras. \
-    It can be directly used to train a policy using imitation learning. \
-    It's compatible with LeRobot and RLDS.
-    """)
+This dataset contains a series of episodes recorded with a robot and multiple cameras. \
+It can be directly used to train a policy using imitation learning. \
+It's compatible with LeRobot and RLDS.
+""")
 
             # Construct full repo name
             dataset_repo_name = f"{username_or_org_id}/{dataset_name}"

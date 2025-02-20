@@ -2,9 +2,10 @@ import base64
 import json
 import os
 from pathlib import Path
-from typing import Annotated, Any, List, Tuple, Union
+from typing import Annotated, Any, Tuple, Union
 
 import cv2
+from huggingface_hub import HfApi
 import numpy as np
 from loguru import logger
 import pandas as pd
@@ -285,3 +286,78 @@ def get_field_min_max(df: pd.DataFrame, field_name: str) -> tuple:
     else:
         # Otherwise, assume the field is numeric and return the scalar min.
         return (df[field_name].min(), df[field_name].max())
+
+
+def parse_hf_username_or_orgid(user_info: dict) -> str | None:
+    """
+    Extract the username or organization name from the user info dictionary.
+    user_info = api.whoami(token=hf_token)
+    """
+    # Extract the username
+    username = user_info.get("name", "Unknown")
+
+    # If no fine grained permissions, return the username
+    if user_info.get("auth", {}).get("accessToken", {}).get("role") == "write":
+        return username
+
+    # Extract fine-grained permissions
+    fine_grained_permissions = (
+        user_info.get("auth", {}).get("accessToken", {}).get("fineGrained", {})
+    )
+    scoped_permissions = fine_grained_permissions.get("scoped", [])
+
+    # Check if the token has write access to the user account
+    user_has_write_access = False
+    org_with_write_access = None
+
+    for scope in scoped_permissions:
+        entity = scope.get("entity", {})
+        entity_type = entity.get("type")
+        entity_name = entity.get("name")
+        permissions = scope.get("permissions", [])
+
+        # Check if the entity is the user and has write access
+        if entity_type == "user" and "repo.write" in permissions:
+            user_has_write_access = True
+            # Return the username
+            return username
+
+        # Check if the entity is an org and has write access
+        if entity_type == "org" and "repo.write" in permissions:
+            org_with_write_access = entity_name
+            return org_with_write_access
+
+    logger.warning(
+        "No user or org with write access found. Wont be able to push to Hugging Face."
+    )
+
+    return None
+
+
+def get_hf_username_or_orgid() -> str | None:
+    """
+    Returns the username or organization name from the Hugging Face token file.
+    Returns None if we can't write anywhere.
+    """
+    token_file = get_home_app_path() / "huggingface.token"
+
+    # Check the file exists
+    if not token_file.exists():
+        logger.info("Token file not found.")
+        return None
+
+    with open(token_file, "r") as file:
+        hf_token = file.read().strip()
+    if hf_token:
+        try:
+            api = HfApi()
+            user_info = api.whoami(token=hf_token)
+            # Get the username or org where we have write access
+            username_or_orgid = parse_hf_username_or_orgid(user_info)
+            return username_or_orgid
+        except Exception as e:
+            logger.error(f"Error logging in to Hugging Face: {e}")
+            return None
+    else:
+        logger.info("Error: The token file is empty.")
+        return None
