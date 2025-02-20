@@ -771,25 +771,8 @@ class Dataset(BaseModel):
             else f"episode_{episode_id:06d}.{self.data_file_extension}"
         )
 
-    def push_to_hub(self):
-        """Reupload the dataset folder to HuggingFace"""
-        username_or_orgid = get_hf_username_or_orgid()
-        if username_or_orgid is None:
-            logger.warning(
-                "No HuggingFace token found. Please add a token in the Admin page.",
-            )
-            return
-
-        if self.episode_format == "lerobot_v2" and self.check_repo_exists(self.repo_id):
-            upload_folder(
-                folder_path=self.folder_full_path,
-                repo_id=self.repo_id,
-                repo_type="dataset",
-                token=True,
-            )
-
     def sync_local_to_hub(self):
-        # Reupload the dataset folder to HuggingFace
+        """Reupload the dataset folder to HuggingFace"""
         username_or_orgid = get_hf_username_or_orgid()
         if username_or_orgid is None:
             logger.warning(
@@ -1135,15 +1118,11 @@ class Dataset(BaseModel):
 
         return np.mean(episode_fps)
 
-    def push_dataset_to_hub(
-        self, dataset_path: str, dataset_name: str, branch_path: str | None = "2.0"
-    ):
+    def push_dataset_to_hub(self, branch_path: str | None = "2.0"):
         """
-        Push a dataset to the Hugging Face Hub.
+        Push the dataset to the Hugging Face Hub.
 
         Args:
-            dataset_path (str): Path to the dataset folder
-            dataset_name (str): Name of the dataset
             branch_path (str, optional): Additional branch to push to besides main
         """
         try:
@@ -1168,7 +1147,7 @@ class Dataset(BaseModel):
                 return
 
             # Create README if it doesn't exist
-            readme_path = os.path.join(dataset_path, "README.md")
+            readme_path = os.path.join(self.folder_full_path, "README.md")
             if not os.path.exists(readme_path):
                 with open(readme_path, "w") as readme_file:
                     readme_file.write(f"""
@@ -1181,7 +1160,7 @@ task_categories:
 - robotics                                                   
 ---
 
-# {dataset_name}
+# {self.dataset_name}
 
 **This dataset was generated using a [phospho dev kit](https://robots.phospho.ai).**
 
@@ -1191,7 +1170,7 @@ It's compatible with LeRobot and RLDS.
 """)
 
             # Construct full repo name
-            dataset_repo_name = f"{username_or_org_id}/{dataset_name}"
+            dataset_repo_name = f"{username_or_org_id}/{self.dataset_name}"
             create_2_0_branch = False
 
             # Check if repo exists, create if it doesn't
@@ -1216,7 +1195,7 @@ It's compatible with LeRobot and RLDS.
                 f"Pushing the dataset to the main branch in repository {dataset_repo_name}"
             )
             upload_folder(
-                folder_path=dataset_path,
+                folder_path=self.folder_full_path,
                 repo_id=dataset_repo_name,
                 repo_type="dataset",
                 token=True,
@@ -1239,7 +1218,7 @@ It's compatible with LeRobot and RLDS.
                         f"Pushing the dataset to the branch v2.0 in repository {dataset_repo_name}"
                     )
                     upload_folder(
-                        folder_path=dataset_path,
+                        folder_path=self.folder_full_path,
                         repo_id=dataset_repo_name,
                         repo_type="dataset",
                         token=True,
@@ -1267,7 +1246,7 @@ It's compatible with LeRobot and RLDS.
                     # Push to specified branch
                     logger.info(f"Pushing the dataset to branch {branch_path}")
                     upload_folder(
-                        folder_path=dataset_path,
+                        folder_path=self.folder_full_path,
                         repo_id=dataset_repo_name,
                         repo_type="dataset",
                         token=True,
