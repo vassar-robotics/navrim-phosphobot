@@ -1769,7 +1769,7 @@ class InfoModel(BaseModel):
     codebase_version: str = "v2.0"
     total_episodes: int = 0
     total_frames: int = 0
-    total_tasks: int = 0
+    total_tasks: int = 1  # By default, there is 1 task: "None"
     total_videos: int = 0
     total_chunks: int = 1
     chunks_size: int = 1000
