@@ -5,8 +5,10 @@ from pathlib import Path
 from typing import Annotated, Any, Tuple, Union
 
 import cv2
+from huggingface_hub import HfApi
 import numpy as np
 from loguru import logger
+import pandas as pd
 from pydantic import BeforeValidator, PlainSerializer
 from rich import print
 
@@ -194,3 +196,168 @@ def get_home_app_path() -> Path:
     (home_path / "calibration").mkdir(parents=True, exist_ok=True)
     (home_path / "recordings").mkdir(parents=True, exist_ok=True)
     return home_path
+
+
+def compute_sum_squaresum_framecount_from_video(
+    video_path: str,
+) -> Tuple[np.ndarray, np.ndarray, int]:
+    """
+    Process a video file and calculate the sum of RGB values and sum of squares of RGB values for each frame.
+    Returns a list of np.ndarray corresponding respectively to the sum of RGB values, sum of squares of RGB values and nb_pixel.
+    We divide by 255.0 RGB values to normalize the values to the range [0, 1].
+    """
+    # Open the video file
+    cap = cv2.VideoCapture(video_path)
+
+    if not cap.isOpened():
+        raise FileNotFoundError(f"Error: Could not open video at path: {video_path}")
+
+    nb_pixel = 0
+    total_sum_rgb = np.zeros(3, dtype=np.float32)  # To store sum of RGB values
+    total_sum_squares = np.zeros(
+        3, dtype=np.float32
+    )  # To store sum of squares of RGB values
+    while True:
+        # Read a frame from the video
+        ret, frame = cap.read()
+        # If the frame was not read successfully, break the loop
+        if not ret:
+            break
+
+        # Convert the frame from BGR to RGB (OpenCV uses BGR by default)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) / 255.0
+        # Calculate the sum of RGB values for the frame
+        sum_rgb = np.sum(frame_rgb, axis=(0, 1))
+        # Calculate the sum of squares of RGB values for the frame
+        sum_squares = np.sum(frame_rgb**2, axis=(0, 1))
+        # Accumulate the sums
+        # Cannot cast ufunc 'add' output from dtype('float64') to dtype('uint64') with casting rule 'same_kind'
+        total_sum_rgb = total_sum_rgb + sum_rgb
+        total_sum_squares = total_sum_squares + sum_squares
+
+        # nb Pixel
+        nb_pixel += frame_rgb.shape[0] * frame_rgb.shape[1]
+
+    # Release the video capture object
+    # TODO: If problem of dimension maybe transposing arrays is needed.
+    cap.release()
+    return (total_sum_rgb, total_sum_squares, nb_pixel)
+
+
+def get_field_min_max(df: pd.DataFrame, field_name: str) -> tuple:
+    """
+    Compute the minimum value for the given field in the DataFrame.
+
+    If the field values are numeric, returns a scalar minimum.
+    If the field values are lists/arrays, returns an element-wise minimum array.
+
+    Parameters:
+        df (pd.DataFrame): DataFrame containing the data.
+        field_name (str): The name of the field/column to compute the min,max for.
+
+    Returns:
+        The minimum value(s) for the specified field.
+
+    Raises:
+        ValueError: If the field does not exist or if list/array values have inconsistent shapes.
+    """
+    if field_name not in df.columns:
+        raise ValueError(f"Field '{field_name}' not found in DataFrame")
+
+    # Get a sample value (skip any nulls)
+    sample_value = df[field_name].dropna().iloc[0]
+
+    # If the field values are lists or arrays, compute element-wise min, max
+    if isinstance(sample_value, (list, np.ndarray)):
+        # Check that df[field_name].values is a np.ndarray
+        array_values = df[field_name].values
+
+        if not isinstance(array_values, np.ndarray):
+            raise ValueError(
+                f"Field '{field_name}' values are not stored as a numpy array in the DataFrame"
+            )
+        else:
+            # No overload variant of "vstack" matches argument type "ndarray[Any, Any]"
+            return np.min(np.vstack(array_values), axis=1), np.max(  # type: ignore
+                np.vstack(array_values),  # type: ignore
+                axis=1,
+            )
+
+    else:
+        # Otherwise, assume the field is numeric and return the scalar min.
+        return (df[field_name].min(), df[field_name].max())
+
+
+def parse_hf_username_or_orgid(user_info: dict) -> str | None:
+    """
+    Extract the username or organization name from the user info dictionary.
+    user_info = api.whoami(token=hf_token)
+    """
+    # Extract the username
+    username = user_info.get("name", "Unknown")
+
+    # If no fine grained permissions, return the username
+    if user_info.get("auth", {}).get("accessToken", {}).get("role") == "write":
+        return username
+
+    # Extract fine-grained permissions
+    fine_grained_permissions = (
+        user_info.get("auth", {}).get("accessToken", {}).get("fineGrained", {})
+    )
+    scoped_permissions = fine_grained_permissions.get("scoped", [])
+
+    # Check if the token has write access to the user account
+    user_has_write_access = False
+    org_with_write_access = None
+
+    for scope in scoped_permissions:
+        entity = scope.get("entity", {})
+        entity_type = entity.get("type")
+        entity_name = entity.get("name")
+        permissions = scope.get("permissions", [])
+
+        # Check if the entity is the user and has write access
+        if entity_type == "user" and "repo.write" in permissions:
+            user_has_write_access = True
+            # Return the username
+            return username
+
+        # Check if the entity is an org and has write access
+        if entity_type == "org" and "repo.write" in permissions:
+            org_with_write_access = entity_name
+            return org_with_write_access
+
+    logger.warning(
+        "No user or org with write access found. Wont be able to push to Hugging Face."
+    )
+
+    return None
+
+
+def get_hf_username_or_orgid() -> str | None:
+    """
+    Returns the username or organization name from the Hugging Face token file.
+    Returns None if we can't write anywhere.
+    """
+    token_file = get_home_app_path() / "huggingface.token"
+
+    # Check the file exists
+    if not token_file.exists():
+        logger.info("Token file not found.")
+        return None
+
+    with open(token_file, "r") as file:
+        hf_token = file.read().strip()
+    if hf_token:
+        try:
+            api = HfApi()
+            user_info = api.whoami(token=hf_token)
+            # Get the username or org where we have write access
+            username_or_orgid = parse_hf_username_or_orgid(user_info)
+            return username_or_orgid
+        except Exception as e:
+            logger.error(f"Error logging in to Hugging Face: {e}")
+            return None
+    else:
+        logger.info("Error: The token file is empty.")
+        return None
