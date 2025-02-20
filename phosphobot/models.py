@@ -639,17 +639,7 @@ class LeRobotEpisodeModel(BaseModel):
 
 class Dataset(BaseModel):
     """
-    Save a dataset
-
-    ```python
-    dataset.save("robot_dataset.json")
-    ```
-
-    Load dataset
-
-    ```python
-    loaded_dataset = Dataset.load("robot_dataset.json")
-    ```
+    Handle common dataset operations. Useful to manage the dataset.
     """
 
     episodes: List[Episode]
@@ -661,7 +651,10 @@ class Dataset(BaseModel):
     # Full path to the dataset folder
     folder_full_path: str
 
-    def __init__(self, path: str, ROOT_DIR: str = "") -> None:
+    def __init__(self, path: str) -> None:
+        """
+        Load an existing dataset.
+        """
         # Check path format
         path_parts = path.split("/")
         if len(path_parts) < 2 or path_parts[-2] not in ["json", "lerobot_v2"]:
@@ -674,7 +667,7 @@ class Dataset(BaseModel):
             path=path,
             dataset_name=path_parts[-1],
             episode_format=path_parts[-2],
-            full_path=os.path.join(ROOT_DIR, path),
+            full_path=path,
             data_file_extension="json" if path_parts[-2] == "json" else "parquet",
             repo_id=f"{get_hf_username_or_orgid()}/{path_parts[-1]}",
         )
