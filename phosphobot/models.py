@@ -1594,43 +1594,49 @@ class StatsModel(BaseModel):
     ) -> None:
         """
         Update the stats for images.
+
+        For every camera, we need to delete the episode_{episode_index:06d}.mp4 file.
+
+        We update the sum, square_sum, and count for each camera.
         """
-        cameras_folder = os.listdir(folder_videos_path)
-        for camera_folder in cameras_folder:
+
+        cameras_folders = os.listdir(folder_videos_path)
+        for camera_name in cameras_folders:
             # Create the path of the video episode_{episode_index:06d}.mp4
             video_path = os.path.join(
                 folder_videos_path,
-                camera_folder,
+                camera_name,  # eg: observation.images.main
                 f"episode_{episode_to_delete_index:06d}.mp4",
             )
             sum_array, square_sum_array, nb_pixel = (
                 compute_sum_squaresum_framecount_from_video(video_path)
             )
+
             sum_array = sum_array.astype(np.float32)
             square_sum_array = square_sum_array.astype(np.float32)
 
             # Update the stats_model for sum square_sum and count
-            self.observation_images[camera_folder].sum = (
-                self.observation_images[camera_folder].sum - sum_array
+            self.observation_images[camera_name].sum = (
+                self.observation_images[camera_name].sum - sum_array
             )
-            self.observation_images[camera_folder].square_sum = (
-                self.observation_images[camera_folder].square_sum - square_sum_array
+            self.observation_images[camera_name].square_sum = (
+                self.observation_images[camera_name].square_sum - square_sum_array
             )
-            self.observation_images[camera_folder].count = (
-                self.observation_images[camera_folder].count - nb_pixel
+            self.observation_images[camera_name].count = (
+                self.observation_images[camera_name].count - nb_pixel
             )
             # Update the stats_model for mean and std
             if (
-                self.observation_images[camera_folder].sum is not None
-                and self.observation_images[camera_folder].count
+                self.observation_images[camera_name].sum is not None
+                and self.observation_images[camera_name].count
             ):
                 mean_val = (
-                    np.array(self.observation_images[camera_folder].sum)
-                    / self.observation_images[camera_folder].count
+                    np.array(self.observation_images[camera_name].sum)
+                    / self.observation_images[camera_name].count
                 )
-                self.observation_images[camera_folder].mean = mean_val
-                self.observation_images[camera_folder].square_sum = (
-                    self.observation_images[camera_folder].square_sum
+                self.observation_images[camera_name].mean = mean_val
+                self.observation_images[camera_name].square_sum = (
+                    self.observation_images[camera_name].square_sum
                     - np.square(mean_val)
                 )
 
