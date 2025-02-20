@@ -1148,13 +1148,12 @@ class Dataset(BaseModel):
         """
         try:
             # Initialize HF API with token
-            hf_api = HfApi(token=True)
 
             # Try to get username/org ID from token
             username_or_org_id = None
             try:
                 # Get user info from token
-                user_info = hf_api.whoami()
+                user_info = self.HF_API.whoami()
                 username_or_org_id = user_info.get("name")
 
                 if not username_or_org_id:
@@ -1197,7 +1196,7 @@ It's compatible with LeRobot and RLDS.
 
             # Check if repo exists, create if it doesn't
             try:
-                hf_api.repo_info(repo_id=dataset_repo_name, repo_type="dataset")
+                self.HF_API.repo_info(repo_id=dataset_repo_name, repo_type="dataset")
                 logger.info(f"Repository {dataset_repo_name} already exists.")
             except Exception as e:
                 logger.info(
