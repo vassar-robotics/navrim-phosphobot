@@ -201,7 +201,7 @@ install_rpi_specific() {
     
     # Configure Bluetooth
     echo "Installing BT connectivity..."
-    curl -L https://raw.githubusercontent.com/oulianov/Rpi-SetWiFi-viaBluetooth/refs/heads/main/btwifisetInstall.sh | bash -s -- -y
+    curl -L https://raw.githubusercontent.com/nksan/Rpi-SetWiFi-viaBluetooth/refs/heads/main/btwifisetInstall.sh | bash 
 }
 
 install_darwin_specific() {
