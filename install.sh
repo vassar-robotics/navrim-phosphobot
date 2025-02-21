@@ -232,6 +232,7 @@ setup_services() {
         sudo systemctl stop phosphobot.service 2>/dev/null || true
         sudo systemctl disable phosphobot.service 2>/dev/null || true
         sudo pkill -f "phosphobot run" 2>/dev/null || true
+        sudo systemctl stop phosphobot-update 2>/dev/null || true
 
         echo "Creating systemd service file for phosphobot..."
         sudo bash -c 'cat > /etc/systemd/system/phosphobot.service <<EOL
