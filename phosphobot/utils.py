@@ -359,5 +359,5 @@ def get_hf_username_or_orgid() -> str | None:
             logger.error(f"Error logging in to Hugging Face: {e}")
             return None
     else:
-        logger.info("Error: The token file is empty.")
+        logger.warning(f"Empty token file: {token_file}. Ignoring.")
         return None
