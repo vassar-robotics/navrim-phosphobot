@@ -20,7 +20,7 @@ import numpy as np
 from loguru import logger
 import pandas as pd  # type: ignore
 from pydantic import BaseModel, Field, model_validator
-
+from typing import cast
 from phosphobot.utils import (
     NumpyEncoder,
     compute_sum_squaresum_framecount_from_video,
@@ -637,7 +637,7 @@ class LeRobotEpisodeModel(BaseModel):
         df.to_parquet(filename, index=False)
 
 
-class Dataset(BaseModel):
+class Dataset:
     """
     Handle common dataset operations. Useful to manage the dataset.
     """
@@ -662,15 +662,13 @@ class Dataset(BaseModel):
                 "Wrong dataset path provided. Path must contain json or lerobot_v2 format."
             )
 
-        # Initialize fields
-        super().__init__(
-            path=path,
-            dataset_name=path_parts[-1],
-            episode_format=path_parts[-2],
-            full_path=path,
-            data_file_extension="json" if path_parts[-2] == "json" else "parquet",
-            repo_id=f"{get_hf_username_or_orgid()}/{path_parts[-1]}",
-        )
+        self.path = path
+        self.episodes = []
+        self.dataset_name = path_parts[-1]
+        self.episode_format = cast(Literal["json", "lerobot_v2"], path_parts[-2])
+        self.folder_full_path = path
+        self.data_file_extension = "json" if path_parts[-2] == "json" else "parquet"
+        self.HF_API = HfApi()
 
         # Validate dataset name
         if not Dataset.check_dataset_name(self.dataset_name):
@@ -681,9 +679,6 @@ class Dataset(BaseModel):
         # Check that the dataset folder exists
         if not os.path.exists(self.folder_full_path):
             raise ValueError(f"Dataset folder {self.folder_full_path} does not exist")
-
-        # HF API
-        self.HF_API = HfApi()
 
     @classmethod
     def check_dataset_name(cls, name: str) -> bool:
