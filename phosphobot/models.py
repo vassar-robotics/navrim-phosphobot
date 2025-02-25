@@ -1777,6 +1777,36 @@ class BaseRobotInfo(BaseModel):
     action: FeatureDetails
     observation_state: FeatureDetails
 
+    def merge_base_robot_info(
+        self, base_robot_info: "BaseRobotInfo"
+    ) -> "BaseRobotInfo":
+        """
+        Merges an existing base robot info with another one.
+        This is intended to be used when merging files for two so-100 together.
+        """
+        if (
+            self.action.names is None
+            or self.observation_state.names is None
+            or base_robot_info.action.names is None
+            or base_robot_info.observation_state.names is None
+        ):
+            raise ValueError(
+                "The names field in the action and observation_state must be set."
+            )
+        self.robot_type += f", {base_robot_info.robot_type}"
+
+        self.action.shape[0] += base_robot_info.action.shape[0]
+        self.action.names += [
+            name + "_secondary" for name in base_robot_info.action.names
+        ]
+
+        self.observation_state.shape[0] += base_robot_info.observation_state.shape[0]
+        self.observation_state.names = self.observation_state.names + [
+            name + "_secondary" for name in base_robot_info.observation_state.names
+        ]
+
+        return self
+
 
 class InfoModel(BaseModel):
     """
@@ -1803,12 +1833,17 @@ class InfoModel(BaseModel):
     features: InfoFeatures
 
     @classmethod
-    def from_robot(cls, robot: BaseRobot, **data) -> "InfoModel":
+    def from_robots(cls, robots: List[BaseRobot], **data) -> "InfoModel":
         """
         From a robot configuration, create the appropriate InfoModel.
         This is because it depends on the number of joints etc.
         """
-        robot_info = robot.get_info()
+        robot_info = robots[0].get_info()
+        if len(robots) > 1:
+            for robot in robots[1:]:
+                new_info = robot.get_info()
+                robot_info = robot_info.merge_base_robot_info(new_info)
+
         features = InfoFeatures(
             action=robot_info.action,
             observation_state=robot_info.observation_state,
@@ -1834,7 +1869,7 @@ class InfoModel(BaseModel):
         meta_folder_path: str,
         fps: int | None = None,
         codec: VideoCodecs | None = None,
-        robot: BaseRobot | None = None,
+        robots: List[BaseRobot] | None = None,
         target_size: tuple[int, int] | None = None,
         secondary_cameras: List[BaseCamera] | None = None,
         main_is_stereo: bool = False,
@@ -1850,7 +1885,7 @@ class InfoModel(BaseModel):
             not os.path.exists(f"{meta_folder_path}/info.json")
             or os.stat(f"{meta_folder_path}/info.json").st_size == 0
         ):
-            if robot is None:
+            if robots is None:
                 raise ValueError(
                     "No info.json file found and no robot provided to create the InfoModel"
                 )
@@ -1865,7 +1900,7 @@ class InfoModel(BaseModel):
                     "No secondary_camera_ids provided to create the InfoModel"
                 )
 
-            info_model = cls.from_robot(robot)
+            info_model = cls.from_robots(robots)
             video_shape = [target_size[1], target_size[0], 3]
             video_info = VideoInfo(video_codec=codec, video_fps=fps)
 
