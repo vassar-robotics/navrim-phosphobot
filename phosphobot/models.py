@@ -254,7 +254,7 @@ class Episode(BaseModel):
         fps: int,
         codec: VideoCodecs,
         format_to_save: Literal["json", "lerobot_v2"] = "json",
-        last_frame_index: int = 0,
+        last_frame_index: int | None = 0,
         info_model: Optional["InfoModel"] = None,
     ):
         """
@@ -298,6 +298,11 @@ class Episode(BaseModel):
         if format_to_save == "lerobot_v2":
             if not info_model:
                 raise ValueError("InfoModel is required to save in LeRobot format")
+
+            if last_frame_index is None:
+                raise ValueError(
+                    "last_frame_index is required to save in LeRobot format"
+                )
 
             data_path = os.path.join(dataset_path, "data", "chunk-000")
             # Ensure there is a older folder_name/episode_format/dataset_name/data/chunk-000/
@@ -402,17 +407,27 @@ class Episode(BaseModel):
                 json.dump(data_dict, f, cls=NumpyEncoder)
 
     @classmethod
-    def load(cls, filename: str) -> "Episode":
-        """Load an episode from a JSON file with numpy array handling"""
-        path = os.getcwd()
-        filename = os.path.join(
-            path, "recordings/json-format/example_dataset/", filename
-        )
+    def load(cls, episode_data_path: str) -> "Episode":
+        """Load an episode data file. There is numpy array handling for json format.""
+        If we load the parquet file we don't have informations about the images"""
 
-        with open(filename, "r") as f:
-            data_dict = json.load(f, object_hook=decode_numpy)
+        # Check that the file exists
+        if not os.path.exists(episode_data_path):
+            raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
 
-        logger.info(f"Loaded episode from {filename}")
+        episode_data_extention = episode_data_path.split(".")[-1]
+        if episode_data_extention not in ["json", "parquet"]:
+            raise ValueError(
+                f"Unsupported episode data format: {episode_data_extention}"
+            )
+        if episode_data_extention == "json":
+            with open(episode_data_path, "r") as f:
+                data_dict = json.load(f, object_hook=decode_numpy)
+            return cls(**data_dict)
+
+        data_dict = pd.read_parquet(episode_data_path).to_dict()
+
+        logger.info(f"Loaded episode from {episode_data_path}")
 
         return cls(**data_dict)
 
