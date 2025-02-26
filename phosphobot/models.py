@@ -5,6 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 import shutil
+import time
 from typing import Dict, List, Literal, Optional, Union
 
 from huggingface_hub import (
@@ -191,12 +192,12 @@ class Observation(BaseModel):
     # Main image (reference for OpenVLA actions)
     # TODO PLB: what size?
     # OpenVLA size: 224 × 224px
-    main_image: np.ndarray
+    main_image: np.ndarray = Field(default_factory=lambda: np.array([]))
     # We store any other images from other cameras here
     secondary_images: List[np.ndarray] = Field(default_factory=list)
     # Size 7 array with the robot end effector (absolute, in the robot referencial)
     # Warning: this is not the same 'state' used in lerobot examples
-    state: np.ndarray
+    state: np.ndarray = Field(default_factory=lambda: np.array([]))
     # Current joints positions of the robot
     joints_position: np.ndarray
     # Instruction given to the robot, can be null when recording the dataset
@@ -252,9 +253,8 @@ class Episode(BaseModel):
         folder_name: str,
         dataset_name: str,
         fps: int,
-        codec: VideoCodecs,
         format_to_save: Literal["json", "lerobot_v2"] = "json",
-        last_frame_index: int = 0,
+        last_frame_index: int | None = 0,
         info_model: Optional["InfoModel"] = None,
     ):
         """
@@ -298,6 +298,11 @@ class Episode(BaseModel):
         if format_to_save == "lerobot_v2":
             if not info_model:
                 raise ValueError("InfoModel is required to save in LeRobot format")
+
+            if last_frame_index is None:
+                raise ValueError(
+                    "last_frame_index is required to save in LeRobot format"
+                )
 
             data_path = os.path.join(dataset_path, "data", "chunk-000")
             # Ensure there is a older folder_name/episode_format/dataset_name/data/chunk-000/
@@ -373,7 +378,6 @@ class Episode(BaseModel):
         # Case where we save the episode in JSON format
         # Save the episode to a JSON file
         else:
-            logger.info("Saving Episode data in JSON format")
             episode_index = (
                 max(
                     [
@@ -402,19 +406,55 @@ class Episode(BaseModel):
                 json.dump(data_dict, f, cls=NumpyEncoder)
 
     @classmethod
-    def load(cls, filename: str) -> "Episode":
-        """Load an episode from a JSON file with numpy array handling"""
-        path = os.getcwd()
-        filename = os.path.join(
-            path, "recordings/json-format/example_dataset/", filename
-        )
+    def from_json(cls, episode_data_path: str) -> "Episode":
+        """Load an episode data file. There is numpy array handling for json format."""
+        # Check that the file exists
+        if not os.path.exists(episode_data_path):
+            raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
 
-        with open(filename, "r") as f:
+        with open(episode_data_path, "r") as f:
             data_dict = json.load(f, object_hook=decode_numpy)
-
-        logger.info(f"Loaded episode from {filename}")
-
+            logger.debug(f"Data dict keys: {data_dict.keys()}")
         return cls(**data_dict)
+
+    @classmethod
+    def from_parquet(cls, episode_data_path: str) -> "Episode":
+        """
+        Load an episode data file. We only extract the information from the parquet data file.
+        TODO(adle): Add more information in the Episode when loading from parquet data file from metafiles and videos"""
+        # Check that the file exists
+        if not os.path.exists(episode_data_path):
+            raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
+
+        episode_df = pd.read_parquet(episode_data_path)
+        # Rename the columns to match the expected names in the instance
+        episode_df.rename(
+            columns={"observation.state": "joints_position"}, inplace=True
+        )
+        # agregate the columns in joints_position, timestamp, main_image, state to a column observation.
+        cols = ["joints_position", "timestamp"]
+        # Create a new column "observation" that is a dict of the selected columns for each row
+        episode_df["observation"] = episode_df[cols].to_dict(orient="records")
+        episode_model = cls(
+            steps=cast(List[Step], episode_df.to_dict(orient="records"))
+        )
+        return episode_model
+
+    @classmethod
+    def load(cls, episode_data_path: str) -> "Episode":
+        """Load an episode data file. There is numpy array handling for json format.""
+        If we load the parquet file we don't have informations about the images
+        """
+        episode_data_extention = episode_data_path.split(".")[-1]
+        if episode_data_extention not in ["json", "parquet"]:
+            raise ValueError(
+                f"Unsupported episode data format: {episode_data_extention}"
+            )
+
+        if episode_data_extention == "json":
+            return cls.from_json(episode_data_path)
+
+        return cls.from_parquet(episode_data_path)
 
     def add_step(self, step: Step):
         """
@@ -449,10 +489,14 @@ class Episode(BaseModel):
         """
         for index, step in enumerate(self.steps):
             # Move the robot to the recorded position
+            time_start = time.time()
+            if index % 20 == 0:
+                logger.info(f"Playing step {index}")
+                logger.info(f"Joints position: {step.observation.joints_position}")
             robot.set_motor_positions(step.observation.joints_position[:6])
             robot.control_gripper(step.observation.joints_position[-1])
 
-            # Wait for the next step
+            # Compute the delta timestamp
             next_step = self.steps[index + 1] if index + 1 < len(self.steps) else None
             if next_step is not None:
                 if (
@@ -462,7 +506,9 @@ class Episode(BaseModel):
                     delta_timestamp = (
                         next_step.observation.timestamp - step.observation.timestamp
                     )
-                    await asyncio.sleep(delta_timestamp)
+
+                    while time.time() - time_start <= delta_timestamp:
+                        await asyncio.sleep(1e-6)
 
     def get_episode_index(self, episode_recording_folder_path: str, dataset_name: str):
         dataset_path = os.path.join(
@@ -541,9 +587,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -592,7 +638,6 @@ class Episode(BaseModel):
 class LeRobotEpisodeModel(BaseModel):
     """
     Data model for LeRobot episode in Parquet format
-
     Stored in a parquet in dataset_name/data/chunk-000/episode_xxxxxx.parquet
     """
 
