@@ -20,22 +20,24 @@ IS_RPI=0
 COUNTRY=""
 
 # Parse command-line arguments
-while getopts ":c:" opt; do
-  case ${opt} in
-    c )
-      COUNTRY=$OPTARG
-      ;;
-    \? )
-      echo "Usage: $0 [-c country_code]"
-      exit 1
-      ;;
-    : )
-      echo "Invalid option: $OPTARG requires an argument" 1>&2
-      exit 1
-      ;;
-  esac
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -c|--country)
+            if [[ -n "$2" ]]; then
+                COUNTRY="$2"
+                shift 2
+            else
+                echo "Error: --country requires a country code."
+                exit 1
+            fi
+            ;;
+        *)
+            echo "Error: Unknown option $1"
+            echo "Usage: $0 [--country country_code]"
+            exit 1
+            ;;
+    esac
 done
-shift $((OPTIND -1)) 
 
 # Check for root privileges
 check_privileges() {
