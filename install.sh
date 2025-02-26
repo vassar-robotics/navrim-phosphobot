@@ -225,9 +225,9 @@ install_rpi_specific() {
     # Configure Bluetooth
     echo "Installing BT connectivity..."
     if [ -n "$COUNTRY" ]; then
-        curl -L https://raw.githubusercontent.com/oulianov/Rpi-SetWiFi-viaBluetooth/refs/heads/main/btwifisetInstall.sh | bash -s --yes --country "$COUNTRY"
+        curl -L https://raw.githubusercontent.com/oulianov/Rpi-SetWiFi-viaBluetooth/refs/heads/main/btwifisetInstall.sh | bash -s -- --yes --country "$COUNTRY"
     else
-        curl -L https://raw.githubusercontent.com/oulianov/Rpi-SetWiFi-viaBluetooth/refs/heads/main/btwifisetInstall.sh | bash -s --yes
+        curl -L https://raw.githubusercontent.com/oulianov/Rpi-SetWiFi-viaBluetooth/refs/heads/main/btwifisetInstall.sh | bash -s -- --yes
     fi
 }
 
