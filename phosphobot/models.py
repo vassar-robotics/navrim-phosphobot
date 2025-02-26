@@ -252,7 +252,6 @@ class Episode(BaseModel):
         folder_name: str,
         dataset_name: str,
         fps: int,
-        codec: VideoCodecs,
         format_to_save: Literal["json", "lerobot_v2"] = "json",
         last_frame_index: int | None = 0,
         info_model: Optional["InfoModel"] = None,
@@ -406,28 +405,59 @@ class Episode(BaseModel):
                 json.dump(data_dict, f, cls=NumpyEncoder)
 
     @classmethod
-    def load(cls, episode_data_path: str) -> "Episode":
-        """Load an episode data file. There is numpy array handling for json format.""
-        If we load the parquet file we don't have informations about the images"""
-
+    def from_json(cls, episode_data_path: str) -> "Episode":
+        """Load an episode data file. There is numpy array handling for json format."""
         # Check that the file exists
         if not os.path.exists(episode_data_path):
             raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
 
+        with open(episode_data_path, "r") as f:
+            data_dict = json.load(f, object_hook=decode_numpy)
+            logger.debug(f"Data dict keys: {data_dict.keys()}")
+        return cls(**data_dict)
+
+    @classmethod
+    def from_parquet(cls, episode_data_path: str) -> "Episode":
+        """
+        Load an episode data file. We only extract the information from the parquet data file.
+        TODO(adle): Add more information in the Episode when loading from parquet data file"""
+        # Check that the file exists
+        if not os.path.exists(episode_data_path):
+            raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
+
+        episode_df = pd.read_parquet(episode_data_path)
+        # Rename the columns to match the expected names in the instance
+        episode_df.rename(
+            columns={"observation.state": "joints_position"}, inplace=True
+        )
+        # Add the columns main image and state with an empty numpy array
+        episode_df["main_image"] = [np.array([]) for _ in range(len(episode_df))]
+        episode_df["state"] = [np.array([]) for _ in range(len(episode_df))]
+        # agregate the columns in joints_position, timestamp, main_image, state to a column observation.
+        cols = ["joints_position", "timestamp", "main_image", "state"]
+        # Create a new column "observation" that is a dict of the selected columns for each row
+        episode_df["observation"] = episode_df[cols].to_dict(orient="records")
+        data_dict = {"steps": episode_df.to_dict(orient="records"), "metadata": {}}
+        logger.debug(f"Parquet Data dict keys: {data_dict.keys()}")
+        episode_model = cls(**data_dict)  # type: ignore
+        logger.debug(f"Episode model: {episode_model}")
+        return episode_model
+
+    @classmethod
+    def load(cls, episode_data_path: str) -> "Episode":
+        """Load an episode data file. There is numpy array handling for json format.""
+        If we load the parquet file we don't have informations about the images
+        """
         episode_data_extention = episode_data_path.split(".")[-1]
         if episode_data_extention not in ["json", "parquet"]:
             raise ValueError(
                 f"Unsupported episode data format: {episode_data_extention}"
             )
-        if episode_data_extention == "json":
-            with open(episode_data_path, "r") as f:
-                data_dict = json.load(f, object_hook=decode_numpy)
-            return cls(**data_dict)
 
-        data_dict = pd.read_parquet(episode_data_path).to_dict()
-        # Rename the columns to match the expected names in the instance
-        data_dict["observation_state"] = data_dict.pop("observation.state")
-        return cls(**data_dict)
+        if episode_data_extention == "json":
+            return cls.from_json(episode_data_path)
+
+        return cls.from_parquet(episode_data_path)
 
     def add_step(self, step: Step):
         """
@@ -463,6 +493,9 @@ class Episode(BaseModel):
         for index, step in enumerate(self.steps):
             # Move the robot to the recorded position
             time_start = time.time()
+            if index % 20 == 0:
+                logger.info(f"Playing step {index}")
+                logger.info(f"Joints position: {step.observation.joints_position}")
             robot.set_motor_positions(step.observation.joints_position[:6])
             robot.control_gripper(step.observation.joints_position[-1])
 
