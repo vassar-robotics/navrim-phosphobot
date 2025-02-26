@@ -378,7 +378,6 @@ class Episode(BaseModel):
         # Case where we save the episode in JSON format
         # Save the episode to a JSON file
         else:
-            logger.info("Saving Episode data in JSON format")
             episode_index = (
                 max(
                     [
