@@ -191,12 +191,12 @@ class Observation(BaseModel):
     # Main image (reference for OpenVLA actions)
     # TODO PLB: what size?
     # OpenVLA size: 224 × 224px
-    main_image: np.ndarray
+    main_image: np.ndarray = Field(default_factory=np.array)
     # We store any other images from other cameras here
     secondary_images: List[np.ndarray] = Field(default_factory=list)
     # Size 7 array with the robot end effector (absolute, in the robot referencial)
     # Warning: this is not the same 'state' used in lerobot examples
-    state: np.ndarray
+    state: np.ndarray = Field(default_factory=np.array)
     # Current joints positions of the robot
     joints_position: np.ndarray
     # Instruction given to the robot, can be null when recording the dataset
@@ -434,13 +434,12 @@ class Episode(BaseModel):
         episode_df["main_image"] = [np.array([]) for _ in range(len(episode_df))]
         episode_df["state"] = [np.array([]) for _ in range(len(episode_df))]
         # agregate the columns in joints_position, timestamp, main_image, state to a column observation.
-        cols = ["joints_position", "timestamp", "main_image", "state"]
+        cols = ["joints_position", "timestamp"]
         # Create a new column "observation" that is a dict of the selected columns for each row
         episode_df["observation"] = episode_df[cols].to_dict(orient="records")
-        data_dict = {"steps": episode_df.to_dict(orient="records"), "metadata": {}}
-        logger.debug(f"Parquet Data dict keys: {data_dict.keys()}")
-        episode_model = cls(**data_dict)  # type: ignore
-        logger.debug(f"Episode model: {episode_model}")
+        episode_model = cls(
+            steps=cast(List[Step], episode_df.to_dict(orient="records"))
+        )
         return episode_model
 
     @classmethod
