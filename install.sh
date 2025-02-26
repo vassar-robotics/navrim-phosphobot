@@ -16,6 +16,27 @@ OS_TYPE="$(uname)"
 IS_WSL=0
 IS_RPI=0
 
+# Initialize country variable
+COUNTRY=""
+
+# Parse command-line arguments
+while getopts ":c:" opt; do
+  case ${opt} in
+    c )
+      COUNTRY=$OPTARG
+      ;;
+    \? )
+      echo "Usage: $0 [-c country_code]"
+      exit 1
+      ;;
+    : )
+      echo "Invalid option: $OPTARG requires an argument" 1>&2
+      exit 1
+      ;;
+  esac
+done
+shift $((OPTIND -1)) 
+
 # Check for root privileges
 check_privileges() {
     if [[ "$PLATFORM" != "darwin" ]]; then
@@ -201,7 +222,11 @@ install_rpi_specific() {
     
     # Configure Bluetooth
     echo "Installing BT connectivity..."
-    curl -L https://raw.githubusercontent.com/oulianov/Rpi-SetWiFi-viaBluetooth/refs/heads/main/btwifisetInstall.sh | bash -s --yes
+    if [ -n "$COUNTRY" ]; then
+        curl -L https://raw.githubusercontent.com/oulianov/Rpi-SetWiFi-viaBluetooth/refs/heads/main/btwifisetInstall.sh | bash -s --yes --country "$COUNTRY"
+    else
+        curl -L https://raw.githubusercontent.com/oulianov/Rpi-SetWiFi-viaBluetooth/refs/heads/main/btwifisetInstall.sh | bash -s --yes
+    fi
 }
 
 install_darwin_specific() {
