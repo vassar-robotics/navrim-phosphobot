@@ -191,12 +191,12 @@ class Observation(BaseModel):
     # Main image (reference for OpenVLA actions)
     # TODO PLB: what size?
     # OpenVLA size: 224 × 224px
-    main_image: np.ndarray = Field(default_factory=np.array)
+    main_image: np.ndarray = Field(default_factory=lambda: np.array([]))
     # We store any other images from other cameras here
     secondary_images: List[np.ndarray] = Field(default_factory=list)
     # Size 7 array with the robot end effector (absolute, in the robot referencial)
     # Warning: this is not the same 'state' used in lerobot examples
-    state: np.ndarray = Field(default_factory=np.array)
+    state: np.ndarray = Field(default_factory=lambda: np.array([]))
     # Current joints positions of the robot
     joints_position: np.ndarray
     # Instruction given to the robot, can be null when recording the dataset
@@ -420,7 +420,7 @@ class Episode(BaseModel):
     def from_parquet(cls, episode_data_path: str) -> "Episode":
         """
         Load an episode data file. We only extract the information from the parquet data file.
-        TODO(adle): Add more information in the Episode when loading from parquet data file"""
+        TODO(adle): Add more information in the Episode when loading from parquet data file from metafiles and videos"""
         # Check that the file exists
         if not os.path.exists(episode_data_path):
             raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
@@ -430,9 +430,6 @@ class Episode(BaseModel):
         episode_df.rename(
             columns={"observation.state": "joints_position"}, inplace=True
         )
-        # Add the columns main image and state with an empty numpy array
-        episode_df["main_image"] = [np.array([]) for _ in range(len(episode_df))]
-        episode_df["state"] = [np.array([]) for _ in range(len(episode_df))]
         # agregate the columns in joints_position, timestamp, main_image, state to a column observation.
         cols = ["joints_position", "timestamp"]
         # Create a new column "observation" that is a dict of the selected columns for each row
