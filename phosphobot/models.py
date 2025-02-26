@@ -1,10 +1,10 @@
-import asyncio
 import datetime
 import json
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 import shutil
+import time
 from typing import Dict, List, Literal, Optional, Union
 
 from huggingface_hub import (
@@ -425,34 +425,9 @@ class Episode(BaseModel):
             return cls(**data_dict)
 
         data_dict = pd.read_parquet(episode_data_path).to_dict()
-
-        logger.info(f"Loaded episode from {episode_data_path}")
-
+        # Rename the columns to match the expected names in the instance
+        data_dict["observation_state"] = data_dict.pop("observation.state")
         return cls(**data_dict)
-
-    @classmethod
-    def df_from_episode_data_file(cls, episode_data_path: str) -> pd.DataFrame:
-        """
-        Load an episode from a file and return the dataframe of the episode.
-        The timestamps corresponds to the one in the file.
-        If we load the parquet file we don't have informations about the images
-        """
-
-        # Check that the file exists
-        if not os.path.exists(episode_data_path):
-            raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
-
-        episode_data_extention = episode_data_path.split(".")[-1]
-        if episode_data_extention not in ["json", "parquet"]:
-            raise ValueError(
-                f"Unsupported episode data format: {episode_data_extention}"
-            )
-
-        if episode_data_extention == "json":
-            # Load the json data file
-            return pd.read_json(episode_data_path)
-
-        return pd.read_parquet(episode_data_path)
 
     def add_step(self, step: Step):
         """
@@ -487,10 +462,11 @@ class Episode(BaseModel):
         """
         for index, step in enumerate(self.steps):
             # Move the robot to the recorded position
+            time_start = time.time()
             robot.set_motor_positions(step.observation.joints_position[:6])
             robot.control_gripper(step.observation.joints_position[-1])
 
-            # Wait for the next step
+            # Compute the delta timestamp
             next_step = self.steps[index + 1] if index + 1 < len(self.steps) else None
             if next_step is not None:
                 if (
@@ -500,7 +476,9 @@ class Episode(BaseModel):
                     delta_timestamp = (
                         next_step.observation.timestamp - step.observation.timestamp
                     )
-                    await asyncio.sleep(delta_timestamp)
+
+                    while time.time() - time_start <= delta_timestamp:
+                        time.sleep(1e-6)
 
     def get_episode_index(self, episode_recording_folder_path: str, dataset_name: str):
         dataset_path = os.path.join(
