@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import os
@@ -507,7 +508,7 @@ class Episode(BaseModel):
                     )
 
                     while time.time() - time_start <= delta_timestamp:
-                        time.sleep(1e-6)
+                        await asyncio.sleep(1e-6)
 
     def get_episode_index(self, episode_recording_folder_path: str, dataset_name: str):
         dataset_path = os.path.join(
@@ -586,9 +587,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
