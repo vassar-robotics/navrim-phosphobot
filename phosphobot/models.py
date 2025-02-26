@@ -588,30 +588,6 @@ class Episode(BaseModel):
 
         return all_images
 
-    @classmethod
-    def df_from_episode_data_file(cls, episode_data_path: str) -> pd.DataFrame:
-        """
-        Load an episode from a file and return the dataframe of the episode.
-        The timestamps corresponds to the one in the file.
-        If we load the parquet file we don't have informations about the images
-        """
-
-        # Check that the file exists
-        if not os.path.exists(episode_data_path):
-            raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
-
-        episode_data_extention = episode_data_path.split(".")[-1]
-        if episode_data_extention not in ["json", "parquet"]:
-            raise ValueError(
-                f"Unsupported episode data format: {episode_data_extention}"
-            )
-
-        if episode_data_extention == "json":
-            # Load the json data file
-            return pd.read_json(episode_data_path)
-
-        return pd.read_parquet(episode_data_path)
-
 
 class LeRobotEpisodeModel(BaseModel):
     """
