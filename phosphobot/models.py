@@ -587,9 +587,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert (
-                step.action is not None
-            ), "The action must be set for each step before saving"
+            assert step.action is not None, (
+                "The action must be set for each step before saving"
+            )
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -758,6 +758,8 @@ class Dataset:
         else:
             return os.path.join(
                 self.folder_full_path,
+                "data",
+                "chunk-000",
                 f"episode_{episode_id:06d}.{self.data_file_extension}",
             )
 
@@ -779,6 +781,8 @@ class Dataset:
     def get_df_episode(self, episode_id: int) -> pd.DataFrame:
         """Get the episode data as a pandas DataFrame"""
         if self.episode_format == "lerobot_v2":
+            logger.debug(f"Loading episode {episode_id} from parquet file")
+            logger.debug(f"Episode data path: {self.get_episode_data_path(episode_id)}")
             return pd.read_parquet(self.get_episode_data_path(episode_id))
         elif self.episode_format == "json":
             return pd.read_json(self.get_episode_data_path(episode_id))
@@ -969,7 +973,7 @@ class Dataset:
             self.reindex_episodes(
                 episode_to_remove_id=episode_id,
                 nb_steps_deleted_episode=len(df_episode_to_delete),
-                folder_path=self.folder_full_path,
+                folder_path=self.data_folder_full_path,
             )
 
             # Update stats for images before deleting the videos
@@ -993,7 +997,7 @@ class Dataset:
             # Update meta data before episode removal
             tasks_model.update_for_episode_removal(
                 df_episode_to_delete=df_episode_to_delete,
-                data_folder_full_path=self.data_folder_full_path,
+                data_folder_full_path=self.meta_folder_full_path,
             )
             tasks_model.save(meta_folder_path=self.data_folder_full_path)
             logger.info("Tasks model updated")
@@ -1016,12 +1020,13 @@ class Dataset:
                 df_episode_to_delete=df_episode_to_delete
             )
             stats_model._update_for_episode_removal_min_max(
-                data_folder_path=self.data_folder_full_path
+                data_folder_path=self.data_folder_full_path,
+                episode_to_delete_index=episode_id,
             )
             stats_model.save(meta_folder_path=self.meta_folder_full_path)
             logger.info("Stats model updated")
 
-            if update_hub:
+            if update_hub and self.check_repo_exists(repo_id):
                 upload_folder(
                     folder_path=self.meta_folder_full_path,
                     repo_id=self.repo_id,
@@ -1681,18 +1686,28 @@ class StatsModel(BaseModel):
                     - np.square(mean_val)
                 )
 
-    def _update_for_episode_removal_min_max(self, data_folder_path: str) -> None:
+    def _update_for_episode_removal_min_max(
+        self,
+        data_folder_path: str,
+        episode_to_delete_index: int,
+    ) -> None:
         """
         Update the min and max in stats after removing an episode from the dataset.
         Be sure to call this function after reindexing the data.
         """
 
         # Load all the other parquet files in one dataFrame
+        li_data_folder_filenames = [
+            file
+            for file in os.listdir(data_folder_path)
+            if file.endswith(".parquet")
+            and file != f"episode_{episode_to_delete_index:06d}.parquet"
+        ]
+
         all_episodes_df = pd.concat(
             [
                 pd.read_parquet(str(os.path.join(data_folder_path, file)))
-                for file in os.listdir(data_folder_path)
-                if str(os.path.join(data_folder_path, file))
+                for file in li_data_folder_filenames
             ]
         )
         for field_name, field in StatsModel.model_fields.items():
