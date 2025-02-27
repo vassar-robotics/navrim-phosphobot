@@ -1521,27 +1521,7 @@ class StatsModel(BaseModel):
         self.task_index.update(np.array([0]))
 
         main_image = step.observation.main_image
-        (height, width, channel) = main_image.shape
-        aspect_ratio: float = width / height
-        if aspect_ratio >= 8 / 3:
-            # Stereo image detected: split in half
-            left_image = main_image[:, : width // 2, :]
-            right_image = main_image[:, width // 2 :, :]
-            if (
-                "observation.images.main.left" not in self.observation_images.keys()
-                or "observation.images.main.right" not in self.observation_images.keys()
-            ):
-                # Initialize
-                self.observation_images["observation.images.main.left"] = Stats()
-                self.observation_images["observation.images.main.right"] = Stats()
-            self.observation_images["observation.images.main.left"].update_image(
-                left_image
-            )
-            self.observation_images["observation.images.main.right"].update_image(
-                right_image
-            )
-
-        else:
+        if main_image is not None:
             if "observation.images.main" not in self.observation_images.keys():
                 # Initialize
                 self.observation_images["observation.images.main"] = Stats()
@@ -1559,7 +1539,7 @@ class StatsModel(BaseModel):
 
             self.observation_images[
                 f"observation.images.secondary_{image_index}"
-            ].update_image(step.observation.secondary_images[image_index])
+            ].update_image(image)
 
     def save(self, meta_folder_path: str) -> None:
         """
@@ -1909,7 +1889,6 @@ class InfoModel(BaseModel):
         robots: List[BaseRobot] | None = None,
         target_size: tuple[int, int] | None = None,
         secondary_cameras: List[BaseCamera] | None = None,
-        main_is_stereo: bool = False,
     ) -> "InfoModel":
         """
         Read the info.json file in the meta folder path.
@@ -1941,57 +1920,22 @@ class InfoModel(BaseModel):
             video_shape = [target_size[1], target_size[0], 3]
             video_info = VideoInfo(video_codec=codec, video_fps=fps)
 
-            if not main_is_stereo:
-                info_model.features.observation_images["observation.images.main"] = (
-                    VideoFeatureDetails(
-                        shape=video_shape,
-                        names=["height", "width", "channel"],
-                        info=video_info,
-                    )
-                )
-            else:
-                # Two images: left and right
-                info_model.features.observation_images[
-                    "observation.images.main.left"
-                ] = VideoFeatureDetails(
+            info_model.features.observation_images["observation.images.main"] = (
+                VideoFeatureDetails(
                     shape=video_shape,
                     names=["height", "width", "channel"],
                     info=video_info,
                 )
-                info_model.features.observation_images[
-                    "observation.images.main.right"
-                ] = VideoFeatureDetails(
-                    shape=video_shape,
-                    names=["height", "width", "channel"],
-                    info=video_info,
-                )
+            )
+
             # Add secondary cameras
             for camera_id, camera in enumerate(secondary_cameras):
-                if camera.camera_type != "stereo":
-                    key_name = f"observation.images.secondary_{camera_id}"
-                    info_model.features.observation_images[key_name] = (
-                        VideoFeatureDetails(
-                            shape=video_shape,
-                            names=["height", "width", "channel"],
-                            info=video_info,
-                        )
-                    )
-                else:
-                    key_name = f"observation.images.secondary_{camera_id}"
-                    info_model.features.observation_images[f"{key_name}.left"] = (
-                        VideoFeatureDetails(
-                            shape=video_shape,
-                            names=["height", "width", "channel"],
-                            info=video_info,
-                        )
-                    )
-                    info_model.features.observation_images[f"{key_name}.right"] = (
-                        VideoFeatureDetails(
-                            shape=video_shape,
-                            names=["height", "width", "channel"],
-                            info=video_info,
-                        )
-                    )
+                key_name = f"observation.images.secondary_{camera_id}"
+                info_model.features.observation_images[key_name] = VideoFeatureDetails(
+                    shape=video_shape,
+                    names=["height", "width", "channel"],
+                    info=video_info,
+                )
 
             return info_model
 
