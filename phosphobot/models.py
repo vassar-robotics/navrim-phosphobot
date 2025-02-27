@@ -340,13 +340,13 @@ class Episode(BaseModel):
 
             # Create the main video file and path
             # Get the video_path from the InfoModel
-            secondary_camera_frames = self.get_frames_secondary_cameras()
+            secondary_camera_frames = self.get_episode_frames_secondary_cameras()
             for i, (key, feature) in enumerate(
                 info_model.features.observation_images.items()
             ):
                 if i == 0:
                     # First video is the main camera
-                    frames = np.array(self.get_frames_main_camera())
+                    frames = np.array(self.get_episode_frames_main_camera())
                 else:
                     # Following videos are the secondary cameras
                     frames = np.array(secondary_camera_frames[i - 1])
@@ -365,7 +365,6 @@ class Episode(BaseModel):
                     fps=feature.info.video_fps,
                     codec=feature.info.video_codec,
                 )
-
                 # Check if the video was saved
                 if (isinstance(saved_path, str) and os.path.exists(saved_path)) or (
                     isinstance(saved_path, tuple)
@@ -596,7 +595,7 @@ class Episode(BaseModel):
         height, width = self.steps[0].observation.main_image.shape[:2]
         if any(
             frame.shape[:2] != (height, width) or frame.ndim != 3
-            for frame in self.get_frames_main_camera()
+            for frame in self.get_episode_frames_main_camera()
         ):
             raise ValueError(
                 "All frames must have the same dimensions and be 3-channel RGB images."
@@ -612,13 +611,13 @@ class Episode(BaseModel):
             index=episode_data["index"],
         )
 
-    def get_frames_main_camera(self) -> List[np.ndarray]:
+    def get_episode_frames_main_camera(self) -> List[np.ndarray]:
         """
         Return the frames of the main camera
         """
         return [step.observation.main_image for step in self.steps]
 
-    def get_frames_secondary_cameras(self) -> List[np.ndarray]:
+    def get_episode_frames_secondary_cameras(self) -> List[np.ndarray]:
         """
         Returns a list, where each np.array is a series of frames for a secondary camera.
         """
@@ -1889,6 +1888,7 @@ class InfoModel(BaseModel):
         robots: List[BaseRobot] | None = None,
         target_size: tuple[int, int] | None = None,
         secondary_cameras: List[BaseCamera] | None = None,
+        main_is_stereo: bool = False,
     ) -> "InfoModel":
         """
         Read the info.json file in the meta folder path.
