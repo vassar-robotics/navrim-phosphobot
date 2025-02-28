@@ -145,9 +145,11 @@ def process_image(
             with torch.no_grad(), torch.autocast(device_type=device.type):
                 # Prepare state tensor
                 current_qpos = current_qpos.copy()
-
                 state_tensor = (
-                    torch.from_numpy(current_qpos).view(1, 6).float().to(device)
+                    torch.from_numpy(current_qpos)
+                    .view(1, len(current_qpos))
+                    .float()
+                    .to(device)
                 )
 
                 # Create batch dictionary
