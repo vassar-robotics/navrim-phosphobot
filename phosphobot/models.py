@@ -998,7 +998,7 @@ class Dataset:
                 df_episode_to_delete=df_episode_to_delete,
                 data_folder_full_path=self.meta_folder_full_path,
             )
-            tasks_model.save(meta_folder_path=self.data_folder_full_path)
+            tasks_model.save(meta_folder_path=self.meta_folder_full_path)
             logger.info("Tasks model updated")
 
             episodes_model.update_for_episode_removal(
@@ -1887,8 +1887,7 @@ class InfoModel(BaseModel):
         codec: VideoCodecs | None = None,
         robots: List[BaseRobot] | None = None,
         target_size: tuple[int, int] | None = None,
-        secondary_cameras: List[BaseCamera] | None = None,
-        main_is_stereo: bool = False,
+        secondary_camera_key_names: List[str] | None = None,
     ) -> "InfoModel":
         """
         Read the info.json file in the meta folder path.
@@ -1911,7 +1910,7 @@ class InfoModel(BaseModel):
                 raise ValueError("No fps provided to create the InfoModel")
             if target_size is None:
                 raise ValueError("No target_size provided to create the InfoModel")
-            if secondary_cameras is None:
+            if secondary_camera_key_names is None:
                 raise ValueError(
                     "No secondary_camera_ids provided to create the InfoModel"
                 )
@@ -1929,12 +1928,13 @@ class InfoModel(BaseModel):
             )
 
             # Add secondary cameras
-            for camera_id, camera in enumerate(secondary_cameras):
-                key_name = f"observation.images.secondary_{camera_id}"
-                info_model.features.observation_images[key_name] = VideoFeatureDetails(
-                    shape=video_shape,
-                    names=["height", "width", "channel"],
-                    info=video_info,
+            for secondary_camera_key_name in secondary_camera_key_names:
+                info_model.features.observation_images[secondary_camera_key_name] = (
+                    VideoFeatureDetails(
+                        shape=video_shape,
+                        names=["height", "width", "channel"],
+                        info=video_info,
+                    )
                 )
 
             return info_model
