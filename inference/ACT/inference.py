@@ -90,14 +90,14 @@ def parse_input_features(file_path: Path) -> dict:
         raise FileNotFoundError(f"Could not find JSON file at: {file_path}")
 
 
-def load_policy(model_id: str):
+def load_policy(model_id: str, revision: str | None = None):
     """Download and load the ACT policy."""
     global policy, device, input_features
     try:
         logging.info(f"Loading policy from {model_id}")
 
         # Get the policy path
-        policy_path = get_pretrained_policy_path(model_id)
+        policy_path = get_pretrained_policy_path(model_id, revision=revision)
 
         # Set up device
         device = get_safe_torch_device(device_str="mps", log=True)
@@ -255,6 +255,12 @@ def main():
         help="Hugging Face model ID or local path",
     )
     parser.add_argument(
+        "--revision",
+        type=str,
+        default=None,
+        help="Hugging Face model revision. Default: None",
+    )
+    parser.add_argument(
         "--port", type=int, default=8080, help="Port to run the server on"
     )
 
@@ -264,7 +270,7 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     # Load the policy
-    load_policy(args.model_id)
+    load_policy(args.model_id, revision=args.revision)
 
     # Start the server
     uvicorn.run(app, host="0.0.0.0", port=args.port)
