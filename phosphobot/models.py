@@ -2,12 +2,14 @@ import asyncio
 import datetime
 import json
 import os
-from abc import ABC, abstractmethod
-from pathlib import Path
 import shutil
 import time
-from typing import Dict, List, Literal, Optional, Union
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Dict, List, Literal, Optional, Union, cast
 
+import numpy as np
+import pandas as pd  # type: ignore
 from huggingface_hub import (
     HfApi,
     create_branch,
@@ -17,22 +19,21 @@ from huggingface_hub import (
     delete_repo,
     upload_folder,
 )
-import numpy as np
 from loguru import logger
-import pandas as pd  # type: ignore
 from pydantic import BaseModel, Field, model_validator
-from typing import cast
+
+from phosphobot.types import VideoCodecs
 from phosphobot.utils import (
+    NdArrayAsList,
     NumpyEncoder,
     compute_sum_squaresum_framecount_from_video,
     create_video_file,
-    get_home_app_path,
     decode_numpy,
     get_field_min_max,
-    NdArrayAsList,
     get_hf_username_or_orgid,
+    get_home_app_path,
+    parse_hf_username_or_orgid,
 )
-from phosphobot.types import VideoCodecs
 
 
 class BaseRobotPIDGains(BaseModel):
@@ -1175,7 +1176,7 @@ class Dataset:
             try:
                 # Get user info from token
                 user_info = self.HF_API.whoami()
-                username_or_org_id = user_info.get("name")
+                username_or_org_id = parse_hf_username_or_orgid(user_info)
 
                 if not username_or_org_id:
                     logger.error("Could not get username or org ID from token")
