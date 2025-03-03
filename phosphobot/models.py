@@ -161,7 +161,7 @@ class BaseRobotConfig(BaseModel):
 
 class BaseRobot(ABC):
     @abstractmethod
-    def set_motor_positions(
+    def set_motors_positions(
         self, positions: np.ndarray, enable_gripper: bool = False
     ) -> None:
         """
@@ -493,7 +493,7 @@ class Episode(BaseModel):
             if index % 20 == 0:
                 logger.info(f"Playing step {index}")
                 logger.info(f"Joints position: {step.observation.joints_position}")
-            robot.set_motor_positions(step.observation.joints_position[:6])
+            robot.set_motors_positions(step.observation.joints_position[:6])
             robot.control_gripper(step.observation.joints_position[-1])
 
             # Compute the delta timestamp
