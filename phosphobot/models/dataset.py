@@ -160,6 +160,8 @@ class BaseRobotConfig(BaseModel):
 
 
 class BaseRobot(ABC):
+    name: str
+
     @abstractmethod
     def set_motors_positions(
         self, positions: np.ndarray, enable_gripper: bool = False
@@ -181,6 +183,20 @@ class BaseRobot(ABC):
     def control_gripper(self, position: float) -> None:
         """
         Control the gripper of the robot
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_observation(self) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Get the observation of the robot.
+
+        This method should return the observation of the robot.
+        Will be used to build an observation in a Step of an episode.
+
+        Returns:
+            - state: np.array state of the robot (7D)
+            - joints_position: np.array joints position of the robot
         """
         raise NotImplementedError
 
@@ -1244,17 +1260,27 @@ It's compatible with LeRobot and RLDS.
                 token=True,
             )
 
+            repo_refs = self.HF_API.list_repo_refs(
+                repo_id=dataset_repo_name, repo_type="dataset"
+            )
+            existing_branch_names = [ref.name for ref in repo_refs.branches]
+
             # Create and push to v2.0 branch if needed
             if create_2_0_branch:
                 try:
-                    logger.info(f"Creating branch v2.0 for dataset {dataset_repo_name}")
-                    create_branch(
-                        dataset_repo_name,
-                        repo_type="dataset",
-                        branch="v2.0",
-                        token=True,
-                    )
-                    logger.info(f"Branch v2.0 created for dataset {dataset_repo_name}")
+                    if "v2.0" not in existing_branch_names:
+                        logger.info(
+                            f"Creating branch v2.0 for dataset {dataset_repo_name}"
+                        )
+                        create_branch(
+                            dataset_repo_name,
+                            repo_type="dataset",
+                            branch="v2.0",
+                            token=True,
+                        )
+                        logger.info(
+                            f"Branch v2.0 created for dataset {dataset_repo_name}"
+                        )
 
                     # Push to v2.0 branch
                     logger.info(
@@ -1273,18 +1299,19 @@ It's compatible with LeRobot and RLDS.
             # Push to additional branch if specified
             if branch_path:
                 try:
-                    logger.info(
-                        f"Creating branch {branch_path} for dataset {dataset_repo_name}"
-                    )
-                    create_branch(
-                        dataset_repo_name,
-                        repo_type="dataset",
-                        branch=branch_path,
-                        token=True,
-                    )
-                    logger.info(
-                        f"Branch {branch_path} created for dataset {dataset_repo_name}"
-                    )
+                    if branch_path not in existing_branch_names:
+                        logger.info(
+                            f"Creating branch {branch_path} for dataset {dataset_repo_name}"
+                        )
+                        create_branch(
+                            dataset_repo_name,
+                            repo_type="dataset",
+                            branch=branch_path,
+                            token=True,
+                        )
+                        logger.info(
+                            f"Branch {branch_path} created for dataset {dataset_repo_name}"
+                        )
 
                     # Push to specified branch
                     logger.info(f"Pushing the dataset to branch {branch_path}")
