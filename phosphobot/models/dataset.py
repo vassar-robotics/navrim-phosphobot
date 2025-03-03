@@ -1260,7 +1260,9 @@ It's compatible with LeRobot and RLDS.
                 token=True,
             )
 
-            repo_refs = self.HF_API.list_repo_refs(repo_id=dataset_repo_name)
+            repo_refs = self.HF_API.list_repo_refs(
+                repo_id=dataset_repo_name, repo_type="dataset"
+            )
             existing_branch_names = [ref.name for ref in repo_refs.branches]
 
             # Create and push to v2.0 branch if needed
