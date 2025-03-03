@@ -160,6 +160,8 @@ class BaseRobotConfig(BaseModel):
 
 
 class BaseRobot(ABC):
+    name: str
+
     @abstractmethod
     def set_motors_positions(
         self, positions: np.ndarray, enable_gripper: bool = False
@@ -181,6 +183,20 @@ class BaseRobot(ABC):
     def control_gripper(self, position: float) -> None:
         """
         Control the gripper of the robot
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_observation(self) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Get the observation of the robot.
+
+        This method should return the observation of the robot.
+        Will be used to build an observation in a Step of an episode.
+
+        Returns:
+            - state: np.array state of the robot (7D)
+            - joints_position: np.array joints position of the robot
         """
         raise NotImplementedError
 
