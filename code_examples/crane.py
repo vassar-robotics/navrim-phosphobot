@@ -6,7 +6,7 @@ from pynput import keyboard as pynput_keyboard
 
 
 # Configuration
-BASE_URL = "http://127.0.0.1:8080/"
+BASE_URL = "http://127.0.0.1:80/"
 STEP_SIZE = 3  # Movement step in centimeters
 SLEEP_TIME = 0.02  # Loop sleep time (50 Hz)
 
