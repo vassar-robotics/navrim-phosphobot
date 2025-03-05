@@ -7,7 +7,7 @@ import mediapipe as mp  # type: ignore
 
 # Configurations
 PI_IP: str = "127.0.0.1"
-PI_PORT: int = 8080
+PI_PORT: int = 80
 
 # Initialize MediaPipe Hand tracking
 mp_hands = mp.solutions.hands

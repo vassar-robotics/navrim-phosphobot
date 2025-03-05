@@ -3,7 +3,7 @@ import requests
 
 # Configurations
 PI_IP: str = "127.0.0.1"
-PI_PORT: int = 8080
+PI_PORT: int = 80
 NUMBER_OF_SQUARES: int = 100
 
 

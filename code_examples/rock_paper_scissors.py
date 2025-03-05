@@ -7,7 +7,7 @@ import mediapipe as mp  # type: ignore
 
 # Robot API Configuration
 PI_IP = "127.0.0.1"
-PI_PORT = 8080
+PI_PORT = 80
 
 
 class RockPaperScissorsGame:
