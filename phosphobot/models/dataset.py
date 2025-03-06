@@ -5,7 +5,6 @@ import os
 import shutil
 import time
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union, cast
 
 import numpy as np
@@ -72,60 +71,9 @@ class BaseRobotConfig(BaseModel):
                 data = json.load(f)
 
         except FileNotFoundError:
-            logger.warning(f"Configuration file {filepath} not found.")
             return None
 
         return cls(**data)
-
-    @classmethod
-    def from_v0_json(
-        cls, class_name: str, name: str, bundled_calibration_path: Path, serial_id: str
-    ) -> Union["BaseRobotConfig", None]:
-        """
-        Load the config from a v0 JSON file
-        """
-        filename = f"{class_name}_config.json"
-        filepath = str(get_home_app_path() / "calibration" / filename)
-        try:
-            with open(filepath, "r") as f:
-                data = json.load(f)
-        except FileNotFoundError:
-            logger.warning(f"Configuration file {filepath} not found.")
-            return None
-
-        logger.info(f"Loaded v0 config for {name} from {filepath}")
-
-        # Load a bundled config file with the same name as the robot
-        files = os.listdir(bundled_calibration_path)
-        same_name_files = [f for f in files if f.startswith(name)]
-        if len(same_name_files) == 0:
-            logger.warning(
-                f"No bundled calibration file found for {name} in {bundled_calibration_path}"
-            )
-            return None
-
-        same_name_config = cls.from_json(
-            str(bundled_calibration_path / same_name_files[0])
-        )
-        if same_name_config is None:
-            logger.warning(
-                f"Failed to load bundled calibration file for {name} in {bundled_calibration_path}"
-            )
-            return None
-
-        # Copy the data from the v0 JSON file
-        same_name_config.name = name
-        same_name_config.servos_voltage = data["SERVOS_VOLTAGE"]
-        same_name_config.servos_offsets = data["SERVOS_OFFSETS"]
-        same_name_config.servos_calibration_position = data[
-            "SERVOS_CALIBRATION_POSITION"
-        ]
-        same_name_config.servos_offsets_signs = data["SERVOS_OFFSETS_SIGNS"]
-
-        # Save the new configuration
-        same_name_config.save_local(serial_id=serial_id)
-
-        return same_name_config
 
     @classmethod
     def from_serial_id(
@@ -603,9 +551,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert (
-                step.action is not None
-            ), "The action must be set for each step before saving"
+            assert step.action is not None, (
+                "The action must be set for each step before saving"
+            )
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
