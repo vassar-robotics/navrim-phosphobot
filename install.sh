@@ -217,7 +217,7 @@ install_rpi_specific() {
     sudo apt-get update
     
     # Install RPI-specific dependencies
-    sudo apt-get install -y libgl1-mesa-glx dnsmasq
+    sudo apt-get install -y libgl1-mesa-glx dnsmasq v4l-utils
     
     # Configure LED monitoring
     configure_led_monitoring
@@ -251,7 +251,7 @@ install_linux_specific() {
     sudo apt-get update
     
     # Install Linux-specific dependencies
-    sudo apt-get install -y libgl1-mesa-glx dnsmasq
+    sudo apt-get install -y libgl1-mesa-glx dnsmasq v4l-utils
 }
 
 setup_services() {
