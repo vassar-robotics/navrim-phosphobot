@@ -5,7 +5,7 @@ description = "The AI-ready robotics dev kit, with built-in remote control."
 authors = [{ name = "phospho", email = "contact@phospho.ai" }]
 license = "MIT"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.28.1",
     "pydantic>=2.10.5",
@@ -20,6 +20,11 @@ dependencies = [
     "types-pyyaml>=6.0.12.20241230",
 ]
 
+[project.optional-dependencies]
+ai = [
+    "lerobot>=0.1.0"
+]
+
 [dependency-groups]
 dev = ["pyinstrument>=5.0.0"]
 
@@ -28,6 +33,9 @@ default-groups = ["dev"]
 
 [tool.setuptools]
 packages = ["phosphobot"]
+
+[tool.uv.sources]
+lerobot = { git = "https://github.com/Pierre-LouisBJT/lerobot.git", rev = "main" }
 
 [build-system]
 requires = ["hatchling"]

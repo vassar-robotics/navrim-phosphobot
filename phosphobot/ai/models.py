@@ -1,36 +1,17 @@
-from typing import List
-import numpy as np
 import torch
+from torch import nn
+import numpy as np
+from torch import Tensor
+from lerobot.common.policies.act.modeling_act import ACTPolicy
 import logging
-import cv2
 
-# To clean
-import argparse
-import logging
-from pathlib import Path
-from typing import List
-import json
-import cv2
-import json_numpy
-import numpy as np
-import torch
-import torch.nn as nn
-import uvicorn
-from packaging import version  # Don't remove this line (used by lerobot)
-from fastapi import FastAPI, HTTPException
 from huggingface_hub import snapshot_download
 from huggingface_hub.errors import RepositoryNotFoundError
 from huggingface_hub.utils._validators import HFValidationError
-from lerobot.common.policies.act.modeling_act import ACTPolicy
-from pydantic import BaseModel
-
-
-class Component:
-    def forward(self, *args, **kwargs):
-        raise NotImplementedError("Subclasses must implement the forward method")
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
+import json
+from pathlib import Path
+from typing import List
+import cv2
 
 
 ### UTILS ###
@@ -47,28 +28,6 @@ def get_safe_torch_device(device_str: str, log: bool = True) -> torch.device:
             logging.warning("MPS requested but not available. Using CPU instead.")
         return torch.device("cpu")
     return torch.device(device_str)
-
-
-def get_pretrained_policy_path(pretrained_policy_name_or_path, revision=None):
-    """Get the path to the pretrained policy, either from HF Hub or local."""
-    try:
-        pretrained_policy_path = Path(
-            snapshot_download(pretrained_policy_name_or_path, revision=revision)
-        )
-    except (HFValidationError, RepositoryNotFoundError) as e:
-        if isinstance(e, HFValidationError):
-            error_message = "The provided pretrained_policy_name_or_path is not a valid Hugging Face Hub repo ID."
-        else:
-            error_message = "The provided pretrained_policy_name_or_path was not found on the Hugging Face Hub."
-        logging.warning(f"{error_message} Treating it as a local directory.")
-        pretrained_policy_path = Path(pretrained_policy_name_or_path)
-
-    if not pretrained_policy_path.is_dir() or not pretrained_policy_path.exists():
-        raise ValueError(
-            "The provided pretrained_policy_name_or_path is not a valid/existing Hugging Face Hub "
-            "repo ID, nor is it an existing local directory."
-        )
-    return pretrained_policy_path
 
 
 def parse_input_features(file_path: Path) -> dict:
@@ -97,38 +56,85 @@ def parse_input_features(file_path: Path) -> dict:
         raise FileNotFoundError(f"Could not find JSON file at: {file_path}")
 
 
-class ACT(Component):
-    def __init__(self, model_id: str, revision: str | None = None):
-        # self.input_size = input_size
-        self.policy = None
+def get_pretrained_policy_path(pretrained_policy_name_or_path, revision=None):
+    """Get the path to the pretrained policy, either from HF Hub or local."""
+    try:
+        pretrained_policy_path = Path(
+            snapshot_download(pretrained_policy_name_or_path, revision=revision)
+        )
+    except (HFValidationError, RepositoryNotFoundError) as e:
+        if isinstance(e, HFValidationError):
+            error_message = "The provided pretrained_policy_name_or_path is not a valid Hugging Face Hub repo ID."
+        else:
+            error_message = "The provided pretrained_policy_name_or_path was not found on the Hugging Face Hub."
+        logging.warning(f"{error_message} Treating it as a local directory.")
+        pretrained_policy_path = Path(pretrained_policy_name_or_path)
 
+    if not pretrained_policy_path.is_dir() or not pretrained_policy_path.exists():
+        raise ValueError(
+            "The provided pretrained_policy_name_or_path is not a valid/existing Hugging Face Hub "
+            "repo ID, nor is it an existing local directory."
+        )
+    return pretrained_policy_path
+
+
+### END UTILS ###
+
+
+class ActionModel:
+    """
+    A PyTorch model for generating robot actions from robot state, camera images, and text prompts.
+    Inspired by the simplicity and flexibility of pytorch-pretrained-bert.
+    """
+
+    def __init__(self, model_id: str, revision: str | None = None, device: str = "cpu"):
+        """
+        Initialize the ActionModel.
+
+        Args:
+            model_name (str): Name of the pre-trained model (e.g., "PLB/pi0-so100-orangelegobrick-wristcam").
+            revision: default None which will resolve to main
+        """
         policy_path = get_pretrained_policy_path(model_id, revision=revision)
+        self.device = get_safe_torch_device(device)
 
-        # Set up device
-        self.device = get_safe_torch_device(device_str="mps", log=True)
-        torch.backends.cudnn.benchmark = True
-        torch.backends.cuda.matmul.allow_tf32 = True
-        logging.info(f"Device set to {self.device}")
+        self.policy = ACTPolicy.from_pretrained(policy_path, revision=revision)
+        self.policy.to(self.device)
 
-        # Load the policy
-        policy = ACTPolicy.from_pretrained(policy_path).to(self.device)
-        assert isinstance(policy, nn.Module)
-        logging.info("Policy loaded successfully")
+        self.input_features = parse_input_features(policy_path / "config.json")
 
-        input_features = parse_input_features(policy_path / "config.json")
-        logging.info(f"Input features required for model: {input_features.keys()}")
+    def to(self, device: str) -> None:
+        self.device = get_safe_torch_device(device)
+        self.policy.to(self.device)
 
-    def forward(
-        self,
-        images: List[np.ndarray],
-        current_qpos: np.ndarray,
-        image_names: List[str],
-        target_size: tuple[int, int],
-    ) -> np.ndarray:
+    def select_action(self, inputs: dict) -> Tensor:
         """
-        TODO: WIP of inference server adaptation
-        Process image through the ACT policy.
+        Select a single action.
+
+        Args:
+            inputs (dict): Dictionary with keys:
+                - "state": Tensor or list of floats representing robot state.
+                - "images": List of images (numpy arrays or tensors).
+                - "prompt": String text prompt (optional for ACT).
+
+        Returns:
+            torch.Tensor: Sequence of actions (shape: [max_seq_length, n_actions]).
         """
+        # TODO: Check we have the right inputs
+        # input_features = parse_input_features(policy_path / "config.json")
+
+        # Get feature names
+        image_names = [
+            feature
+            for feature in self.input_features.keys()
+            if "observation.images" in feature
+        ]
+
+        shape = self.input_features[image_names[0]]["shape"]
+        target_size = (shape[2], shape[1])
+
+        current_qpos = inputs["state"]
+        images = inputs["images"]
 
         if len(images) == 0:
             raise ValueError("No images provided")
@@ -179,3 +185,32 @@ class ACT(Component):
                 raise
         else:
             raise ValueError("Invalid image format. Expected RGB image.")
+
+        return action
+
+    @classmethod
+    def from_pretrained(cls, model_name, **kwargs):
+        """
+        Load a pre-trained ActionModel.
+
+        Args:
+            model_name (str): Name of the pre-trained model.
+            **kwargs: Additional arguments for initialization.
+
+        Returns:
+            ActionModel: Initialized model with pre-trained weights.
+        """
+        return cls(model_name, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        """
+        Makes the model instance callable, delegating to the forward method.
+
+        Args:
+            *args: Variable positional arguments passed to forward.
+            **kwargs: Variable keyword arguments passed to forward.
+
+        Returns:
+            The output of the forward method.
+        """
+        return self.select_action(*args, **kwargs)

@@ -1,4 +1,3 @@
-from .model import Model
-from .components import ACT
+from .models import ActionModel
 
-__all__ = ["ACT"]
+__all__ = ["ActionModel"]
