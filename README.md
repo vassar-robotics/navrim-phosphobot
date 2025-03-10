@@ -108,7 +108,7 @@ client.control.write_joints(angles=action[0].tolist())
 
 For the full detailed instructions, refer to the [guide available here](https://docs.phospho.ai/learn/ai-models).
 
-## Join the Communit
+## Join the Community
 
 Connect with other developers and share your experience in our [Discord community](https://discord.gg/cbkggY6NSK)
 
