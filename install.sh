@@ -251,7 +251,7 @@ install_linux_specific() {
     sudo apt-get update
     
     # Install Linux-specific dependencies
-    sudo apt-get install -y libgl1-mesa-glx dnsmasq v4l-utils
+    sudo apt-get install -y libgl1-mesa-glx dnsmasq v4l-utils ethtool can-utils
 }
 
 setup_services() {
