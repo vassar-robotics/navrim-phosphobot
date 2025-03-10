@@ -10,7 +10,6 @@ client = PhosphoApi(base_url="http://localhost:80")
 
 # Get a camera frame
 allcameras = AllCameras()
-time.sleep(0.2)
 
 # Get the frames from the cameras
 # We will use this model: LegrandFrederic/Orange-brick-in-black-box
