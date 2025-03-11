@@ -63,7 +63,7 @@ class Configuration(BaseModel):
 
     # These fields will be set after loading the user config
     DEFAULT_DATASET_NAME: str = "example_dataset"
-    DEFAULT_FREQ: int = 10
+    DEFAULT_FREQ: int = 50
     DEFAULT_EPISODE_FORMAT: Literal["lerobot_v2", "json"] = "lerobot_v2"
     DEFAULT_VIDEO_CODEC: VideoCodecs = "mp4v"
     DEFAULT_VIDEO_SIZE: tuple[int, int] = (320, 240)
