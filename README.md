@@ -57,7 +57,7 @@ sudo python lerobot/scripts/train.py \
 pip install --upgrade "phosphobot[am]"
 ```
 
-Start your phosphobot server
+Start your phosphobot server:
 
 ```
 curl -fsSL https://raw.githubusercontent.com/phospho-app/phosphobot/main/install.sh | bash
