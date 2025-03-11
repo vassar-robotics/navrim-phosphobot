@@ -1,6 +1,6 @@
 [project]
 name = "phosphobot"
-version = "0.0.9"
+version = "0.0.10"
 description = "The AI-ready robotics dev kit, with built-in remote control and action models support."
 authors = [{ name = "phospho", email = "contact@phospho.ai" }]
 license = "MIT"
@@ -35,7 +35,7 @@ default-groups = ["dev"]
 packages = ["phosphobot"]
 
 [tool.uv.sources]
-lerobot = { git = "https://github.com/Pierre-LouisBJT/lerobot.git", rev = "main" }
+lerobot = { git = "https://github.com/phospho-app/lerobot.git", rev = "main" }
 
 [build-system]
 requires = ["hatchling"]
