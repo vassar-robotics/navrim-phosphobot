@@ -1,6 +1,6 @@
 from phosphobot.camera import AllCameras
 from phosphobot.api.client import PhosphoApi
-from phosphobot.ai import ActionModel
+from phosphobot.am import ActionModel
 
 import time
 import numpy as np

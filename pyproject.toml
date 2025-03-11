@@ -1,7 +1,7 @@
 [project]
 name = "phosphobot"
-version = "0.0.8"
-description = "The AI-ready robotics dev kit, with built-in remote control."
+version = "0.0.9"
+description = "The AI-ready robotics dev kit, with built-in remote control and action models support."
 authors = [{ name = "phospho", email = "contact@phospho.ai" }]
 license = "MIT"
 readme = "README.md"
@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ai = [
+am = [
     "lerobot>=0.1.0"
 ]
 
