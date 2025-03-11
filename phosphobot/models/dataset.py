@@ -1893,6 +1893,8 @@ class InfoModel(BaseModel):
             video_shape = [target_size[1], target_size[0], 3]
             video_info = VideoInfo(video_codec=codec, video_fps=fps)
 
+            info_model.fps = fps
+
             info_model.features.observation_images["observation.images.main"] = (
                 VideoFeatureDetails(
                     shape=video_shape,
