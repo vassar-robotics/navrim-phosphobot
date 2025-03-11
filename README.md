@@ -51,10 +51,10 @@ sudo python lerobot/scripts/train.py \
 ```
 
 6. **Use a Model**:
-   Install the phosphobot package with the support for AI models:
+   Install the phosphobot package with the support for action models:
 
 ```bash
-pip install --upgrade "phosphobot[ai]"
+pip install --upgrade "phosphobot[am]"
 ```
 
 Start your phosphobot server
@@ -69,7 +69,7 @@ Control your robot with the model you trained:
 ```python
 from phosphobot.camera import AllCameras
 from phosphobot.api.client import PhosphoApi
-from phosphobot.ai import ActionModel
+from phosphobot.am import ActionModel
 
 import time
 import numpy as np
