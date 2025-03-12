@@ -1,41 +1,84 @@
 #!/usr/bin/env python3
+
+"""
+This script let's you control your robot using keyboard inputs.
+The robot arm is controlled using the following keys:
+- Arrow Up:    Move forward (increase Y)
+- Arrow Down:  Move backward (decrease Y)
+- Arrow Right: Move up (increase Z)
+- Arrow Left:  Move down (decrease Z)
+- A:           Move left (decrease X)
+- D:           Move right (increase X)
+- Space:       Toggle open state
+"""
+
 import requests
 import time
 import logging
+from pynput.keyboard import KeyCode
+from typing import Dict, Literal, Set, Tuple
 from pynput import keyboard as pynput_keyboard
 
 
 # Configuration
-BASE_URL = "http://127.0.0.1:80/"
-STEP_SIZE = 3  # Movement step in centimeters
-SLEEP_TIME = 0.02  # Loop sleep time (50 Hz)
+BASE_URL: str = "http://127.0.0.1:80/"
+STEP_SIZE: int = 2  # Movement step in centimeters
+SLEEP_TIME: float = 0.05  # Loop sleep time (20 Hz)
 
 # Global open state (initially 1 as set in init_robot)
-open_state = 1
+open_state: Literal[0, 1] = 1
+
+
+def behind_or_front() -> Literal["Behind", "Facing"]:
+    """
+    Returns the relative position of the user to the robot.
+    """
+    while True:
+        inp = input(
+            "Type 'Behind' if you are behind your robot or 'Facing' if you are facing your robot: "
+        )
+        if inp in ["Behind", "Facing"]:
+            print(f"You chose '{inp}'")
+            return inp  # type: Literal["Behind", "Facing"]
+        else:
+            print("You must choose between 'Behind' or 'Facing'")
+
+
+user_position: Literal["Behind", "Facing"] = behind_or_front()
 
 # Key mappings for alphanumeric keys (x-axis movement)
-KEY_MAPPINGS = {
+KEY_MAPPINGS: Dict[str, Tuple[int, int, int]] = {
     "a": (0, 0, STEP_SIZE),  # Increase Z (move up)
     "d": (0, 0, -STEP_SIZE),  # Decrease 2 (move down)
 }
 
 # Key mappings for special keys (arrow keys for y and z axes)
-SPECIAL_KEY_MAPPINGS = {
-    pynput_keyboard.Key.up: (STEP_SIZE, 0, 0),  # Increase X (move forward)
-    pynput_keyboard.Key.down: (-STEP_SIZE, 0, 0),  # Decrease X (move backward)
-    pynput_keyboard.Key.right: (0, STEP_SIZE, 0),  # Increase Y (move right)
-    pynput_keyboard.Key.left: (0, -STEP_SIZE, 0),  # Decrease Y (move left)
-}
+# The direction of movement is reversed if the user is facing the robot.
+SPECIAL_KEY_MAPPINGS: Dict[KeyCode | str, Tuple[int, int, int]] = (
+    {
+        pynput_keyboard.Key.up: (STEP_SIZE, 0, 0),  # Increase X (move forward)
+        pynput_keyboard.Key.down: (-STEP_SIZE, 0, 0),  # Decrease X (move backward)
+        pynput_keyboard.Key.right: (0, -STEP_SIZE, 0),  # Increase Y (move right)
+        pynput_keyboard.Key.left: (0, STEP_SIZE, 0),  # Decrease Y (move left)
+    }
+    if user_position == "Behind"
+    else {
+        pynput_keyboard.Key.up: (-STEP_SIZE, 0, 0),  # Increase X (move forward)
+        pynput_keyboard.Key.down: (STEP_SIZE, 0, 0),  # Decrease X (move backward)
+        pynput_keyboard.Key.right: (0, STEP_SIZE, 0),  # Increase Y (move right)
+        pynput_keyboard.Key.left: (0, -STEP_SIZE, 0),  # Decrease Y (move left)
+    }
+)
 
 # Set to track currently pressed keys (both string and special keys)
-keys_pressed = set()
+keys_pressed: Set[KeyCode | str] = set()
 
 
-def toggle_open_state():
-    """Togglde the open state and send a relative move command with no displacement."""
+def toggle_open_state() -> None:
+    """Toggle the open state and send a relative move command with no displacement."""
     global open_state
     open_state = 0 if open_state == 1 else 1
-    data = {
+    data: Dict[str, float] = {
         "x": 0,
         "y": 0,
         "z": 0,
@@ -52,7 +95,7 @@ def toggle_open_state():
         logging.error(f"Failed to toggle open state: {e}")
 
 
-def on_press(key):
+def on_press(key: KeyCode | str) -> None:
     # Handle space key separately to toggle open staaaate immediately.
     if key == pynput_keyboard.Key.space:
         toggle_open_state()
@@ -68,7 +111,7 @@ def on_press(key):
             keys_pressed.add(key)
 
 
-def on_release(key):
+def on_release(key: KeyCode | str) -> None:
     # Remove keys from the pressed set when released.
     try:
         char = key.char.lower()
@@ -78,7 +121,7 @@ def on_release(key):
             keys_pressed.discard(key)
 
 
-def init_robot():
+def init_robot() -> None:
     """Initialize the robot by calling /move/init and setting an absolute starting position."""
     endpoint_init = f"{BASE_URL}move/init"
     endpoint_absolute = f"{BASE_URL}move/absolute"
