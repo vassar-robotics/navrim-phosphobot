@@ -1,11 +1,23 @@
 #!/usr/bin/env python3
-from typing import Dict, Literal, Set, Tuple
+
+"""
+This script let's you control your robot using keyboard inputs.
+The robot arm is controlled using the following keys:
+- Arrow Up:    Move forward (increase Y)
+- Arrow Down:  Move backward (decrease Y)
+- Arrow Right: Move up (increase Z)
+- Arrow Left:  Move down (decrease Z)
+- A:           Move left (decrease X)
+- D:           Move right (increase X)
+- Space:       Toggle open state
+"""
+
 import requests
 import time
 import logging
-from pynput import keyboard as pynput_keyboard
 from pynput.keyboard import KeyCode
-from typing import Dict, Any
+from typing import Dict, Literal, Set, Tuple
+from pynput import keyboard as pynput_keyboard
 
 
 # Configuration
@@ -19,20 +31,17 @@ open_state: Literal[0, 1] = 1
 
 def behind_or_front() -> Literal["Behind", "Facing"]:
     """
-    Retuns the relative position of the user to the robot.
+    Returns the relative position of the user to the robot.
     """
-    inp = input(
-        "Type 'Behind' if you are behidn you robot or 'Facing' if you are facing your robot: "
-    )
-    if inp == "Behind":
-        print("You chose 'Behind'")
-        return inp
-    elif inp == "Facing":
-        print("You chose 'Facing'")
-        return inp
-    else:
-        print("You must choose between 'Behind' or 'Facing'")
-        behind_or_front()
+    while True:
+        inp = input(
+            "Type 'Behind' if you are behind your robot or 'Facing' if you are facing your robot: "
+        )
+        if inp in ["Behind", "Facing"]:
+            print(f"You chose '{inp}'")
+            return inp  # type: Literal["Behind", "Facing"]
+        else:
+            print("You must choose between 'Behind' or 'Facing'")
 
 
 user_position: Literal["Behind", "Facing"] = behind_or_front()
