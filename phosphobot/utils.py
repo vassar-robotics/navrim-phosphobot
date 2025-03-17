@@ -49,6 +49,10 @@ def nd_array_custom_before_validator(x: Any) -> np.ndarray:
         return np.array(x)
     elif isinstance(x, np.ndarray):
         return x
+    elif isinstance(x, float) or isinstance(x, int):
+        # Convert scalar to 1D array
+        # This shouldn't happen with normal serialization, but can happen due to bugs.
+        return np.array([x])
     else:
         raise ValueError("Invalid type for numpy array")
 

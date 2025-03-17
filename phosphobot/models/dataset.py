@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import os
+from pathlib import Path
 import shutil
 import time
 from abc import ABC, abstractmethod
@@ -213,6 +214,59 @@ class Episode(BaseModel):
     steps: List[Step] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
 
+    @property
+    def dataset_path(self) -> Path:
+        """
+        Return the file path of the episode
+        """
+        path = (
+            get_home_app_path()
+            / "recordings"
+            / self.metadata.get("format")
+            / self.metadata.get("dataset_name")
+        )
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    @property
+    def episodes_path(self) -> Path:
+        """
+        Return the file path of the episode
+        """
+        # Ensure there is a older folder_name/episode_format/dataset_name/data/chunk-000/
+        path = self.dataset_path / "data" / "chunk-000"
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    @property
+    def parquet_path(self) -> Path:
+        """
+        Return the file path of the episode .
+        """
+        return self.episodes_path / f"episode_{self.index:06d}.parquet"
+
+    @property
+    def json_path(self) -> Path:
+        """
+        Return the file path of the episode
+        """
+        return self.dataset_path / f"episode_{self.metadata['timestamp']}.json"
+
+    @property
+    def cameras_folder_path(self) -> Path:
+        """
+        Return the cameras folder path
+        """
+        return self.dataset_path / "videos" / "chunk-000"
+
+    def get_video_path(self, camera_key: str) -> Path:
+        """
+        Return the file path of the episode
+        """
+        path = self.dataset_path / "videos" / "chunk-000" / camera_key
+        os.makedirs(path, exist_ok=True)
+        return path / f"episode_{self.index:06d}.mp4"
+
     def save(
         self,
         folder_name: str,
@@ -228,7 +282,7 @@ class Episode(BaseModel):
 
         Episode are saved in a folder with the following structure:
 
-        ---- <folder_name>
+        ---- <folder_name> : phosphobot
         |   ---- json
         |   |   ---- <dataset_name>
         |   |   |   ---- episode_xxxx-xx-xx_xx-xx-xx.json
@@ -258,7 +312,9 @@ class Episode(BaseModel):
         # Update the metadata with the format used to save the episode
         self.metadata["format"] = format_to_save
         logger.info(f"Saving episode to {folder_name} with format {format_to_save}")
-        dataset_path = os.path.join(folder_name, format_to_save, dataset_name)
+        self.metadata["dataset_name"] = os.path.join(
+            folder_name, format_to_save, dataset_name
+        )
 
         if format_to_save == "lerobot_v2":
             if not info_model:
@@ -269,14 +325,10 @@ class Episode(BaseModel):
                     "last_frame_index is required to save in LeRobot format"
                 )
 
-            data_path = os.path.join(dataset_path, "data", "chunk-000")
-            # Ensure there is a older folder_name/episode_format/dataset_name/data/chunk-000/
-            os.makedirs(data_path, exist_ok=True)
-
             # Check the elements in the folder folder_name/lerobot_v2-format/dataset_name/data/chunk-000/
             # the episode index is the max index + 1
             # We create the list of index from filenames and take the max + 1
-            li_data_filename = os.listdir(data_path)
+            li_data_filename = os.listdir(self.episodes_path)
             episode_index = (
                 max(
                     [
@@ -289,19 +341,15 @@ class Episode(BaseModel):
                 else 0
             )
 
-            parquet_filename = os.path.join(
-                data_path,
-                f"episode_{episode_index:06d}.parquet",
-            )
             lerobot_episode_parquet: LeRobotEpisodeModel = (
                 self.convert_episode_data_to_LeRobot(
                     fps=fps,
-                    episodes_path=data_path,
+                    episodes_path=self.episodes_path,
                     episode_index=episode_index,
                     last_frame_index=last_frame_index,
                 )
             )
-            lerobot_episode_parquet.to_parquet(parquet_filename)
+            lerobot_episode_parquet.to_parquet(self.parquet_path)
 
             # Create the main video file and path
             # Get the video_path from the InfoModel
@@ -315,17 +363,9 @@ class Episode(BaseModel):
                 else:
                     # Following videos are the secondary cameras
                     frames = np.array(secondary_camera_frames[i - 1])
-                video_path = os.path.join(
-                    folder_name,
-                    "lerobot_v2",
-                    dataset_name,
-                    # TODO: Support chunking
-                    "videos/chunk-000",
-                    f"{key}/episode_{episode_index:06d}.mp4",
-                )
                 saved_path = create_video_file(
                     frames=frames,
-                    output_path=video_path,
+                    output_path=self.get_video_path(camera_key=key),
                     target_size=(feature.shape[1], feature.shape[0]),
                     fps=feature.info.video_fps,
                     codec=feature.info.video_codec,
@@ -335,38 +375,32 @@ class Episode(BaseModel):
                     isinstance(saved_path, tuple)
                     and all(os.path.exists(path) for path in saved_path)
                 ):
-                    logger.info(f"Video {key} {i} saved to {video_path}")
+                    logger.info(f"Video {key} {i} saved to {self.get_video_path}")
                 else:
-                    logger.error(f"Video {key} {i} not saved to {video_path}")
+                    logger.error(f"Video {key} {i} not saved to {self.get_video_path}")
 
         # Case where we save the episode in JSON format
         # Save the episode to a JSON file
         else:
+            self.metadata["timestamp"] = datetime.datetime.now().strftime(
+                "%Y-%m-%d_%H-%M-%S"
+            )
             episode_index = (
                 max(
                     [
                         int(data_filename.split("_")[-1].split(".")[0])
-                        for data_filename in os.listdir(dataset_path)
+                        for data_filename in os.listdir(self.episodes_path)
                     ]
                 )
                 + 1
-                if os.listdir(dataset_path)
+                if os.listdir(self.episodes_path)
                 else 0
             )
             # Convert the episode to a dictionary
             data_dict = self.model_dump()
-            json_filename = os.path.join(
-                folder_name,
-                format_to_save,
-                dataset_name,
-                f"episode_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json",
-            )
-
-            # Ensure the directory for the file exists
-            os.makedirs(os.path.dirname(json_filename), exist_ok=True)
 
             # Save to JSON using the custom encoder
-            with open(json_filename, "w") as f:
+            with open(self.json_path, "w") as f:
                 json.dump(data_dict, f, cls=NumpyEncoder)
 
     @classmethod
@@ -379,13 +413,15 @@ class Episode(BaseModel):
         with open(episode_data_path, "r") as f:
             data_dict = json.load(f, object_hook=decode_numpy)
             logger.debug(f"Data dict keys: {data_dict.keys()}")
+
         return cls(**data_dict)
 
     @classmethod
     def from_parquet(cls, episode_data_path: str) -> "Episode":
         """
         Load an episode data file. We only extract the information from the parquet data file.
-        TODO(adle): Add more information in the Episode when loading from parquet data file from metafiles and videos"""
+        TODO(adle): Add more information in the Episode when loading from parquet data file from metafiles and videos
+        """
         # Check that the file exists
         if not os.path.exists(episode_data_path):
             raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
@@ -399,8 +435,18 @@ class Episode(BaseModel):
         cols = ["joints_position", "timestamp"]
         # Create a new column "observation" that is a dict of the selected columns for each row
         episode_df["observation"] = episode_df[cols].to_dict(orient="records")
+
+        # Add metadata to the episode
+        index_of_lerobotv2 = episode_data_path.split("/").index("lerobot_v2")
+        metadata = {
+            "dataset_name": episode_data_path.split("/")[index_of_lerobotv2 + 1],
+            "format": "lerobot_v2",
+            "index": episode_df["episode_index"].iloc[0],
+        }
+
         episode_model = cls(
-            steps=cast(List[Step], episode_df.to_dict(orient="records"))
+            steps=cast(List[Step], episode_df.to_dict(orient="records")),
+            metadata=metadata,
         )
         return episode_model
 
@@ -409,16 +455,16 @@ class Episode(BaseModel):
         """Load an episode data file. There is numpy array handling for json format.""
         If we load the parquet file we don't have informations about the images
         """
-        episode_data_extention = episode_data_path.split(".")[-1]
-        if episode_data_extention not in ["json", "parquet"]:
-            raise ValueError(
-                f"Unsupported episode data format: {episode_data_extention}"
-            )
+        episode_data_extension = episode_data_path.split(".")[-1]
 
-        if episode_data_extention == "json":
+        if episode_data_extension == "json":
             return cls.from_json(episode_data_path)
-
-        return cls.from_parquet(episode_data_path)
+        elif episode_data_extension == "parquet":
+            return cls.from_parquet(episode_data_path)
+        else:
+            raise ValueError(
+                f"Unsupported episode data format: {episode_data_extension}"
+            )
 
     def add_step(self, step: Step):
         """
@@ -597,6 +643,54 @@ class Episode(BaseModel):
         ]
 
         return all_images
+
+    def delete(self, update_hub: bool = True) -> None:
+        """
+        Remove files related to the episode. Note: this doesn't update the meta files from the dataset.
+        Call Data.delete_episode to update the meta files.
+
+        If update_hub is True, the files will be removed from the HuggingFace repository.
+        There is no verification that the files are actually in the repository or that the repository exists.
+        You need to do that beforehand.
+        """
+        if self.metadata.get("format") == "lerobot_v2":
+            # Delete the parquet file
+            os.remove(self.parquet_path)
+            if update_hub:
+                # In the huggingface dataset, we need to pass the relative path.
+                relative_episode_path = (
+                    "data" / "chunk-000" / f"episode_{self.index:06d}.parquet"
+                )
+                delete_file(
+                    repo_id=self.repo_id,
+                    path_in_repo=relative_episode_path,
+                    repo_type="dataset",
+                )
+
+            # Remove the video files from the HF repository
+            all_camera_folders = os.listdir(self.cameras_folder_path)
+            for camera_key in all_camera_folders:
+                os.remove(self.get_video_path(camera_key))
+                if update_hub:
+                    delete_file(
+                        repo_id=self.repo_id,
+                        path_in_repo=f"videos/chunk-000/{camera_key}/episode_{self.index:06d}.mp4",
+                        repo_type="dataset",
+                    )
+
+        elif self.metadata.get("format") == "json":
+            os.remove(self.json_path)
+
+    def parquet(self) -> pd.DataFrame:
+        """
+        Load the .parquet file of the episode. Only works for LeRobot format.
+        """
+        if not self.metadata.get("format") == "lerobot_v2":
+            raise ValueError(
+                "The episode must be in LeRobot format to convert it to a DataFrame"
+            )
+
+        return pd.read_parquet(self.parquet_path)
 
 
 class LeRobotEpisodeModel(BaseModel):
@@ -897,23 +991,15 @@ class Dataset:
 
         If update_hub is True, also delete the episode data from the HuggingFace repository
         """
-        # Load the data of the episode to delete before removing it
-        try:
-            df_episode_to_delete = self.get_df_episode(episode_id=episode_id)
-        except FileNotFoundError:
-            logger.error(f"Episode {episode_id} not found in the dataset")
-            return
 
+        episode_to_delete = Episode.load(self.get_episode_data_path(episode_id))
         # Get the full path to the data with episode id
-        full_path_data_to_remove = self.get_episode_data_path(episode_id)
-        # Remove the episode data file
-        os.remove(full_path_data_to_remove)
-        repo_id = self.repo_id
-        if self.check_repo_exists(repo_id) and update_hub:
-            data_path_in_repo = self.get_episode_data_path_in_repo(episode_id)
-            delete_file(
-                repo_id=repo_id, path_in_repo=data_path_in_repo, repo_type="dataset"
+
+        if self.check_repo_exists(self.repo_id) is False:
+            logger.warning(
+                f"Repository {self.repo_id} does not exist on HuggingFace. Skipping deletion on HuggingFace"
             )
+            update_hub = False
 
         if self.episode_format == "lerobot_v2":
             # Start loading current meta data
@@ -930,35 +1016,15 @@ class Dataset:
                 meta_folder_path=self.meta_folder_full_path
             )
 
-            # Rename the remaining episodes to keep the numbering consistent
-            # be sure to reindex AFTER deleting the episode data
-            self.reindex_episodes(
-                episode_to_remove_id=episode_id,
-                nb_steps_deleted_episode=len(df_episode_to_delete),
-                folder_path=self.data_folder_full_path,
-            )
-
             # Update stats for images before deleting the videos
             stats_model._update_for_episode_removal_images_stats(
                 folder_videos_path=self.videos_folder_full_path,
                 episode_to_delete_index=episode_id,
             )
 
-            self.delete_episode_videos(
-                episode_to_remove_id=episode_id,
-                update_hub=True,
-            )
-
-            # Reindex the episode videos
-            for camera_folder_full_path in self.get_camera_folders_full_paths():
-                self.reindex_episodes(
-                    folder_path=camera_folder_full_path,
-                    episode_to_remove_id=episode_id,
-                )
-
             # Update meta data before episode removal
             tasks_model.update_for_episode_removal(
-                df_episode_to_delete=df_episode_to_delete,
+                df_episode_to_delete=episode_to_delete.parquet(),
                 data_folder_full_path=self.meta_folder_full_path,
             )
             tasks_model.save(meta_folder_path=self.meta_folder_full_path)
@@ -973,13 +1039,13 @@ class Dataset:
             logger.info("Episodes model updated")
 
             info_model.update_for_episode_removal(
-                df_episode_to_delete=df_episode_to_delete
+                df_episode_to_delete=episode_to_delete.parquet(),
             )
             info_model.save(meta_folder_path=self.meta_folder_full_path)
             logger.info("Info model updated")
 
             stats_model._update_for_episode_removal_mean_std_count(
-                df_episode_to_delete=df_episode_to_delete
+                df_episode_to_delete=episode_to_delete.parquet(),
             )
             stats_model._update_for_episode_removal_min_max(
                 data_folder_path=self.data_folder_full_path,
@@ -988,7 +1054,24 @@ class Dataset:
             stats_model.save(meta_folder_path=self.meta_folder_full_path)
             logger.info("Stats model updated")
 
-            if update_hub and self.check_repo_exists(repo_id):
+            # Delete the actual episode files (parquet and mp4 video)
+            episode_to_delete.delete(update_hub=update_hub)
+
+            # Rename the remaining episodes to keep the numbering consistent
+            # be sure to reindex AFTER deleting the episode data
+            self.reindex_episodes(
+                episode_to_remove_id=episode_to_delete.index,
+                nb_steps_deleted_episode=len(episode_to_delete.steps),
+                folder_path=self.data_folder_full_path,
+            )
+            # Reindex the episode videos
+            for camera_folder_full_path in self.get_camera_folders_full_paths():
+                self.reindex_episodes(
+                    folder_path=camera_folder_full_path,
+                    episode_to_remove_id=episode_id,
+                )
+
+            if update_hub:
                 upload_folder(
                     folder_path=self.meta_folder_full_path,
                     repo_id=self.repo_id,
@@ -1016,35 +1099,6 @@ class Dataset:
             f"videos/chunk-000/{camera_name}"
             for camera_name in os.listdir(self.videos_folder_full_path)
         ]
-
-    def delete_episode_videos(
-        self, episode_to_remove_id: int, update_hub: bool = True
-    ) -> None:
-        """
-        Delete the episode videos from the dataset
-        If delete_in_hub is True, also delete the episode videos from the HuggingFace
-        """
-        # Iterate over the camera folders and remove the episode inside
-        for camera_folder_full_path in self.get_camera_folders_full_paths():
-            video_full_path = os.path.join(
-                camera_folder_full_path, f"episode_{episode_to_remove_id:06d}.mp4"
-            )
-
-            # Remove the video file
-            os.remove(video_full_path)
-
-        # Remove the video files from the HF repository
-        for camera_folder_path_in_repo in self.get_camera_folders_repo_paths():
-            video_path_in_repo = os.path.join(
-                camera_folder_path_in_repo, f"episode_{episode_to_remove_id:06d}.mp4"
-            )
-
-            if self.check_repo_exists(self.repo_id) and update_hub:
-                delete_file(
-                    repo_id=self.repo_id,
-                    path_in_repo=video_path_in_repo,
-                    repo_type="dataset",
-                )
 
     def get_total_frames(self) -> int:
         """
@@ -1558,7 +1612,6 @@ class StatsModel(BaseModel):
             # observation_images has a special treatment
             if field_name in ["task_index", "observation_images"]:
                 continue
-            logger.info(f"Updating field {field_name}")
             field_value = getattr(self, field_name)
             # The key in StatsModel is observation_state
             field_name = (
@@ -1567,7 +1620,7 @@ class StatsModel(BaseModel):
             # Update statistics
             if field_name in df_episode_to_delete.columns:
                 # Subtract sums
-                logger.info(f"Field value sum before: {field_value.sum}")
+                logger.debug(f"Field {field_name} sum before: {field_value.sum}")
                 field_value.sum = (
                     field_value.sum - df_sums_squaresums["sums"][field_name]
                 )
@@ -1575,7 +1628,7 @@ class StatsModel(BaseModel):
                     field_value.square_sum
                     - df_sums_squaresums["squaresums"][field_name]
                 )
-                logger.info(f"Field value sum after: {field_value.sum}")
+                logger.debug(f"Field {field_name} sum after: {field_value.sum}")
 
                 # Update count
                 field_value.count = field_value.count - nb_steps_deleted_episode
@@ -1583,9 +1636,21 @@ class StatsModel(BaseModel):
                 # Recalculate mean and standard deviation
                 if field_value.count > 0:
                     field_value.mean = field_value.sum / field_value.count
-                    field_value.std = np.sqrt(
-                        (field_value.square_sum / field_value.count)
-                        - np.square(field_value.mean)
+                    variance = (field_value.square_sum / field_value.count) - np.square(
+                        field_value.mean
+                    )
+                    if (
+                        isinstance(variance, np.ndarray) and np.all(variance >= 0)
+                    ) or variance >= 0:
+                        field_value.std = np.sqrt(variance)
+                    else:
+                        logger.error(
+                            f"Field {field_name} variance is negative: {variance}"
+                            + f" for episode {df_episode_to_delete['episode_index'].iloc[0]}"
+                        )
+                else:
+                    logger.error(
+                        f"Field {field_name} count is 0. Cannot calculate mean and std for episode {df_episode_to_delete['episode_index'].iloc[0]}"
                     )
 
     def _update_for_episode_removal_images_stats(
@@ -1656,13 +1721,18 @@ class StatsModel(BaseModel):
             if file.endswith(".parquet")
             and file != f"episode_{episode_to_delete_index:06d}.parquet"
         ]
+        if len(li_data_folder_filenames) == 0:
+            return
 
-        all_episodes_df = pd.concat(
-            [
-                pd.read_parquet(str(os.path.join(data_folder_path, file)))
-                for file in li_data_folder_filenames
-            ]
-        )
+        # Load all episodes
+        all_episodes = [
+            pd.read_parquet(str(os.path.join(data_folder_path, file)))
+            for file in li_data_folder_filenames
+        ]
+
+        # Combine all episodes
+        all_episodes_df = pd.concat(all_episodes)
+
         for field_name, field in StatsModel.model_fields.items():
             # TODO task_index is not updated since we do not support multiple tasks
             if field_name in ["task_index", "observation_images"]:
@@ -1679,6 +1749,11 @@ class StatsModel(BaseModel):
                 (field_value.min, field_value.max) = get_field_min_max(
                     all_episodes_df, field_name
                 )
+                # The value should be a numpy ndarray, even if it's a int or float
+                if not isinstance(field_value.min, np.ndarray):
+                    field_value.min = np.array([field_value.min])
+                if not isinstance(field_value.max, np.ndarray):
+                    field_value.max = np.array([field_value.max])
 
     def update_for_episode_removal(self, data_folder_path: str) -> None:
         # TODO: Handle everything in one function
@@ -1892,6 +1967,8 @@ class InfoModel(BaseModel):
             info_model = cls.from_robots(robots)
             video_shape = [target_size[1], target_size[0], 3]
             video_info = VideoInfo(video_codec=codec, video_fps=fps)
+
+            info_model.fps = fps
 
             info_model.features.observation_images["observation.images.main"] = (
                 VideoFeatureDetails(
@@ -2136,7 +2213,6 @@ class EpisodesModel(BaseModel):
         with open(f"{meta_folder_path}/episodes.jsonl", "r") as f:
             episodes_model = []
             for line in f:
-                logger.debug(f"Reading line: {line}")
                 episodes_model.append(EpisodesFeatures(**json.loads(line)))
 
         episode = EpisodesModel(episodes=episodes_model)
