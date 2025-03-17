@@ -363,9 +363,10 @@ class Episode(BaseModel):
                 else:
                     # Following videos are the secondary cameras
                     frames = np.array(secondary_camera_frames[i - 1])
+                video_path = self.get_video_path(camera_key=key)
                 saved_path = create_video_file(
                     frames=frames,
-                    output_path=self.get_video_path(camera_key=key),
+                    output_path=str(video_path),
                     target_size=(feature.shape[1], feature.shape[0]),
                     fps=feature.info.video_fps,
                     codec=feature.info.video_codec,
@@ -375,9 +376,9 @@ class Episode(BaseModel):
                     isinstance(saved_path, tuple)
                     and all(os.path.exists(path) for path in saved_path)
                 ):
-                    logger.info(f"Video {key} {i} saved to {self.get_video_path}")
+                    logger.info(f"Video {key} {i} saved to {video_path}")
                 else:
-                    logger.error(f"Video {key} {i} not saved to {self.get_video_path}")
+                    logger.error(f"Video {key} {i} not saved to {video_path}")
 
         # Case where we save the episode in JSON format
         # Save the episode to a JSON file
