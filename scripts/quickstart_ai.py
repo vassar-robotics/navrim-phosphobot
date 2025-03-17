@@ -37,7 +37,7 @@ model = ACT()
 print(state)
 
 inputs = {"state": np.array(state.angles_rad), "images": np.array(images)}
-# Go trhough the model
+# Go through the model
 actions = model(inputs)
 
 print(f"actions {actions}")
