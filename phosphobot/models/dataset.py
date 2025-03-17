@@ -219,11 +219,17 @@ class Episode(BaseModel):
         """
         Return the file path of the episode
         """
+        format = self.metadata.get("format")
+        dataset_name = self.metadata.get("dataset_name")
+        if not format:
+            raise ValueError("Episode metadata format not set")
+        if not dataset_name:
+            raise ValueError("Episode metadata dataset_name not set")
+
         path = (
             get_home_app_path()
             / "recordings"
-            / self.metadata.get("format")
-            / self.metadata.get("dataset_name")
+            / format / dataset_name
         )
         os.makedirs(path, exist_ok=True)
         return path
@@ -344,12 +350,12 @@ class Episode(BaseModel):
             lerobot_episode_parquet: LeRobotEpisodeModel = (
                 self.convert_episode_data_to_LeRobot(
                     fps=fps,
-                    episodes_path=self.episodes_path,
+                    episodes_path=str(self.episodes_path),
                     episode_index=episode_index,
                     last_frame_index=last_frame_index,
                 )
             )
-            lerobot_episode_parquet.to_parquet(self.parquet_path)
+            lerobot_episode_parquet.to_parquet(str(self.parquet_path))
 
             # Create the main video file and path
             # Get the video_path from the InfoModel
@@ -645,7 +651,7 @@ class Episode(BaseModel):
 
         return all_images
 
-    def delete(self, update_hub: bool = True) -> None:
+    def delete(self, update_hub: bool = True, repo_id: str | None = None) -> None:
         """
         Remove files related to the episode. Note: this doesn't update the meta files from the dataset.
         Call Data.delete_episode to update the meta files.
@@ -657,13 +663,13 @@ class Episode(BaseModel):
         if self.metadata.get("format") == "lerobot_v2":
             # Delete the parquet file
             os.remove(self.parquet_path)
-            if update_hub:
+            if update_hub and repo_id is not None:
                 # In the huggingface dataset, we need to pass the relative path.
                 relative_episode_path = (
-                    "data" / "chunk-000" / f"episode_{self.index:06d}.parquet"
+                    f"data/chunk-000/episode_{self.index:06d}.parquet"
                 )
                 delete_file(
-                    repo_id=self.repo_id,
+                    repo_id=repo_id,
                     path_in_repo=relative_episode_path,
                     repo_type="dataset",
                 )
@@ -672,9 +678,9 @@ class Episode(BaseModel):
             all_camera_folders = os.listdir(self.cameras_folder_path)
             for camera_key in all_camera_folders:
                 os.remove(self.get_video_path(camera_key))
-                if update_hub:
+                if update_hub and repo_id is not None:
                     delete_file(
-                        repo_id=self.repo_id,
+                        repo_id=repo_id,
                         path_in_repo=f"videos/chunk-000/{camera_key}/episode_{self.index:06d}.mp4",
                         repo_type="dataset",
                     )
