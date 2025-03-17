@@ -68,7 +68,7 @@ class ACT(ActionModel):
         self.required_input_keys: List[str] = ["images", "state"]
 
     def select_action(self, inputs: dict) -> np.ndarray:
-        # Buuild the payload
+        # Build the payload
         payload = {
             "observation.state": inputs["state"],
         }
@@ -84,6 +84,8 @@ class ACT(ActionModel):
             timeout=5.0,  # Add timeout to prevent hanging
         ).json()
 
-        actions = json_numpy.loads(response)
+        print(response)
 
-        return actions
+        action = json_numpy.loads(response)
+
+        return np.array([action])
