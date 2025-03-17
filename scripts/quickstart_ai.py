@@ -1,6 +1,6 @@
 from phosphobot.camera import AllCameras
 from phosphobot.api.client import PhosphoApi
-from phosphobot.am import ActionModel
+from phosphobot.am import ACT
 
 import time
 import numpy as np
@@ -18,15 +18,13 @@ allcameras = AllCameras()
 images = [
     allcameras.get_rgb_frame(camera_id=0, resize=(240, 320)),
     allcameras.get_rgb_frame(camera_id=0, resize=(240, 320)),
-    allcameras.get_rgb_frame(camera_id=1, resize=(240, 320)),
+    allcameras.get_rgb_frame(camera_id=0, resize=(240, 320)),
 ]
 
 # Get the robot state
 state = client.control.read_joints()
 
-model = ActionModel.from_pretrained(
-    "LegrandFrederic/Orange-brick-in-black-box", device="mps"
-)
+model = ACT()
 
 inputs = {"state": np.array(state.angles_rad), "images": np.array(images)}
 # Go trhough the model

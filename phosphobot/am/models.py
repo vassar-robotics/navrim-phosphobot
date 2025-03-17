@@ -85,4 +85,5 @@ class ACT(ActionModel):
         ).json()
 
         actions = json_numpy.loads(response)
+
         return actions
