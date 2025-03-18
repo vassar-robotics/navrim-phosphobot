@@ -1,6 +1,6 @@
 [project]
 name = "phosphobot"
-version = "0.0.10"
+version = "0.0.11"
 description = "The AI-ready robotics dev kit, with built-in remote control and action models support."
 authors = [{ name = "phospho", email = "contact@phospho.ai" }]
 license = "MIT"
@@ -14,15 +14,15 @@ dependencies = [
     "loguru>=0.7.3",
     "numpy<2",
     "opencv-python>=4.11.0.86",
+    "openpi-client>=0.1.0",
     "rich>=13.9.4",
     "pandas-stubs>=2.2.2.240807",
     "huggingface-hub>=0.29.0",
     "types-pyyaml>=6.0.12.20241230",
-]
-
-[project.optional-dependencies]
-am = [
-    "lerobot>=0.1.0"
+    "pyrealsense2>=2.54; platform_system == 'Linux'",
+    "pyrealsense2>=2.54; platform_system == 'Windows'",
+    "pyrealsense2-macosx>=2.54; platform_system == 'Darwin'",
+    "json-numpy>=2.1.0"
 ]
 
 [dependency-groups]
@@ -35,7 +35,9 @@ default-groups = ["dev"]
 packages = ["phosphobot"]
 
 [tool.uv.sources]
-lerobot = { git = "https://github.com/phospho-app/lerobot.git", rev = "main" }
+# We are cloning from our fork instead of the original repo (https://github.com/Physical-Intelligence/openpi) 
+# because we had the error unknow host: github.com
+openpi-client = { git = "https://github.com/phospho-app/openpi.git", subdirectory = "packages/openpi-client", rev = "main" }
 
 [build-system]
 requires = ["hatchling"]
