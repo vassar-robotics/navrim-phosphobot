@@ -78,7 +78,7 @@ images = [
 # Get the robot state
 state = client.control.read_joints()
 
-# Instanciate our model
+# Instantiate the model
 model = ACT()
 
 inputs = {"state": np.array(state.angles_rad), "images": np.array(images)}
@@ -120,7 +120,7 @@ images = [
 # Get the robot state
 state = client.control.read_joints()
 
-# Instanciate our model
+# Instantiate the model
 model = Pi0(server_url="YOUR_SERVER_URL")
 
 inputs = {

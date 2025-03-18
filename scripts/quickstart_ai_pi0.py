@@ -25,7 +25,7 @@ images = [
 # Get the robot state
 state = client.control.read_joints()
 
-# Instanciate our model
+# Instantiate the model
 model = Pi0(server_url="YOUR_SERVER_URL")
 
 inputs = {
