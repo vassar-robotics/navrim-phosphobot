@@ -20,8 +20,8 @@ time.sleep(1)
 # https://huggingface.co/LegrandFrederic/Orange-brick-in-black-box/blob/main/config.json
 images = [
     allcameras.get_rgb_frame(camera_id=0, resize=(240, 320)),
-    allcameras.get_rgb_frame(camera_id=0, resize=(240, 320)),
-    allcameras.get_rgb_frame(camera_id=0, resize=(240, 320)),
+    allcameras.get_rgb_frame(camera_id=1, resize=(240, 320)),
+    allcameras.get_rgb_frame(camera_id=2, resize=(240, 320)),
 ]
 
 # Get the robot state
