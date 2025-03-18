@@ -96,11 +96,7 @@ class Pi0(ActionModel):
         self,
         server_url: str = "http://localhost",
         server_port: int = 8080,
-        image_keys=[
-            "observation/images.main.left",
-            "observation/images.secondary_0",
-            "observation/images.secondary_1",
-        ],
+        image_keys=["observation/image", "observation/wrist_image"],
     ):
         super().__init__(server_url, server_port)
         self.required_input_keys: List[str] = ["images", "state", "prompt"]
