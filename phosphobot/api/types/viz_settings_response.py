@@ -6,8 +6,14 @@ import typing
 import pydantic
 
 
-class BodySubmitTokenAdminFormPost(UniversalBaseModel):
-    token: str
+class VizSettingsResponse(UniversalBaseModel):
+    """
+    Settings for the vizualisation page.
+    """
+
+    height: int
+    quality: int
+    width: int
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

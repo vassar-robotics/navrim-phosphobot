@@ -37,7 +37,7 @@ class RecordingClient:
         Parameters
         ----------
         episode_path : str
-            Path to the .json file to play.
+            Path to the .json or .parquet file of the episode to play.
 
         robot_id : typing.Optional[int]
 
@@ -57,7 +57,7 @@ class RecordingClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.recording.play_recording(
-            episode_path="episode_path",
+            episode_path="~/phosphobot/lerobot_v2/example_dataset/chunk-000/episode_000000.json",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -102,10 +102,15 @@ class RecordingClient:
     def start_recording_episode(
         self,
         *,
-        robot_id: typing.Optional[int] = None,
+        branch_path: typing.Optional[str] = OMIT,
+        cameras_ids_to_record: typing.Optional[typing.Sequence[int]] = OMIT,
         dataset_name: typing.Optional[str] = OMIT,
         episode_format: typing.Optional[RecordingStartRequestEpisodeFormat] = OMIT,
         freq: typing.Optional[int] = OMIT,
+        instruction: typing.Optional[str] = OMIT,
+        target_video_size: typing.Optional[
+            typing.Sequence[typing.Optional[typing.Any]]
+        ] = OMIT,
         video_codec: typing.Optional[RecordingStartRequestVideoCodec] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
@@ -115,21 +120,31 @@ class RecordingClient:
 
         Parameters
         ----------
-        robot_id : typing.Optional[int]
+        branch_path : typing.Optional[str]
+            Path to the branch to push the dataset to, in addition to the main branch. If set to None, only push to the main branch. Defaults to None.
+
+        cameras_ids_to_record : typing.Optional[typing.Sequence[int]]
+            List of camera ids to record. If set to None, records all available cameras.
 
         dataset_name : typing.Optional[str]
-            Name of the dataset to save the episode in.
+            Name of the dataset to save the episode in.If None, defaults to the value set in Admin Settings.
 
         episode_format : typing.Optional[RecordingStartRequestEpisodeFormat]
             Format to save the episode.
             `json` is compatible with OpenVLA and stores videos as a series of npy.
-            `lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models)
+            `lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models).If None, defaults to the value set in Admin Settings.
 
         freq : typing.Optional[int]
-            Records steps of the robot at this frequency. Defaults to 10.
+            Records steps of the robot at this frequency.If None, defaults to the value set in Admin Settings.
+
+        instruction : typing.Optional[str]
+            A text describing the recorded task. If set to None, defaults to the value set in Admin Settings.
+
+        target_video_size : typing.Optional[typing.Sequence[typing.Optional[typing.Any]]]
+            Target video size for the recording, all videos in the dataset should have the same size. If set to None, defaults to the value set in Admin Settings.
 
         video_codec : typing.Optional[RecordingStartRequestVideoCodec]
-            Codec to use for the video saving. Defaults to None.
+            Codec to use for the video saving.If None, defaults to the value set in Admin Settings.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -151,13 +166,14 @@ class RecordingClient:
         _response = self._client_wrapper.httpx_client.request(
             "recording/start",
             method="POST",
-            params={
-                "robot_id": robot_id,
-            },
             json={
+                "branch_path": branch_path,
+                "cameras_ids_to_record": cameras_ids_to_record,
                 "dataset_name": dataset_name,
                 "episode_format": episode_format,
                 "freq": freq,
+                "instruction": instruction,
+                "target_video_size": target_video_size,
                 "video_codec": video_codec,
             },
             headers={
@@ -275,7 +291,7 @@ class AsyncRecordingClient:
         Parameters
         ----------
         episode_path : str
-            Path to the .json file to play.
+            Path to the .json or .parquet file of the episode to play.
 
         robot_id : typing.Optional[int]
 
@@ -300,7 +316,7 @@ class AsyncRecordingClient:
 
         async def main() -> None:
             await client.recording.play_recording(
-                episode_path="episode_path",
+                episode_path="~/phosphobot/lerobot_v2/example_dataset/chunk-000/episode_000000.json",
             )
 
 
@@ -348,10 +364,15 @@ class AsyncRecordingClient:
     async def start_recording_episode(
         self,
         *,
-        robot_id: typing.Optional[int] = None,
+        branch_path: typing.Optional[str] = OMIT,
+        cameras_ids_to_record: typing.Optional[typing.Sequence[int]] = OMIT,
         dataset_name: typing.Optional[str] = OMIT,
         episode_format: typing.Optional[RecordingStartRequestEpisodeFormat] = OMIT,
         freq: typing.Optional[int] = OMIT,
+        instruction: typing.Optional[str] = OMIT,
+        target_video_size: typing.Optional[
+            typing.Sequence[typing.Optional[typing.Any]]
+        ] = OMIT,
         video_codec: typing.Optional[RecordingStartRequestVideoCodec] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
@@ -361,21 +382,31 @@ class AsyncRecordingClient:
 
         Parameters
         ----------
-        robot_id : typing.Optional[int]
+        branch_path : typing.Optional[str]
+            Path to the branch to push the dataset to, in addition to the main branch. If set to None, only push to the main branch. Defaults to None.
+
+        cameras_ids_to_record : typing.Optional[typing.Sequence[int]]
+            List of camera ids to record. If set to None, records all available cameras.
 
         dataset_name : typing.Optional[str]
-            Name of the dataset to save the episode in.
+            Name of the dataset to save the episode in.If None, defaults to the value set in Admin Settings.
 
         episode_format : typing.Optional[RecordingStartRequestEpisodeFormat]
             Format to save the episode.
             `json` is compatible with OpenVLA and stores videos as a series of npy.
-            `lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models)
+            `lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models).If None, defaults to the value set in Admin Settings.
 
         freq : typing.Optional[int]
-            Records steps of the robot at this frequency. Defaults to 10.
+            Records steps of the robot at this frequency.If None, defaults to the value set in Admin Settings.
+
+        instruction : typing.Optional[str]
+            A text describing the recorded task. If set to None, defaults to the value set in Admin Settings.
+
+        target_video_size : typing.Optional[typing.Sequence[typing.Optional[typing.Any]]]
+            Target video size for the recording, all videos in the dataset should have the same size. If set to None, defaults to the value set in Admin Settings.
 
         video_codec : typing.Optional[RecordingStartRequestVideoCodec]
-            Codec to use for the video saving. Defaults to None.
+            Codec to use for the video saving.If None, defaults to the value set in Admin Settings.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -405,13 +436,14 @@ class AsyncRecordingClient:
         _response = await self._client_wrapper.httpx_client.request(
             "recording/start",
             method="POST",
-            params={
-                "robot_id": robot_id,
-            },
             json={
+                "branch_path": branch_path,
+                "cameras_ids_to_record": cameras_ids_to_record,
                 "dataset_name": dataset_name,
                 "episode_format": episode_format,
                 "freq": freq,
+                "instruction": instruction,
+                "target_video_size": target_video_size,
                 "video_codec": video_codec,
             },
             headers={

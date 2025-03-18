@@ -1,6 +1,6 @@
 [project]
 name = "phosphobot"
-version = "0.0.11"
+version = "0.0.12"
 description = "The AI-ready robotics dev kit, with built-in remote control and action models support."
 authors = [{ name = "phospho", email = "contact@phospho.ai" }]
 license = "MIT"
@@ -22,7 +22,7 @@ dependencies = [
     "pyrealsense2>=2.54; platform_system == 'Linux'",
     "pyrealsense2>=2.54; platform_system == 'Windows'",
     "pyrealsense2-macosx>=2.54; platform_system == 'Darwin'",
-    "json-numpy>=2.1.0"
+    "json-numpy>=2.1.0",
 ]
 
 [dependency-groups]
