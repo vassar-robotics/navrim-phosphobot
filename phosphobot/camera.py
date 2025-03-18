@@ -661,7 +661,7 @@ class RealSenseCamera(BaseCamera):
 
 
 class AllCameras:
-    disable: bool
+    disabled_cameras: list[int] | None
     video_cameras: List[VideoCamera]
     realsensecamera: Optional[RealSenseCamera] = None
 
@@ -670,13 +670,13 @@ class AllCameras:
     # If it's None, record everything. Otherwise, record only the corresponding cameras
     _cameras_ids_to_record: List[int]
 
-    def __init__(self, disable: bool = False):
+    def __init__(self, disabled_cameras: bool = False):
         """
         AllCameras class to manage all cameras connected to the computer.
         Args:
-            disable: If True, cameras will be initialized in disabled mode
+            disabled_cameras: These cameras indexes will not be used by the application, set to [-1] to disable all cameras
         """
-        self.disable = disable
+        self.disabled_cameras = disabled_cameras
         self.video_cameras = []
         self.camera_ids = []
 
@@ -701,7 +701,8 @@ class AllCameras:
                 self.video_cameras.append(
                     VideoCamera(
                         video=cv2.VideoCapture(index),
-                        disable=self.disable,
+                        disable=self.disabled_cameras is not None
+                        and index in self.disabled_cameras,
                         camera_id=index,
                     )
                 )
@@ -710,7 +711,8 @@ class AllCameras:
             elif camera_type == "stereo":
                 stereo_camera = StereoCamera(
                     video=cv2.VideoCapture(index),
-                    disable=self.disable,
+                    disable=self.disabled_cameras is not None
+                    and index in self.disabled_cameras,
                     width=1280,
                     height=480,
                     fps=30,
@@ -758,7 +760,10 @@ class AllCameras:
         """
         for attempt in range(max_retries):
             try:
-                self.realsensecamera = RealSenseCamera(disable=self.disable)
+                self.realsensecamera = RealSenseCamera(
+                    disable=self.disabled_cameras is not None
+                    and -1 in self.disabled_cameras
+                )
                 if (
                     self.realsensecamera is not None
                     and self.realsensecamera.is_connected
