@@ -1454,13 +1454,14 @@ class Stats(BaseModel):
         # We want .tolist() to yield [[[mean_r, mean_g, mean_b]]] and not [mean_r, mean_g, mean_b]
         # Reshape to have the same shape as the mean and std
         # This makes it easier to normalize the imags
-        self.mean = self.mean.reshape(3, 1, 1)
-        self.std = self.std.reshape(3, 1, 1)
-        # For the first episode the shape is (3,)
-        # For the next ones the shape is (3,1,3)
-        # We keep min and max of the first episode only
-        self.min = self.min.reshape(3, 1, 1)
-        self.max = self.max.reshape(3, 1, 1)
+        if self.mean.shape == (3,):
+            self.mean = self.mean.reshape(3, 1, 1)
+            self.std = self.std.reshape(3, 1, 1)
+            # For the first episode the shape is (3,)
+            # For the next ones the shape is (3,1,3)
+            # We keep min and max of the first episode only
+            self.min = self.min.reshape(3, 1, 1)
+            self.max = self.max.reshape(3, 1, 1)
 
 
 class StatsModel(BaseModel):
@@ -1592,10 +1593,12 @@ class StatsModel(BaseModel):
                 for key, value in field_value.items():
                     try:
                         if isinstance(value, Stats):
+                            logger.debug(f"Computing mean and std for {key}")
+                            logger.debug(f"Mean shape for {key}: {value.mean.shape}")
+                            logger.debug(f"Min for {key}: {value.min.shape}")
                             value.compute_from_rolling_images()
                     except ValueError as e:
                         logger.error(f"Error computing mean and std for {key}: {e}")
-                        logger.error(f"Value: {value}")
 
         self.to_json(meta_folder_path)
 
@@ -1697,7 +1700,7 @@ class StatsModel(BaseModel):
         if (
             stats_item.sum is None
             or stats_item.square_sum is None
-            or stats_item.count is None
+            or stats_item.count == 0
         ):
             is_video = "image" in stats_key or "video" in stats_key
             # Get the number of frames from info.json
@@ -1711,15 +1714,25 @@ class StatsModel(BaseModel):
                 )[1]
                 if is_video
                 else self.get_total_frames(meta_folder_path),
-            )
+            )[0]
+            if is_video:
+                logger.debug(f"Mean shape for {stats_key}: {stats_item.mean.shape}")
+                logger.debug(f"Count for {stats_key}: {count}")
+
             mean = stats_item.mean
             std = stats_item.std
 
+            stats_item.count = count
+            logger.debug(f"Count for {stats_key}: {count}")
             sum_array = mean * count
             square_sum_array = (std**2 + mean**2) * count
 
             stats_item.sum = sum_array
             stats_item.square_sum = square_sum_array
+            if is_video:
+                logger.debug(
+                    f"Mean shape for {stats_key} after: {stats_item.mean.shape}"
+                )
 
     def compute_count_square_sum_framecount_from_mean_std(self, meta_folder_path: str):
         """
