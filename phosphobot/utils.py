@@ -276,16 +276,11 @@ def get_field_min_max(df: pd.DataFrame, field_name: str) -> tuple:
         # Check that df[field_name].values is a np.ndarray
         array_values = df[field_name].values
 
-        if not isinstance(array_values, np.ndarray):
-            raise ValueError(
-                f"Field '{field_name}' values are not stored as a numpy array in the DataFrame"
-            )
-        else:
-            # No overload variant of "vstack" matches argument type "ndarray[Any, Any]"
-            return np.min(np.vstack(array_values), axis=1), np.max(  # type: ignore
-                np.vstack(array_values),  # type: ignore
-                axis=1,
-            )
+        # No overload variant of "vstack" matches argument type "ndarray[Any, Any]"
+        return (
+            np.min(np.vstack(array_values), axis=1),  # type: ignore
+            np.max(np.vstack(array_values), axis=1),  # type: ignore
+        )
 
     else:
         # Otherwise, assume the field is numeric and return the scalar min.

@@ -2022,7 +2022,7 @@ class InfoModel(BaseModel):
         resize_video: Tuple[int, int],
         # li_datasets is a list of LeRobotDatasets
         # We dont type it as List[LeRobotDataset] to avoid importing LeRobotDataset
-        li_datasets: List = None,
+        li_datasets: list,
     ) -> "InfoModel":
         """Create an InfoModel from multiple datasets information."""
 
