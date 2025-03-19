@@ -2,7 +2,7 @@ import requests
 import numpy as np
 from typing import List
 import json_numpy  # type: ignore
-from openpi_client import websocket_client_policy
+from openpi_client import websocket_client_policy  # type: ignore
 
 """
 SERVER URL or IP
