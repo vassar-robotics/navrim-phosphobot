@@ -6,12 +6,8 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 import pydantic
 
 
-class StatusResponse(UniversalBaseModel):
-    """
-    Default response. May contain other fields.
-    """
-
-    message: typing.Optional[str] = None
+class RobotConnectionResponse(UniversalBaseModel):
+    robot_connected: bool
     status: typing.Optional[typing.Literal["ok"]] = None
 
     if IS_PYDANTIC_V2:
