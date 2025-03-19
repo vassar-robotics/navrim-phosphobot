@@ -29,6 +29,7 @@ dev = [
     "pyinstrument>=5.0.0",
     "types-pyyaml>=6.0.12.20241230",
     "types-requests>=2.32.0.20250306",
+    "mypy>=1.15.0",
 ]
 
 [tool.uv]
