@@ -63,8 +63,8 @@ def get_camera_names() -> List[str]:
                 if ":" not in line and line.strip() != "":
                     camera_names.append(line.strip())
         except FileNotFoundError:
-            # v4l2-ctl might not be installed
-            logger.error(
+            # v4l2-ctl is likely not installed
+            logger.warning(
                 "v4l2-ctl is not installed. Please install it to list cameras."
             )
 
