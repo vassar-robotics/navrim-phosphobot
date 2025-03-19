@@ -1022,6 +1022,7 @@ class Dataset:
             # Update stats for images before deleting the videos
             stats_model._update_for_episode_removal_images_stats(
                 folder_videos_path=self.videos_folder_full_path,
+                meta_folder_path=self.meta_folder_full_path,
                 episode_to_delete_index=episode_id,
             )
 
@@ -1052,6 +1053,7 @@ class Dataset:
             )
             stats_model._update_for_episode_removal_min_max(
                 data_folder_path=self.data_folder_full_path,
+                meta_folder_path=self.meta_folder_full_path,
                 episode_to_delete_index=episode_id,
             )
             stats_model.save(meta_folder_path=self.meta_folder_full_path)
@@ -1391,6 +1393,10 @@ class Stats(BaseModel):
         """
         Compute the mean and std from the rolling sum and square sum.
         """
+        if self.count == 0:
+            logger.error("Count is 0. Cannot compute mean and std.")
+            return
+
         self.mean = self.sum / self.count
         self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
 
@@ -1448,13 +1454,14 @@ class Stats(BaseModel):
         # We want .tolist() to yield [[[mean_r, mean_g, mean_b]]] and not [mean_r, mean_g, mean_b]
         # Reshape to have the same shape as the mean and std
         # This makes it easier to normalize the imags
-        self.mean = self.mean.reshape(3, 1, 1)
-        self.std = self.std.reshape(3, 1, 1)
-        # For the first episode the shape is (3,)
-        # For the next ones the shape is (3,1,3)
-        # We keep min and max of the first episode only
-        self.min = self.min.reshape(3, 1, 1)
-        self.max = self.max.reshape(3, 1, 1)
+        if self.mean.shape == (3,):
+            self.mean = self.mean.reshape(3, 1, 1)
+            self.std = self.std.reshape(3, 1, 1)
+            # For the first episode the shape is (3,)
+            # For the next ones the shape is (3,1,3)
+            # We keep min and max of the first episode only
+            self.min = self.min.reshape(3, 1, 1)
+            self.max = self.max.reshape(3, 1, 1)
 
 
 class StatsModel(BaseModel):
@@ -1584,8 +1591,14 @@ class StatsModel(BaseModel):
             # Special case for images
             if isinstance(field_value, dict) and field_key == "observation_images":
                 for key, value in field_value.items():
-                    if isinstance(value, Stats):
-                        value.compute_from_rolling_images()
+                    try:
+                        if isinstance(value, Stats):
+                            logger.debug(f"Computing mean and std for {key}")
+                            logger.debug(f"Mean shape for {key}: {value.mean.shape}")
+                            logger.debug(f"Min for {key}: {value.min.shape}")
+                            value.compute_from_rolling_images()
+                    except ValueError as e:
+                        logger.error(f"Error computing mean and std for {key}: {e}")
 
         self.to_json(meta_folder_path)
 
@@ -1656,8 +1669,105 @@ class StatsModel(BaseModel):
                         f"Field {field_name} count is 0. Cannot calculate mean and std for episode {df_episode_to_delete['episode_index'].iloc[0]}"
                     )
 
+    def get_total_frames(self, meta_folder_path: str) -> int:
+        """
+        Return the total number of frames in the dataset
+        """
+        info_path = os.path.join(meta_folder_path, "info.json")
+        with open(info_path, "r") as f:
+            info_dict = json.load(f)
+            return info_dict.get("total_frames", 0)
+
+    def get_images_shapes(self, meta_folder_path: str, camera_key: str) -> List[int]:
+        """
+        Return the tuple (height, width, channel) of the images for a given camera key
+        """
+        info_path = os.path.join(meta_folder_path, "info.json")
+        with open(info_path, "r") as f:
+            info_dict = json.load(f)
+            return info_dict["features"][camera_key]["shape"]
+
+    def _compute_count_sum_square_sum_item_from_mean_std(
+        self, stats_item: "Stats", stats_key: str, meta_folder_path: str
+    ):
+        """Helper function to compute sum and square_sum from mean, std, and count
+        meta_folder_path is used to compute the count from info.json
+        This is the number of frames or the number of frames times the dimension of images for videos
+        """
+        if stats_item.mean is None or stats_item.std is None:
+            raise ValueError(f"Mean and std are not computed for {stats_item}")
+
+        if (
+            stats_item.sum is None
+            or stats_item.square_sum is None
+            or stats_item.count == 0
+        ):
+            is_video = "image" in stats_key or "video" in stats_key
+            # Get the number of frames from info.json
+            count = (
+                self.get_total_frames(meta_folder_path)
+                * self.get_images_shapes(
+                    meta_folder_path=meta_folder_path, camera_key=stats_key
+                )[0]
+                * self.get_images_shapes(
+                    meta_folder_path=meta_folder_path, camera_key=stats_key
+                )[1]
+                if is_video
+                else self.get_total_frames(meta_folder_path),
+            )[0]
+            if is_video:
+                logger.debug(f"Mean shape for {stats_key}: {stats_item.mean.shape}")
+                logger.debug(f"Count for {stats_key}: {count}")
+
+            mean = stats_item.mean
+            std = stats_item.std
+
+            stats_item.count = count
+            logger.debug(f"Count for {stats_key}: {count}")
+            sum_array = mean * count
+            square_sum_array = (std**2 + mean**2) * count
+
+            stats_item.sum = sum_array
+            stats_item.square_sum = square_sum_array
+            if is_video:
+                logger.debug(
+                    f"Mean shape for {stats_key} after: {stats_item.mean.shape}"
+                )
+
+    def compute_count_square_sum_framecount_from_mean_std(self, meta_folder_path: str):
+        """
+        Compute the sum and square sum from the mean and std.
+        This is useful when we want to update the stats after repairing a dataset.
+        """
+        # Process all stats fields
+        for stats_key, stats_item in self.__dict__.items():
+            if stats_key != "observation_images":
+                # Process regular stats items
+                try:
+                    self._compute_count_sum_square_sum_item_from_mean_std(
+                        stats_item=stats_item,
+                        stats_key=stats_key,
+                        meta_folder_path=meta_folder_path,
+                    )
+                except ValueError as e:
+                    raise ValueError(f"{e} for {stats_key}")
+            else:
+                # Process observation_images items
+                for camera_key, video_stats_item in stats_item.items():
+                    try:
+                        self._compute_count_sum_square_sum_item_from_mean_std(
+                            stats_item=video_stats_item,
+                            stats_key=camera_key,
+                            meta_folder_path=meta_folder_path,
+                        )
+                    except ValueError as e:
+                        raise ValueError(f"{e} for {camera_key}")
+
     def _update_for_episode_removal_images_stats(
-        self, folder_videos_path: str, episode_to_delete_index: int
+        self,
+        folder_videos_path: str,
+        episode_to_delete_index: int,
+        meta_folder_path: str,
     ) -> None:
         """
         Update the stats for images.
@@ -1665,7 +1775,13 @@ class StatsModel(BaseModel):
         For every camera, we need to delete the episode_{episode_index:06d}.mp4 file.
 
         We update the sum, square_sum, and count for each camera.
+
+        We do not update the min and the max here. It is always 0 and 1 by experience
         """
+
+        self.compute_count_square_sum_framecount_from_mean_std(
+            meta_folder_path=meta_folder_path
+        )
 
         cameras_folders = os.listdir(folder_videos_path)
         for camera_name in cameras_folders:
@@ -1710,12 +1826,16 @@ class StatsModel(BaseModel):
     def _update_for_episode_removal_min_max(
         self,
         data_folder_path: str,
+        meta_folder_path: str,
         episode_to_delete_index: int,
     ) -> None:
         """
         Update the min and max in stats after removing an episode from the dataset.
         Be sure to call this function after reindexing the data.
         """
+        self.compute_count_square_sum_framecount_from_mean_std(
+            meta_folder_path=meta_folder_path
+        )
 
         # Load all the other parquet files in one dataFrame
         li_data_folder_filenames = [
@@ -2022,7 +2142,7 @@ class InfoModel(BaseModel):
         resize_video: Tuple[int, int],
         # li_datasets is a list of LeRobotDatasets
         # We dont type it as List[LeRobotDataset] to avoid importing LeRobotDataset
-        li_datasets: List = None,
+        li_datasets: list,
     ) -> "InfoModel":
         """Create an InfoModel from multiple datasets information."""
 
