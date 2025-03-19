@@ -67,9 +67,8 @@ class Configuration(BaseModel):
     DEFAULT_REMOTE_SERVER_INFERENCE_URL: str = "http://localhost"
     DEFAULT_REMOTE_SERVER_INFERENCE_PORT: int = 8080
     DEFAULT_TASK_INSTRUCTION: str = "None"
-    DEFAULT_CAMERAS_TO_DISABLE: list[int] | None = (
-        None  # List of camera ids to disable, set to -1 to disable all cameras
-    )
+    # List of camera ids to disable, set to -1 to disable all cameras
+    DEFAULT_CAMERAS_TO_DISABLE: list[int] | None = None
 
     @classmethod
     def from_yaml(cls, config_path: str | Path | None = None) -> "Configuration":

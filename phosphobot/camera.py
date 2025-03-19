@@ -670,13 +670,14 @@ class AllCameras:
     # If it's None, record everything. Otherwise, record only the corresponding cameras
     _cameras_ids_to_record: List[int]
 
-    def __init__(self, disabled_cameras: bool = False):
+    def __init__(self, disabled_cameras: list[int] | None = None):
         """
         AllCameras class to manage all cameras connected to the computer.
         Args:
             disabled_cameras: These cameras indexes will not be used by the application, set to [-1] to disable all cameras
         """
-        self.disabled_cameras = disabled_cameras
+        if disabled_cameras is not None:
+            self.disabled_cameras = disabled_cameras
         self.video_cameras = []
         self.camera_ids = []
 
