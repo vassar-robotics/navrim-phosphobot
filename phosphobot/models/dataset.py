@@ -1665,6 +1665,8 @@ class StatsModel(BaseModel):
         For every camera, we need to delete the episode_{episode_index:06d}.mp4 file.
 
         We update the sum, square_sum, and count for each camera.
+
+        We do not update the min and the max here. It is always 0 and 1 by experience
         """
 
         cameras_folders = os.listdir(folder_videos_path)

@@ -278,10 +278,9 @@ def get_field_min_max(df: pd.DataFrame, field_name: str) -> tuple:
 
         # No overload variant of "vstack" matches argument type "ndarray[Any, Any]"
         return (
-            np.min(np.vstack(array_values), axis=1),  # type: ignore
-            np.max(np.vstack(array_values), axis=1),  # type: ignore
+            np.min(np.vstack(array_values), axis=0),  # type: ignore
+            np.max(np.vstack(array_values), axis=0),  # type: ignore
         )
-
     else:
         # Otherwise, assume the field is numeric and return the scalar min.
         return (df[field_name].min(), df[field_name].max())
