@@ -31,7 +31,7 @@ jobs:
 
       - name: Install the project
         run: |
-          uv sync --dev --frozen
+          uv sync --dev
 
       - name: Run mypy
         run: uvx mypy ./phosphobot --ignore-missing-imports --follow-imports=silent || exit 1
