@@ -678,6 +678,9 @@ class AllCameras:
         """
         if disabled_cameras is not None:
             self.disabled_cameras = disabled_cameras
+        else:
+            self.disabled_cameras = []
+
         self.video_cameras = []
         self.camera_ids = []
 
