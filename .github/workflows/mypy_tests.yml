@@ -24,7 +24,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
-          cache-dependency-glob: "teleop/uv.lock"
+          # cache-dependency-glob: "uv.lock"
 
       - name: Set up Python
         run: uv python pin 3.11 && uv python install
