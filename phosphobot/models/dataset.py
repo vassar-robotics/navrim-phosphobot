@@ -6,7 +6,7 @@ from pathlib import Path
 import shutil
 import time
 from abc import ABC, abstractmethod
-from typing import Dict, List, Literal, Optional, Union, cast
+from typing import Dict, List, Literal, Optional, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd  # type: ignore
@@ -226,11 +226,7 @@ class Episode(BaseModel):
         if not dataset_name:
             raise ValueError("Episode metadata dataset_name not set")
 
-        path = (
-            get_home_app_path()
-            / "recordings"
-            / format / dataset_name
-        )
+        path = get_home_app_path() / "recordings" / format / dataset_name
         os.makedirs(path, exist_ok=True)
         return path
 
@@ -2015,6 +2011,94 @@ class InfoModel(BaseModel):
 
         return cls(**stats_dict)
 
+    @classmethod
+    def from_multidataset(
+        cls,
+        robot_type: str,
+        nb_cameras: int,
+        fps: int,
+        nb_motors: int,
+        chunks_size: int,
+        resize_video: Tuple[int, int],
+        # li_datasets is a list of LeRobotDatasets
+        # We dont type it as List[LeRobotDataset] to avoid importing LeRobotDataset
+        li_datasets: List = None,
+    ) -> "InfoModel":
+        """Create an InfoModel from multiple datasets information."""
+
+        # Create the action and observation_state FeatureDetails
+        action_details = FeatureDetails(
+            dtype="float32",
+            shape=[nb_motors],
+            names=[f"motor_{i + 1}" for i in range(nb_motors)],
+        )
+
+        observation_state_details = FeatureDetails(
+            dtype="float32",
+            shape=[nb_motors],
+            names=[f"motor_{i + 1}" for i in range(nb_motors)],
+        )
+
+        # Create the observation_images dictionary
+        observation_images = {}
+        for i in range(nb_cameras):
+            camera_key = (
+                f"observation.images.{'main' if i == 0 else f'secondary_{i - 1}'}"
+            )
+            observation_images[camera_key] = VideoFeatureDetails(
+                shape=[resize_video[1], resize_video[0], 3],
+                names=["height", "width", "channel"],
+                info=VideoInfo(
+                    video_fps=fps,
+                    video_codec="mp4v",
+                    video_pix_fmt="yuv420p",
+                    video_is_depth_map=False,
+                    has_audio=False,
+                ),
+            )
+
+        # Create InfoFeatures object
+        features = InfoFeatures(
+            action=action_details,
+            observation_state=observation_state_details,
+            observation_images=observation_images,
+        )
+
+        # Create the base InfoModel
+        info_model = cls(
+            robot_type=robot_type,
+            codebase_version="v2.0",
+            total_episodes=0,
+            total_frames=0,
+            total_tasks=1,
+            total_videos=0,
+            total_chunks=1,
+            chunks_size=chunks_size,
+            fps=fps,
+            features=features,
+        )
+
+        # Update with dataset information if provided
+        if li_datasets:
+            # Calculate totals from all datasets
+            for dataset in li_datasets:
+                info = dataset.meta.info
+                info_model.total_frames += info.get("total_frames", 0)
+                info_model.total_videos += info.get("total_videos", 0)
+                info_model.total_episodes += info.get("total_episodes", 0)
+
+            info_model.splits = {"train": f"0:{info_model.total_episodes}"}
+            info_model.total_chunks = info_model.total_episodes // chunks_size
+
+            # Count unique tasks
+            unique_tasks = set()
+            for dataset in li_datasets:
+                unique_tasks.update(dataset.meta.task_to_task_index.keys())
+
+            info_model.total_tasks = len(unique_tasks)
+
+        return info_model
+
     def to_json(self, meta_folder_path: str) -> None:
         """
         Write the info.json file in the meta folder path.
@@ -2089,6 +2173,16 @@ class TasksModel(BaseModel):
         # Do it after model init, otherwise pydantic ignores the value of _original_nb_total_tasks
         tasks_model._initial_nb_total_tasks = len(tasks)
         return tasks_model
+
+    @classmethod
+    def from_li_tasks(cls, li_tasks: List[str]) -> "TasksModel":
+        """Create a TasksModel from a list of tasks."""
+        # Ensure that the tasks are unique
+        li_tasks = list(set(li_tasks))
+        tasks = [
+            TasksFeatures(task_index=i, task=task) for i, task in enumerate(li_tasks)
+        ]
+        return cls(tasks=tasks, _initial_nb_total_tasks=len(tasks))
 
     def to_jsonl(self, meta_folder_path: str) -> None:
         """
