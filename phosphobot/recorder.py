@@ -8,6 +8,7 @@ from fastapi import BackgroundTasks
 from loguru import logger
 
 from phosphobot.camera import AllCameras
+from phosphobot.configs import config
 from phosphobot.models import (
     BaseRobot,
     Dataset,
@@ -21,7 +22,6 @@ from phosphobot.models import (
 )
 from phosphobot.types import VideoCodecs
 from phosphobot.utils import get_home_app_path
-from phosphobot.configs import config
 
 
 class Recorder:
