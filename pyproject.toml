@@ -23,6 +23,7 @@ dependencies = [
     "pyrealsense2>=2.54; platform_system == 'Windows'",
     "pyrealsense2-macosx>=2.54; platform_system == 'Darwin'",
     "json-numpy>=2.1.0",
+    "types-requests>=2.32.0.20250306",
 ]
 
 [dependency-groups]
