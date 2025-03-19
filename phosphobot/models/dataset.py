@@ -600,9 +600,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -1594,8 +1594,6 @@ class StatsModel(BaseModel):
                     try:
                         if isinstance(value, Stats):
                             logger.debug(f"Computing mean and std for {key}")
-                            logger.debug(f"Mean shape for {key}: {value.mean.shape}")
-                            logger.debug(f"Min for {key}: {value.min.shape}")
                             value.compute_from_rolling_images()
                     except ValueError as e:
                         logger.error(f"Error computing mean and std for {key}: {e}")

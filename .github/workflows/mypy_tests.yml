@@ -1,0 +1,37 @@
+name: MyPy teleop tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "teleop/**"
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  mypy_teleop_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "teleop/uv.lock"
+
+      - name: Set up Python
+        run: uv python pin 3.11 && uv python install
+
+      - name: Install the project
+        run: |
+          uv sync --dev --frozen
+
+      - name: Run mypy
+        run: uvx mypy ./phosphobot --ignore-missing-imports --follow-imports=silent || exit 1
