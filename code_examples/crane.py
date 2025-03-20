@@ -15,6 +15,7 @@ The robot arm is controlled using the following keys:
 import requests
 import time
 import logging
+from typing import cast
 from pynput.keyboard import KeyCode
 from typing import Dict, Literal, Set, Tuple
 from pynput import keyboard as pynput_keyboard
@@ -39,7 +40,8 @@ def behind_or_front() -> Literal["Behind", "Facing"]:
         )
         if inp in ["Behind", "Facing"]:
             print(f"You chose '{inp}'")
-            return inp  # type: Literal["Behind", "Facing"]
+            inp = cast(Literal["Behind", "Facing"], inp)
+            return inp
         else:
             print("You must choose between 'Behind' or 'Facing'")
 
@@ -102,7 +104,7 @@ def on_press(key: KeyCode | str) -> None:
         return
     # Handle alphanumeric keys (e.g. "a", "d")
     try:
-        char = key.char.lower()
+        char = key.char.lower()  # type: ignore
         if char in KEY_MAPPINGS:
             keys_pressed.add(char)
     except AttributeError:
@@ -114,7 +116,7 @@ def on_press(key: KeyCode | str) -> None:
 def on_release(key: KeyCode | str) -> None:
     # Remove keys from the pressed set when released.
     try:
-        char = key.char.lower()
+        char = key.char.lower()  # type: ignore
         keys_pressed.discard(char)
     except AttributeError:
         if key in SPECIAL_KEY_MAPPINGS:

@@ -479,7 +479,7 @@ def decode_video_frames_torchvision(
 
 if __name__ == "__main__":
     # Edit to add your own path
-    DATASET_PATH: str = ...
+    DATASET_PATH: str = ...  # type: ignore
     if DATASET_PATH is None:
         raise ValueError(
             "Please set the DATASET_PATH variable to the path of the dataset."
