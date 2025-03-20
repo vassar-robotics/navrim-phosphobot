@@ -82,8 +82,6 @@ class Configuration(BaseModel):
         if config_path is None:
             config_path = YAML_CONFIG_PATH
 
-        logger.info(f"Loading configuration from {config_path}")
-
         # Ensure the file exists. If not, create it.
         if not Path(config_path).exists():
             logger.info(
@@ -99,8 +97,6 @@ class Configuration(BaseModel):
             if config is None or not isinstance(config, dict):
                 config = {}
             config = rename_keys_for_config(config)
-
-        logger.info(f"Loaded configuration: {config}")
 
         return cls(**config)
 
