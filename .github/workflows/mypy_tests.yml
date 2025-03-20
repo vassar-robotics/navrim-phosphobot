@@ -3,8 +3,6 @@ name: MyPy teleop tests
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - "teleop/**"
     branches:
       - main
   push:
