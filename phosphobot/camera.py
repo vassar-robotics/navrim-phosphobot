@@ -776,7 +776,6 @@ class AllCameras:
                         f"RealSense camera initialized: {self.realsensecamera.device_info}"
                     )
                 else:
-                    logger.info("RealSense camera not detected")
                     self.realsensecamera = None
                 return
             except Exception as e:
