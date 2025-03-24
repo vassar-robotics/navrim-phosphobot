@@ -64,8 +64,6 @@ class Configuration(BaseModel):
     DEFAULT_EPISODE_FORMAT: Literal["lerobot_v2", "json"] = "lerobot_v2"
     DEFAULT_VIDEO_CODEC: VideoCodecs = "mp4v"
     DEFAULT_VIDEO_SIZE: tuple[int, int] = (320, 240)
-    DEFAULT_REMOTE_SERVER_INFERENCE_URL: str = "http://localhost"
-    DEFAULT_REMOTE_SERVER_INFERENCE_PORT: int = 8080
     DEFAULT_TASK_INSTRUCTION: str = "None"
     # List of camera ids to disable, set to -1 to disable all cameras
     DEFAULT_CAMERAS_TO_DISABLE: list[int] | None = None
