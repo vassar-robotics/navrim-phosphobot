@@ -55,9 +55,6 @@ class Configuration(BaseModel):
 
     SIMULATE_CAMERAS: bool = False
 
-    # Serial ports of leader robots
-    LEADER_ARM_DEVICE_NAMES: list[str] | None = None
-
     # These fields will be set after loading the user config
     DEFAULT_DATASET_NAME: str = "example_dataset"
     DEFAULT_FREQ: int = 30
