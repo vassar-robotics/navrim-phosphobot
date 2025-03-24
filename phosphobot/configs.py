@@ -52,7 +52,6 @@ class Configuration(BaseModel):
     SIM_MODE: SimulationMode = SimulationMode.headless
     # Only simulation: Only use the simulation
     ONLY_SIMULATION: bool = False
-
     SIMULATE_CAMERAS: bool = False
 
     # These fields will be set after loading the user config
