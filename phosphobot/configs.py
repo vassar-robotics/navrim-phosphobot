@@ -52,11 +52,7 @@ class Configuration(BaseModel):
     SIM_MODE: SimulationMode = SimulationMode.headless
     # Only simulation: Only use the simulation
     ONLY_SIMULATION: bool = False
-
     SIMULATE_CAMERAS: bool = False
-
-    # Serial ports of leader robots
-    LEADER_ARM_DEVICE_NAMES: list[str] | None = None
 
     # These fields will be set after loading the user config
     DEFAULT_DATASET_NAME: str = "example_dataset"
