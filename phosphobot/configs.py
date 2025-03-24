@@ -63,7 +63,7 @@ class Configuration(BaseModel):
     DEFAULT_FREQ: int = 30
     DEFAULT_EPISODE_FORMAT: Literal["lerobot_v2", "json"] = "lerobot_v2"
     DEFAULT_VIDEO_CODEC: VideoCodecs = "mp4v"
-    DEFAULT_VIDEO_SIZE: tuple[int, int] = (320, 240)
+    DEFAULT_VIDEO_SIZE: list[int] = [320, 240]
     DEFAULT_TASK_INSTRUCTION: str = "None"
     # List of camera ids to disable, set to -1 to disable all cameras
     DEFAULT_CAMERAS_TO_DISABLE: list[int] | None = None
@@ -91,7 +91,14 @@ class Configuration(BaseModel):
                 return cls()
 
         with open(config_path, "r") as file:
-            config = yaml.safe_load(file)
+            try:
+                config = yaml.safe_load(file)
+            except yaml.YAMLError as e:
+                logger.error(
+                    f"Error loading configuration file: {e}.\nUsing default config. Please shut down the program and edit the config file."
+                )
+                config = None
+
             if config is None or not isinstance(config, dict):
                 config = {}
             config = rename_keys_for_config(config)

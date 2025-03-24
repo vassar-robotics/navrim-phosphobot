@@ -131,7 +131,7 @@ class Recorder:
         """
 
         if target_size is None:
-            target_size = config.DEFAULT_VIDEO_SIZE
+            target_size = (config.DEFAULT_VIDEO_SIZE[0], config.DEFAULT_VIDEO_SIZE[1])
 
         if self.is_recording:
             logger.warning("Stopping previous recording")
