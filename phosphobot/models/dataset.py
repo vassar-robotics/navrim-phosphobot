@@ -53,9 +53,21 @@ class BaseRobotConfig(BaseModel):
 
     name: str
     servos_voltage: float
-    servos_offsets: List[float]
+    servos_offsets: List[float] = Field(
+        default_factory=lambda: [
+            2048.0,
+            2048.0,
+            2048.0,
+            2048.0,
+            2048.0,
+            2048.0,
+        ]
+    )
+    # Default factory: default offsets for SO-100
     servos_calibration_position: List[float]
-    servos_offsets_signs: List[float]
+    servos_offsets_signs: List[float] = Field(
+        default_factory=lambda: [-1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+    )
     pid_gains: List[BaseRobotPIDGains] = Field(default_factory=list)
 
     # Torque value to consider that an object is gripped
@@ -73,6 +85,15 @@ class BaseRobotConfig(BaseModel):
 
         except FileNotFoundError:
             return None
+
+        # Fix issues with the JSON file
+        servos_offsets = data.get("servos_offsets", [])
+        if len(servos_offsets) == 0:
+            data["servos_offsets"] = [2048.0] * 6
+
+        servos_offsets_signs = data.get("servos_offsets_signs", [])
+        if len(servos_offsets_signs) == 0:
+            data["servos_offsets_signs"] = [-1.0] + [1.0] * 5
 
         return cls(**data)
 
