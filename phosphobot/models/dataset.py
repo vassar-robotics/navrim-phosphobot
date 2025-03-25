@@ -95,7 +95,11 @@ class BaseRobotConfig(BaseModel):
         if len(servos_offsets_signs) == 0:
             data["servos_offsets_signs"] = [-1.0] + [1.0] * 5
 
-        return cls(**data)
+        try:
+            return cls(**data)
+        except Exception as e:
+            logger.error(f"Error loading configuration from {filepath}: {e}")
+            return None
 
     @classmethod
     def from_serial_id(
