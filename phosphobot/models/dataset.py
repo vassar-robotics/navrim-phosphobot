@@ -677,7 +677,7 @@ class Episode(BaseModel):
         Remove files related to the episode. Note: this doesn't update the meta files from the dataset.
         Call Data.delete_episode to update the meta files.
 
-        If update_hub is True, the files will be removed from the HuggingFace repository.
+        If update_hub is True, the files will be removed from the Hugging Face repository.
         There is no verification that the files are actually in the repository or that the repository exists.
         You need to do that beforehand.
         """
@@ -885,11 +885,11 @@ class Dataset:
         repo_id = f"{get_hf_username_or_orgid()}/{self.dataset_name}"
         # Check that the repository exists
         if not self.check_repo_exists(repo_id):
-            logger.warning(f"Repository {repo_id} does not exist on HuggingFace")
+            logger.warning(f"Repository {repo_id} does not exist on Hugging Face")
         return repo_id
 
     def check_repo_exists(self, repo_id: str | None) -> bool:
-        """Check if a repository exists on HuggingFace"""
+        """Check if a repository exists on Hugging Face"""
         repo_id = repo_id or self.repo_id
         return self.HF_API.repo_exists(repo_id=repo_id, repo_type="dataset")
 
@@ -902,11 +902,11 @@ class Dataset:
         )
 
     def sync_local_to_hub(self):
-        """Reupload the dataset folder to HuggingFace"""
+        """Reupload the dataset folder to Hugging Face"""
         username_or_orgid = get_hf_username_or_orgid()
         if username_or_orgid is None:
             logger.warning(
-                "No HuggingFace token found. Please add a token in the Admin page.",
+                "No Hugging Face token found. Please add a token in the Admin page.",
             )
             return
 
@@ -914,13 +914,13 @@ class Dataset:
             repo_id=self.repo_id, repo_type="dataset"
         )
 
-        # If the repository does not exist, push the dataset to HuggingFace
+        # If the repository does not exist, push the dataset to Hugging Face
         if not repository_exists:
             self.push_dataset_to_hub()
 
         # else, Delete the folders and reupload the dataset.
         else:
-            # Delete the dataset folders from HuggingFace
+            # Delete the dataset folders from Hugging Face
             delete_folder(
                 repo_id=self.repo_id, path_in_repo="./data", repo_type="dataset"
             )
@@ -930,7 +930,7 @@ class Dataset:
             delete_folder(
                 repo_id=self.repo_id, path_in_repo="./meta", repo_type="dataset"
             )
-            # Reupload the dataset folder to HuggingFace
+            # Reupload the dataset folder to Hugging Face
             upload_folder(
                 folder_path=self.folder_full_path,
                 repo_id=self.repo_id,
@@ -938,7 +938,7 @@ class Dataset:
             )
 
     def delete(self) -> None:
-        """Delete the dataset from the local folder and HuggingFace"""
+        """Delete the dataset from the local folder and Hugging Face"""
         # Delete locally
         if not os.path.exists(self.folder_full_path):
             logger.error(f"Dataset not found in {self.folder_full_path}")
@@ -951,7 +951,7 @@ class Dataset:
         else:
             logger.error(f"The Dataset is a file: {self.folder_full_path}")
 
-        # Remove the dataset from HuggingFace
+        # Remove the dataset from Hugging Face
         if self.check_repo_exists(self.repo_id):
             delete_repo(repo_id=self.repo_id, repo_type="dataset")
 
@@ -1017,7 +1017,7 @@ class Dataset:
         If format is lerobot_v2, also delete the episode videos from the dataset
         and updates the meta data.
 
-        If update_hub is True, also delete the episode data from the HuggingFace repository
+        If update_hub is True, also delete the episode data from the Hugging Face repository
         """
 
         episode_to_delete = Episode.load(self.get_episode_data_path(episode_id))
@@ -1025,7 +1025,7 @@ class Dataset:
 
         if self.check_repo_exists(self.repo_id) is False:
             logger.warning(
-                f"Repository {self.repo_id} does not exist on HuggingFace. Skipping deletion on HuggingFace"
+                f"Repository {self.repo_id} does not exist on Hugging Face. Skipping deletion on Hugging Face"
             )
             update_hub = False
 
