@@ -354,7 +354,7 @@ def get_hf_username_or_orgid() -> str | None:
             username_or_orgid = parse_hf_username_or_orgid(user_info)
             return username_or_orgid
         except Exception as e:
-            logger.error(f"Error logging in to Hugging Face: {e}")
+            logger.warning(f"Error logging in to Hugging Face: {e}")
             return None
     else:
         logger.warning(f"Empty token file: {token_file}. Won't push to HuggingFace.")
