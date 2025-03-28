@@ -307,4 +307,9 @@ try:
             return action
 
 except ImportError:
-    pass
+    # Define a dummy class to avoid errors, that just logs an error when instantiated and asks to install the required dependencies
+    class Gr00tN1(ActionModel):  # type: ignore
+        def __init__(self, server_url: str = "localhost", server_port: int = 5555):
+            raise ImportError(
+                "The GR00T model requires the 'torch' and 'zmq' packages. Please install them by running 'pip install torch zmq'."
+            )
