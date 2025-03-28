@@ -53,7 +53,7 @@ def add_to_training_config(new_model: ModelTrainingConfig) -> TrainingConfig:
             config.models[i] = new_model
             break
     else:
-        config.models.append(new_model)
+        config.models.insert(0, new_model)
 
     with open(phosphobot_training_json, "w") as f:
         json.dump(config.model_dump(), f, indent=4)
