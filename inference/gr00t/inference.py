@@ -1,11 +1,12 @@
 # /// script
+# requires-python = ">=3.10"
 # dependencies = [
-#   "phosphobot",
-#   "torch",
-#   "zmq",
+#     "cv2",
+#     "phosphobot",
+#     "torch",
+#     "zmq",
 # ]
 # ///
-
 import time
 
 import cv2
