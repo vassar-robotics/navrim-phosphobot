@@ -1,5 +1,3 @@
-# type: ignore
-
 import requests
 import numpy as np
 from typing import List
@@ -136,8 +134,8 @@ try:
     from io import BytesIO
     from typing import Any, Callable, Dict
 
-    import torch
-    import zmq
+    import torch  # type: ignore
+    import zmq  # type: ignore
 
     class TorchSerializer:
         @staticmethod

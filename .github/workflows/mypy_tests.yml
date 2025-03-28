@@ -32,4 +32,4 @@ jobs:
           uv sync --dev
 
       - name: Run mypy
-        run: uv run mypy ./phosphobot --follow-imports=silent || exit 1
+        run: uv run mypy ./phosphobot --follow-imports=silent --exclude 'phosphobot/am/models.py' || exit 1
