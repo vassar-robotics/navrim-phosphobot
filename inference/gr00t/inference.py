@@ -1,3 +1,11 @@
+# /// script
+# dependencies = [
+#   "phosphobot",
+#   "torch",
+#   "zmq",
+# ]
+# ///
+
 import time
 
 import cv2
