@@ -359,3 +359,24 @@ def get_hf_username_or_orgid() -> str | None:
     else:
         logger.warning(f"Empty token file: {token_file}. Won't push to HuggingFace.")
         return None
+
+
+def get_hf_token() -> str | None:
+    """
+    Returns the hf token from the token file.
+    Returns None if there is no token.
+    """
+    token_file = get_home_app_path() / "huggingface.token"
+
+    # Check the file exists
+    if not token_file.exists():
+        logger.info("Token file not found.")
+        return None
+
+    with open(token_file, "r") as file:
+        hf_token = file.read().strip()
+    if hf_token:
+        return hf_token
+    else:
+        logger.warning(f"Empty token file: {token_file}.")
+        return None
