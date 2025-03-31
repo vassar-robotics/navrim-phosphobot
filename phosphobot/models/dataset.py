@@ -390,6 +390,9 @@ class Episode(BaseModel):
                 elif i > len(secondary_camera_frames):
                     # There are secondary cameras in the info model, but not in the episode
                     # Skip video creation.
+                    logger.warning(
+                        f"Secondary camera {key} not found in the episode. Skipping video creation."
+                    )
                     break
                 else:
                     # Following videos are the secondary cameras
