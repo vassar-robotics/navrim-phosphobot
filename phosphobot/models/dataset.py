@@ -1991,7 +1991,7 @@ class InfoFeatures(BaseModel):
 
         if self.observation_images is not None:
             for key, value in self.observation_images.items():
-                model_dict[key] = value.model_dump()
+                model_dict[key] = value.model_dump(by_alias=True)
 
         model_dict.pop("observation.images")
 
