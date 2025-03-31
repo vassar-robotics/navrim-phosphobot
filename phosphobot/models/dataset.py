@@ -20,7 +20,7 @@ from huggingface_hub import (
     upload_folder,
 )
 from loguru import logger
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 from phosphobot.types import VideoCodecs
 from phosphobot.utils import (
@@ -1505,7 +1505,11 @@ class StatsModel(BaseModel):
     The other stats are dim 1
     """
 
-    observation_state: Stats = Field(default_factory=Stats)  # At init, will do Stats()
+    observation_state: Stats = Field(
+        default_factory=Stats,
+        serialization_alias="observation.state",
+        validation_alias=AliasChoices("observation.state", "observation_state"),
+    )
     action: Stats = Field(default_factory=Stats)
     timestamp: Stats = Field(default_factory=Stats)
     frame_index: Stats = Field(default_factory=Stats)
@@ -1517,7 +1521,11 @@ class StatsModel(BaseModel):
 
     # key is like: observation.images.main
     # value is Stats of the object: average pixel value, std, min, max ; and shape (height, width, channel)
-    observation_images: Dict[str, Stats] = Field(default_factory=dict)
+    observation_images: Dict[str, Stats] = Field(
+        default_factory=dict,
+        serialization_alias="observation.images",
+        validation_alias=AliasChoices("observation.images", "observation.image"),
+    )
 
     @classmethod
     def from_json(cls, meta_folder_path: str) -> "StatsModel":
@@ -1533,15 +1541,13 @@ class StatsModel(BaseModel):
 
         with open(f"{meta_folder_path}/stats.json", "r") as f:
             stats_dict: Dict[str, Stats] = json.load(f)
-            # Rename observation.state to observation_state
-            stats_dict["observation_state"] = stats_dict.pop("observation.state")
 
             # Create a temporary dictionary for observation_images
             observation_images = {}
             # We need to create a list of keys in order not to modify
             # the dictionary while iterating over it
             for key in list(stats_dict.keys()):
-                if "images" in key:
+                if "image" in key:
                     observation_images[key] = stats_dict.pop(key)
 
         # Pass observation_images into the model constructor
@@ -1554,15 +1560,12 @@ class StatsModel(BaseModel):
         # Write stats files
         with open(f"{meta_folder_path}/stats.json", "w") as f:
             # Write the pydantic Basemodel as a str
-            model_dict = self.model_dump()
+            model_dict = self.model_dump(by_alias=True)
 
-            # Renamed observation_state to observation.state here
-            model_dict["observation.state"] = model_dict.pop("observation_state")
-
-            # We expose the fields in the dict observations images
-            for key, value in model_dict["observation_images"].items():
+            # We flatten the fields in the dict observations images
+            for key, value in model_dict["observation.images"].items():
                 model_dict[key] = value
-            model_dict.pop("observation_images")
+            model_dict.pop("observation.images")
 
             f.write(json.dumps(model_dict, indent=4))
 
@@ -1696,7 +1699,7 @@ class StatsModel(BaseModel):
                         )
                 else:
                     logger.error(
-                        f"Field {field_name} count is 0. Cannot calculate mean and std for episode {df_episode_to_delete['episode_index'].iloc[0]}"
+                        f"Field {field_name} count is 0. Cannot compute mean and std for episode {df_episode_to_delete['episode_index'].iloc[0]}"
                     )
 
     def get_total_frames(self, meta_folder_path: str) -> int:
@@ -1924,22 +1927,27 @@ class VideoInfo(BaseModel):
     Information about the video
     """
 
-    video_fps: int = 10
-    video_codec: VideoCodecs
+    video_fps: int = Field(default=10, serialization_alias="video.fps")
+    video_codec: VideoCodecs = Field(serialization_alias="video.codec")
 
-    video_pix_fmt: str = "yuv420p"
-    video_is_depth_map: bool = False
+    video_pix_fmt: str = Field(default="yuv420p", serialization_alias="video.pix_fmt")
+    video_is_depth_map: bool = Field(
+        default=False, serialization_alias="video.is_depth_map"
+    )
     has_audio: bool = False
 
 
 class VideoFeatureDetails(FeatureDetails):
     dtype: Literal["video"] = "video"
-    info: VideoInfo
+    info: VideoInfo = Field(validation_alias=AliasChoices("video_info", "info"))
 
 
 class InfoFeatures(BaseModel):
     action: FeatureDetails
-    observation_state: FeatureDetails
+    observation_state: FeatureDetails = Field(
+        serialization_alias="observation.state",
+        validation_alias=AliasChoices("observation.state", "observation_state"),
+    )
 
     timestamp: FeatureDetails = Field(
         default_factory=lambda: FeatureDetails(dtype="float32", shape=[1], names=None)
@@ -1957,28 +1965,35 @@ class InfoFeatures(BaseModel):
         default_factory=lambda: FeatureDetails(dtype="int64", shape=[1], names=None)
     )
     # Camera images
-    observation_images: Dict[str, VideoFeatureDetails] = Field(default_factory=dict)
+    observation_images: Dict[str, VideoFeatureDetails] = Field(
+        default_factory=dict,
+        serialization_alias="observation.images",
+        validation_alias=AliasChoices("observation.image", "observation.images"),
+    )
 
     # Optional fields (RL)
-    next_done: FeatureDetails | None = None
-    next_success: FeatureDetails | None = None
-    next_reward: FeatureDetails | None = None
+    next_done: FeatureDetails | None = Field(
+        default=None, serialization_alias="next.done"
+    )
+    next_success: FeatureDetails | None = Field(
+        default=None, serialization_alias="next.success"
+    )
+    next_reward: FeatureDetails | None = Field(
+        default=None, serialization_alias="next.reward"
+    )
 
     def to_dict(self) -> dict:
         """
         Convert the InfoFeatures to a dictionary.
         This transforms observation_images and observation_state to the correct format.
         """
-        model_dict = self.model_dump()
-
-        # Rename key observation_state to observation.state same with images
-        model_dict["observation.state"] = model_dict.pop("observation_state")
+        model_dict = self.model_dump(by_alias=True)
 
         if self.observation_images is not None:
             for key, value in self.observation_images.items():
                 model_dict[key] = value.model_dump()
 
-        model_dict.pop("observation_images")
+        model_dict.pop("observation.images")
 
         # Filter all None values
         model_dict = {
@@ -1993,7 +2008,10 @@ class InfoFeatures(BaseModel):
 class BaseRobotInfo(BaseModel):
     robot_type: str
     action: FeatureDetails
-    observation_state: FeatureDetails
+    observation_state: FeatureDetails = Field(
+        serialization_alias="observation.state",
+        validation_alias=AliasChoices("observation.state", "observation_state"),
+    )
 
     def merge_base_robot_info(
         self, base_robot_info: "BaseRobotInfo"
@@ -2152,7 +2170,7 @@ class InfoModel(BaseModel):
             observation_images = {}
             keys_to_remove = []
             for key, value in stats_dict["features"].items():
-                if "observation.images" in key:
+                if "observation.image" in key:
                     observation_images[key] = value
                     keys_to_remove.append(key)
             for key in keys_to_remove:
