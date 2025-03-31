@@ -387,6 +387,10 @@ class Episode(BaseModel):
                 if i == 0:
                     # First video is the main camera
                     frames = np.array(self.get_episode_frames_main_camera())
+                elif i > len(secondary_camera_frames):
+                    # There are secondary cameras in the info model, but not in the episode
+                    # Skip video creation.
+                    break
                 else:
                     # Following videos are the secondary cameras
                     frames = np.array(secondary_camera_frames[i - 1])
