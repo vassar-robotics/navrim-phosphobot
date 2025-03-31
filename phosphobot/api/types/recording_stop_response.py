@@ -13,7 +13,12 @@ class RecordingStopResponse(UniversalBaseModel):
 
     episode_folder_path: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Path to the folder where is be saved the episode.
+    Path to the folder where the episode is saved.
+    """
+
+    episode_index: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Index of the recorded episode in the dataset.
     """
 
     if IS_PYDANTIC_V2:

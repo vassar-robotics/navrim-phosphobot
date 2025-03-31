@@ -54,6 +54,9 @@ class Configuration(BaseModel):
     ONLY_SIMULATION: bool = False
     SIMULATE_CAMERAS: bool = False
 
+    # HF token
+    HF_TOKEN_VALID: bool = False
+
     # These fields will be set after loading the user config
     DEFAULT_DATASET_NAME: str = "example_dataset"
     DEFAULT_FREQ: int = 30
