@@ -1430,7 +1430,12 @@ class Stats(BaseModel):
             return
 
         self.mean = self.sum / self.count
-        self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
+        # self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
+        if (self.square_sum / self.count - self.mean**2 < 0).any():
+            logger.error(
+                f"Negative value in the square sum. Setting std to 0.\nsquare_sum={self.square_sum}\ncount={self.count}\nmean={self.mean**2}"
+            )
+            self.std = np.zeros_like(self.mean)
 
     def update_image(self, image_value: np.ndarray) -> None:
         """
@@ -1524,7 +1529,12 @@ class StatsModel(BaseModel):
     observation_images: Dict[str, Stats] = Field(
         default_factory=dict,
         serialization_alias="observation.images",
-        validation_alias=AliasChoices("observation.images", "observation.image"),
+        validation_alias=AliasChoices(
+            "observation.images",
+            "observation.image",
+            "observation_images",
+            "observation_image",
+        ),
     )
 
     @classmethod
@@ -1558,8 +1568,6 @@ class StatsModel(BaseModel):
         Write the stats.json file in the meta folder path.
         """
         model_dict = self.model_dump(by_alias=True)
-
-        logger.debug(f"Stats model model_dict: {model_dict}")
 
         # We flatten the fields in the dict observations images
         for key, value in model_dict["observation.images"].items():
@@ -1629,7 +1637,6 @@ class StatsModel(BaseModel):
                 for key, value in field_value.items():
                     try:
                         if isinstance(value, Stats):
-                            logger.debug(f"Computing mean and std for {key}")
                             value.compute_from_rolling_images()
                     except ValueError as e:
                         logger.error(f"Error computing mean and std for {key}: {e}")
@@ -1982,7 +1989,12 @@ class InfoFeatures(BaseModel):
     observation_images: Dict[str, VideoFeatureDetails] = Field(
         default_factory=dict,
         serialization_alias="observation.images",
-        validation_alias=AliasChoices("observation.image", "observation.images"),
+        validation_alias=AliasChoices(
+            "observation.image",
+            "observation.images",
+            "observation_image",
+            "observation_images",
+        ),
     )
 
     # Optional fields (RL)
@@ -2008,8 +2020,6 @@ class InfoFeatures(BaseModel):
         This transforms observation_images and observation_state to the correct format.
         """
         model_dict = self.model_dump(by_alias=True)
-
-        logger.debug(f"Info features model_dict: {model_dict}")
 
         if self.observation_images is not None:
             for key, value in self.observation_images.items():
@@ -2184,23 +2194,22 @@ class InfoModel(BaseModel):
             return info_model
 
         with open(f"{meta_folder_path}/info.json", "r") as f:
-            stats_dict = json.load(f)
+            info_model_dict = json.load(f)
 
-        stats_dict["features"]["observation_state"] = stats_dict["features"].pop(
-            "observation.state"
-        )
+        info_model_dict["features"]["observation_state"] = info_model_dict[
+            "features"
+        ].pop("observation.state")
         observation_images = {}
         keys_to_remove = []
-        for key, value in stats_dict["features"].items():
+        for key, value in info_model_dict["features"].items():
             if "observation.image" in key:
                 observation_images[key] = value
                 keys_to_remove.append(key)
-        logger.debug(f"Observation images: {observation_images}")
         for key in keys_to_remove:
-            del stats_dict["features"][key]
-        stats_dict["features"]["observation_images"] = observation_images
-
-        return cls.model_validate(stats_dict)
+            del info_model_dict["features"][key]
+        info_model_dict["features"]["observation_images"] = observation_images
+        infos = cls.model_validate(info_model_dict)
+        return infos
 
     @classmethod
     def from_multidataset(
