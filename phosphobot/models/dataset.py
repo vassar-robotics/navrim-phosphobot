@@ -1557,16 +1557,17 @@ class StatsModel(BaseModel):
         """
         Write the stats.json file in the meta folder path.
         """
-        # Write stats files
+        model_dict = self.model_dump(by_alias=True)
+
+        logger.debug(f"Stats model model_dict: {model_dict}")
+
+        # We flatten the fields in the dict observations images
+        for key, value in model_dict["observation.images"].items():
+            model_dict[key] = value
+        model_dict.pop("observation.images")
+
         with open(f"{meta_folder_path}/stats.json", "w") as f:
             # Write the pydantic Basemodel as a str
-            model_dict = self.model_dump(by_alias=True)
-
-            # We flatten the fields in the dict observations images
-            for key, value in model_dict["observation.images"].items():
-                model_dict[key] = value
-            model_dict.pop("observation.images")
-
             f.write(json.dumps(model_dict, indent=4))
 
     def update(
@@ -1927,12 +1928,25 @@ class VideoInfo(BaseModel):
     Information about the video
     """
 
-    video_fps: int = Field(default=10, serialization_alias="video.fps")
-    video_codec: VideoCodecs = Field(serialization_alias="video.codec")
+    video_fps: int = Field(
+        default=10,
+        serialization_alias="video.fps",
+        validation_alias=AliasChoices("video.fps", "video_fps"),
+    )
+    video_codec: VideoCodecs = Field(
+        serialization_alias="video.codec",
+        validation_alias=AliasChoices("video.codec", "video_codec"),
+    )
 
-    video_pix_fmt: str = Field(default="yuv420p", serialization_alias="video.pix_fmt")
+    video_pix_fmt: str = Field(
+        default="yuv420p",
+        serialization_alias="video.pix_fmt",
+        validation_alias=AliasChoices("video.pix_fmt", "video_pix_fmt"),
+    )
     video_is_depth_map: bool = Field(
-        default=False, serialization_alias="video.is_depth_map"
+        default=False,
+        serialization_alias="video.is_depth_map",
+        validation_alias=AliasChoices("video.is_depth_map", "video_is_depth_map"),
     )
     has_audio: bool = False
 
@@ -1973,13 +1987,19 @@ class InfoFeatures(BaseModel):
 
     # Optional fields (RL)
     next_done: FeatureDetails | None = Field(
-        default=None, serialization_alias="next.done"
+        default=None,
+        serialization_alias="next.done",
+        validation_alias=AliasChoices("next.done", "next_done"),
     )
     next_success: FeatureDetails | None = Field(
-        default=None, serialization_alias="next.success"
+        default=None,
+        serialization_alias="next.success",
+        validation_alias=AliasChoices("next.success", "next_success"),
     )
     next_reward: FeatureDetails | None = Field(
-        default=None, serialization_alias="next.reward"
+        default=None,
+        serialization_alias="next.reward",
+        validation_alias=AliasChoices("next.reward", "next_reward"),
     )
 
     def to_dict(self) -> dict:
@@ -1988,6 +2008,8 @@ class InfoFeatures(BaseModel):
         This transforms observation_images and observation_state to the correct format.
         """
         model_dict = self.model_dump(by_alias=True)
+
+        logger.debug(f"Info features model_dict: {model_dict}")
 
         if self.observation_images is not None:
             for key, value in self.observation_images.items():
@@ -2095,7 +2117,7 @@ class InfoModel(BaseModel):
         Convert the InfoModel to a dictionary. This is different from
         model_dump() as it transforms the features to the correct format.
         """
-        model_dict = self.model_dump()
+        model_dict = self.model_dump(by_alias=True)
         model_dict["features"] = self.features.to_dict()
         return model_dict
 
@@ -2163,21 +2185,22 @@ class InfoModel(BaseModel):
 
         with open(f"{meta_folder_path}/info.json", "r") as f:
             stats_dict = json.load(f)
-            stats_dict["features"]["observation_state"] = stats_dict["features"].pop(
-                "observation.state"
-            )
 
-            observation_images = {}
-            keys_to_remove = []
-            for key, value in stats_dict["features"].items():
-                if "observation.image" in key:
-                    observation_images[key] = value
-                    keys_to_remove.append(key)
-            for key in keys_to_remove:
-                del stats_dict["features"][key]
-            stats_dict["features"]["observation_images"] = observation_images
+        stats_dict["features"]["observation_state"] = stats_dict["features"].pop(
+            "observation.state"
+        )
+        observation_images = {}
+        keys_to_remove = []
+        for key, value in stats_dict["features"].items():
+            if "observation.image" in key:
+                observation_images[key] = value
+                keys_to_remove.append(key)
+        logger.debug(f"Observation images: {observation_images}")
+        for key in keys_to_remove:
+            del stats_dict["features"][key]
+        stats_dict["features"]["observation_images"] = observation_images
 
-        return cls(**stats_dict)
+        return cls.model_validate(stats_dict)
 
     @classmethod
     def from_multidataset(
