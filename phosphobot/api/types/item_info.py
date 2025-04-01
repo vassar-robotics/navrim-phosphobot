@@ -13,7 +13,6 @@ class ItemInfo(UniversalBaseModel):
     Contains the information of the items in a directory used in the browser page
     """
 
-    absolute_path: str
     browse_url: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="browseUrl")
     ] = None

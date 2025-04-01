@@ -2,9 +2,8 @@
 
 from .types import (
     AdminSettingsResponse,
-    AdminSettingsResponseVideoCodec,
     AllCamerasStatus,
-    BodySyncDatasetDatasetSyncPost,
+    BodySyncDatasetSyncDatasetPost,
     BrowseFilesResponse,
     CalibrateResponse,
     CalibrateResponseCalibrationStatus,
@@ -14,13 +13,14 @@ from .types import (
     ItemInfo,
     JointsReadResponse,
     RecordingStopResponse,
-    RobotConfig,
+    RobotConnectionResponse,
     ServerStatus,
     SingleCameraStatus,
     SingleCameraStatusCameraType,
     Status,
     StatusResponse,
     TorqueReadResponse,
+    UserSettingsRequest,
     ValidationError,
     ValidationErrorLocItem,
     VizSettingsResponse,
@@ -30,7 +30,7 @@ from .errors import InternalServerError, NotFoundError, UnprocessableEntityError
 from . import camera, control, recording
 from .camera import VideoFeedForCameraVideoCameraIdGetRequestCameraId
 from .client import AsyncPhosphoApi, PhosphoApi
-from .control import Source, Unit
+from .control import Environment, Source, Unit
 from .recording import (
     RecordingStartRequestEpisodeFormat,
     RecordingStartRequestVideoCodec,
@@ -38,14 +38,14 @@ from .recording import (
 
 __all__ = [
     "AdminSettingsResponse",
-    "AdminSettingsResponseVideoCodec",
     "AllCamerasStatus",
     "AsyncPhosphoApi",
-    "BodySyncDatasetDatasetSyncPost",
+    "BodySyncDatasetSyncDatasetPost",
     "BrowseFilesResponse",
     "CalibrateResponse",
     "CalibrateResponseCalibrationStatus",
     "EndEffectorPosition",
+    "Environment",
     "HttpValidationError",
     "HuggingFaceTokenRequest",
     "InternalServerError",
@@ -56,7 +56,7 @@ __all__ = [
     "RecordingStartRequestEpisodeFormat",
     "RecordingStartRequestVideoCodec",
     "RecordingStopResponse",
-    "RobotConfig",
+    "RobotConnectionResponse",
     "ServerStatus",
     "SingleCameraStatus",
     "SingleCameraStatusCameraType",
@@ -66,7 +66,7 @@ __all__ = [
     "TorqueReadResponse",
     "Unit",
     "UnprocessableEntityError",
-    "UserSettingsRequestVideoCodec",
+    "UserSettingsRequest",
     "ValidationError",
     "ValidationErrorLocItem",
     "VideoFeedForCameraVideoCameraIdGetRequestCameraId",

@@ -17,8 +17,7 @@ class BrowseFilesResponse(UniversalBaseModel):
     directory_title: typing_extensions.Annotated[
         str, FieldMetadata(alias="directoryTitle")
     ]
-    episode_ids: typing.Optional[typing.List[int]] = None
-    episode_paths: typing.Optional[typing.List[str]] = None
+    episodes: typing.Optional[typing.List[int]] = None
     items: typing.List[ItemInfo]
     token_error: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="tokenError")

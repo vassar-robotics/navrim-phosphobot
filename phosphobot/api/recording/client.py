@@ -27,8 +27,8 @@ class RecordingClient:
     def play_recording(
         self,
         *,
+        episode_path: str,
         robot_id: typing.Optional[int] = None,
-        episode_path: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
         """
@@ -36,10 +36,10 @@ class RecordingClient:
 
         Parameters
         ----------
-        robot_id : typing.Optional[int]
-
-        episode_path : typing.Optional[str]
+        episode_path : str
             Path to the .json or .parquet file of the episode to play.
+
+        robot_id : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -56,7 +56,9 @@ class RecordingClient:
         client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
-        client.recording.play_recording()
+        client.recording.play_recording(
+            episode_path="~/phosphobot/lerobot_v2/example_dataset/chunk-000/episode_000000.json",
+        )
         """
         _response = self._client_wrapper.httpx_client.request(
             "recording/play",
@@ -106,7 +108,6 @@ class RecordingClient:
         episode_format: typing.Optional[RecordingStartRequestEpisodeFormat] = OMIT,
         freq: typing.Optional[int] = OMIT,
         instruction: typing.Optional[str] = OMIT,
-        robot_serials_to_ignore: typing.Optional[typing.Sequence[str]] = OMIT,
         target_video_size: typing.Optional[
             typing.Sequence[typing.Optional[typing.Any]]
         ] = OMIT,
@@ -138,9 +139,6 @@ class RecordingClient:
 
         instruction : typing.Optional[str]
             A text describing the recorded task. If set to None, defaults to the value set in Admin Settings.
-
-        robot_serials_to_ignore : typing.Optional[typing.Sequence[str]]
-            List of robot indexes to ignore. If set to None, records all available robots.
 
         target_video_size : typing.Optional[typing.Sequence[typing.Optional[typing.Any]]]
             Target video size for the recording, all videos in the dataset should have the same size. If set to None, defaults to the value set in Admin Settings.
@@ -175,7 +173,6 @@ class RecordingClient:
                 "episode_format": episode_format,
                 "freq": freq,
                 "instruction": instruction,
-                "robot_serials_to_ignore": robot_serials_to_ignore,
                 "target_video_size": target_video_size,
                 "video_codec": video_codec,
             },
@@ -212,7 +209,6 @@ class RecordingClient:
     def stop_recording_episode(
         self,
         *,
-        recording_is_already_stopped: typing.Optional[bool] = OMIT,
         save: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> RecordingStopResponse:
@@ -221,9 +217,6 @@ class RecordingClient:
 
         Parameters
         ----------
-        recording_is_already_stopped : typing.Optional[bool]
-            Whether the recording is stopped. Default to False.
-
         save : typing.Optional[bool]
             Whether to save the episode to disk. Defaults to True.
 
@@ -248,7 +241,6 @@ class RecordingClient:
             "recording/stop",
             method="POST",
             json={
-                "recording_is_already_stopped": recording_is_already_stopped,
                 "save": save,
             },
             headers={
@@ -289,8 +281,8 @@ class AsyncRecordingClient:
     async def play_recording(
         self,
         *,
+        episode_path: str,
         robot_id: typing.Optional[int] = None,
-        episode_path: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
         """
@@ -298,10 +290,10 @@ class AsyncRecordingClient:
 
         Parameters
         ----------
-        robot_id : typing.Optional[int]
-
-        episode_path : typing.Optional[str]
+        episode_path : str
             Path to the .json or .parquet file of the episode to play.
+
+        robot_id : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -323,7 +315,9 @@ class AsyncRecordingClient:
 
 
         async def main() -> None:
-            await client.recording.play_recording()
+            await client.recording.play_recording(
+                episode_path="~/phosphobot/lerobot_v2/example_dataset/chunk-000/episode_000000.json",
+            )
 
 
         asyncio.run(main())
@@ -376,7 +370,6 @@ class AsyncRecordingClient:
         episode_format: typing.Optional[RecordingStartRequestEpisodeFormat] = OMIT,
         freq: typing.Optional[int] = OMIT,
         instruction: typing.Optional[str] = OMIT,
-        robot_serials_to_ignore: typing.Optional[typing.Sequence[str]] = OMIT,
         target_video_size: typing.Optional[
             typing.Sequence[typing.Optional[typing.Any]]
         ] = OMIT,
@@ -408,9 +401,6 @@ class AsyncRecordingClient:
 
         instruction : typing.Optional[str]
             A text describing the recorded task. If set to None, defaults to the value set in Admin Settings.
-
-        robot_serials_to_ignore : typing.Optional[typing.Sequence[str]]
-            List of robot indexes to ignore. If set to None, records all available robots.
 
         target_video_size : typing.Optional[typing.Sequence[typing.Optional[typing.Any]]]
             Target video size for the recording, all videos in the dataset should have the same size. If set to None, defaults to the value set in Admin Settings.
@@ -453,7 +443,6 @@ class AsyncRecordingClient:
                 "episode_format": episode_format,
                 "freq": freq,
                 "instruction": instruction,
-                "robot_serials_to_ignore": robot_serials_to_ignore,
                 "target_video_size": target_video_size,
                 "video_codec": video_codec,
             },
@@ -490,7 +479,6 @@ class AsyncRecordingClient:
     async def stop_recording_episode(
         self,
         *,
-        recording_is_already_stopped: typing.Optional[bool] = OMIT,
         save: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> RecordingStopResponse:
@@ -499,9 +487,6 @@ class AsyncRecordingClient:
 
         Parameters
         ----------
-        recording_is_already_stopped : typing.Optional[bool]
-            Whether the recording is stopped. Default to False.
-
         save : typing.Optional[bool]
             Whether to save the episode to disk. Defaults to True.
 
@@ -534,7 +519,6 @@ class AsyncRecordingClient:
             "recording/stop",
             method="POST",
             json={
-                "recording_is_already_stopped": recording_is_already_stopped,
                 "save": save,
             },
             headers={

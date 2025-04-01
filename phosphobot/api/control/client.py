@@ -10,10 +10,12 @@ from ..types.http_validation_error import HttpValidationError
 from json.decoder import JSONDecodeError
 from ..core.api_error import ApiError
 from ..types.end_effector_position import EndEffectorPosition
-from ..types.status_response import StatusResponse
 from ..types.joints_read_response import JointsReadResponse
 from .types.unit import Unit
+from ..types.status_response import StatusResponse
+from .types.environment import Environment
 from .types.source import Source
+from ..types.robot_connection_response import RobotConnectionResponse
 from ..types.torque_read_response import TorqueReadResponse
 from ..types.voltage_read_response import VoltageReadResponse
 from ..core.client_wrapper import AsyncClientWrapper
@@ -144,112 +146,6 @@ class ControlClient:
                             object_=_response.json(),
                         ),
                     )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def start_gravity(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> StatusResponse:
-        """
-        Enable gravity compensation for the robot.
-
-        Parameters
-        ----------
-        robot_id : typing.Optional[int]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        StatusResponse
-            Successful Response
-
-        Examples
-        --------
-        from phospho import PhosphoApi
-
-        client = PhosphoApi(
-            base_url="https://yourhost.com/path/to/api",
-        )
-        client.control.start_gravity()
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "gravity/start",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def stop_gravity_compensation(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> StatusResponse:
-        """
-        Stop the gravity compensation.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        StatusResponse
-            Successful Response
-
-        Examples
-        --------
-        from phospho import PhosphoApi
-
-        client = PhosphoApi(
-            base_url="https://yourhost.com/path/to/api",
-        )
-        client.control.stop_gravity_compensation()
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "gravity/stop",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
                 )
             _response_json = _response.json()
         except JSONDecodeError:
@@ -633,12 +529,8 @@ class ControlClient:
     def start_leader_follower(
         self,
         *,
-        enable_gravity_compensation: typing.Optional[bool] = OMIT,
-        gravity_compensation_values: typing.Optional[
-            typing.Dict[str, typing.Optional[int]]
-        ] = OMIT,
         invert_controls: typing.Optional[bool] = OMIT,
-        robot_order: typing.Optional[typing.Sequence[str]] = OMIT,
+        robot_order: typing.Optional[typing.Sequence[int]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
         """
@@ -646,17 +538,11 @@ class ControlClient:
 
         Parameters
         ----------
-        enable_gravity_compensation : typing.Optional[bool]
-            Disable gravity compensation for the leader robot
-
-        gravity_compensation_values : typing.Optional[typing.Dict[str, typing.Optional[int]]]
-            Gravity compensation pourcentage values for shoulder, elbow, and wrist joints (0-100%)
-
         invert_controls : typing.Optional[bool]
             Mirror controls for the follower robot
 
-        robot_order : typing.Optional[typing.Sequence[str]]
-            List of robot serial numbers in the order of leader, follower
+        robot_order : typing.Optional[typing.Sequence[int]]
+            Order of robots in the control loop, send [1, 0] to invert
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -679,8 +565,6 @@ class ControlClient:
             "move/leader/start",
             method="POST",
             json={
-                "enable_gravity_compensation": enable_gravity_compensation,
-                "gravity_compensation_values": gravity_compensation_values,
                 "invert_controls": invert_controls,
                 "robot_order": robot_order,
             },
@@ -752,6 +636,78 @@ class ControlClient:
                         type_=StatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def mimicking_robots(
+        self,
+        *,
+        duration: int,
+        environment: typing.Optional[Environment] = None,
+        robot_id: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> StatusResponse:
+        """
+        Mimick the movements of a leader robot to a follower robot for a specified duration.
+
+        Parameters
+        ----------
+        duration : int
+
+        environment : typing.Optional[Environment]
+
+        robot_id : typing.Optional[int]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        from phospho import PhosphoApi
+
+        client = PhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.control.mimicking_robots(
+            duration=1,
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "move/mimick",
+            method="POST",
+            params={
+                "duration": duration,
+                "environment": environment,
+                "robot_id": robot_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    StatusResponse,
+                    parse_obj_as(
+                        type_=StatusResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
                 )
             _response_json = _response.json()
         except JSONDecodeError:
@@ -871,6 +827,7 @@ class ControlClient:
     def move_sleep(
         self,
         *,
+        disconnect: typing.Optional[bool] = None,
         robot_id: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
@@ -879,6 +836,8 @@ class ControlClient:
 
         Parameters
         ----------
+        disconnect : typing.Optional[bool]
+
         robot_id : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
@@ -900,6 +859,182 @@ class ControlClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "move/sleep",
+            method="POST",
+            params={
+                "disconnect": disconnect,
+                "robot_id": robot_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    StatusResponse,
+                    parse_obj_as(
+                        type_=StatusResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def move_teleoperation(
+        self,
+        *,
+        open: float,
+        rx: float,
+        ry: float,
+        rz: float,
+        x: float,
+        y: float,
+        z: float,
+        robot_id: typing.Optional[int] = None,
+        source: typing.Optional[Source] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> StatusResponse:
+        """
+        Update the robot position based on the received teleoperation data.
+
+        Parameters
+        ----------
+        open : float
+            0 for closed, 1 for open
+
+        rx : float
+            Absolute Pitch in degrees
+
+        ry : float
+            Absolute Yaw in degrees
+
+        rz : float
+            Absolute Roll in degrees
+
+        x : float
+
+        y : float
+
+        z : float
+
+        robot_id : typing.Optional[int]
+
+        source : typing.Optional[Source]
+            Which hand the data comes from. Can be left or right.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        from phospho import PhosphoApi
+
+        client = PhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.control.move_teleoperation(
+            open=1.1,
+            rx=1.1,
+            ry=1.1,
+            rz=1.1,
+            x=1.1,
+            y=1.1,
+            z=1.1,
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "move/teleop",
+            method="POST",
+            params={
+                "robot_id": robot_id,
+            },
+            json={
+                "open": open,
+                "rx": rx,
+                "ry": ry,
+                "rz": rz,
+                "source": source,
+                "x": x,
+                "y": y,
+                "z": z,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    StatusResponse,
+                    parse_obj_as(
+                        type_=StatusResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def connect_robot(
+        self,
+        *,
+        robot_id: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> StatusResponse:
+        """
+        Connect the robot.
+
+        Parameters
+        ----------
+        robot_id : typing.Optional[int]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        from phospho import PhosphoApi
+
+        client = PhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.control.connect_robot()
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "robot/connect",
             method="POST",
             params={
                 "robot_id": robot_id,
@@ -930,56 +1065,25 @@ class ControlClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def move_teleop_post(
+    def robot_connection_status(
         self,
         *,
-        open: float,
-        rx: float,
-        ry: float,
-        rz: float,
-        x: float,
-        y: float,
-        z: float,
         robot_id: typing.Optional[int] = None,
-        source: typing.Optional[Source] = OMIT,
-        timestamp: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> StatusResponse:
+    ) -> RobotConnectionResponse:
         """
+        Get the status of the robot connection.
+
         Parameters
         ----------
-        open : float
-            0 for closed, 1 for open
-
-        rx : float
-            Absolute Pitch in degrees
-
-        ry : float
-            Absolute Yaw in degrees
-
-        rz : float
-            Absolute Roll in degrees
-
-        x : float
-
-        y : float
-
-        z : float
-
         robot_id : typing.Optional[int]
-
-        source : typing.Optional[Source]
-            Which hand the data comes from. Can be left or right.
-
-        timestamp : typing.Optional[float]
-            Unix timestamp with milliseconds
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        StatusResponse
+        RobotConnectionResponse
             Successful Response
 
         Examples
@@ -989,45 +1093,22 @@ class ControlClient:
         client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
-        client.control.move_teleop_post(
-            open=1.1,
-            rx=1.1,
-            ry=1.1,
-            rz=1.1,
-            x=1.1,
-            y=1.1,
-            z=1.1,
-        )
+        client.control.robot_connection_status()
         """
         _response = self._client_wrapper.httpx_client.request(
-            "move/teleop",
+            "robot/status",
             method="POST",
             params={
                 "robot_id": robot_id,
             },
-            json={
-                "open": open,
-                "rx": rx,
-                "ry": ry,
-                "rz": rz,
-                "source": source,
-                "timestamp": timestamp,
-                "x": x,
-                "y": y,
-                "z": z,
-            },
-            headers={
-                "content-type": "application/json",
-            },
             request_options=request_options,
-            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    StatusResponse,
+                    RobotConnectionResponse,
                     parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
+                        type_=RobotConnectionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1377,128 +1458,6 @@ class AsyncControlClient:
                             object_=_response.json(),
                         ),
                     )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def start_gravity(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> StatusResponse:
-        """
-        Enable gravity compensation for the robot.
-
-        Parameters
-        ----------
-        robot_id : typing.Optional[int]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        StatusResponse
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from phospho import AsyncPhosphoApi
-
-        client = AsyncPhosphoApi(
-            base_url="https://yourhost.com/path/to/api",
-        )
-
-
-        async def main() -> None:
-            await client.control.start_gravity()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "gravity/start",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def stop_gravity_compensation(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> StatusResponse:
-        """
-        Stop the gravity compensation.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        StatusResponse
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from phospho import AsyncPhosphoApi
-
-        client = AsyncPhosphoApi(
-            base_url="https://yourhost.com/path/to/api",
-        )
-
-
-        async def main() -> None:
-            await client.control.stop_gravity_compensation()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "gravity/stop",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
                 )
             _response_json = _response.json()
         except JSONDecodeError:
@@ -1922,12 +1881,8 @@ class AsyncControlClient:
     async def start_leader_follower(
         self,
         *,
-        enable_gravity_compensation: typing.Optional[bool] = OMIT,
-        gravity_compensation_values: typing.Optional[
-            typing.Dict[str, typing.Optional[int]]
-        ] = OMIT,
         invert_controls: typing.Optional[bool] = OMIT,
-        robot_order: typing.Optional[typing.Sequence[str]] = OMIT,
+        robot_order: typing.Optional[typing.Sequence[int]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
         """
@@ -1935,17 +1890,11 @@ class AsyncControlClient:
 
         Parameters
         ----------
-        enable_gravity_compensation : typing.Optional[bool]
-            Disable gravity compensation for the leader robot
-
-        gravity_compensation_values : typing.Optional[typing.Dict[str, typing.Optional[int]]]
-            Gravity compensation pourcentage values for shoulder, elbow, and wrist joints (0-100%)
-
         invert_controls : typing.Optional[bool]
             Mirror controls for the follower robot
 
-        robot_order : typing.Optional[typing.Sequence[str]]
-            List of robot serial numbers in the order of leader, follower
+        robot_order : typing.Optional[typing.Sequence[int]]
+            Order of robots in the control loop, send [1, 0] to invert
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1976,8 +1925,6 @@ class AsyncControlClient:
             "move/leader/start",
             method="POST",
             json={
-                "enable_gravity_compensation": enable_gravity_compensation,
-                "gravity_compensation_values": gravity_compensation_values,
                 "invert_controls": invert_controls,
                 "robot_order": robot_order,
             },
@@ -2057,6 +2004,86 @@ class AsyncControlClient:
                         type_=StatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def mimicking_robots(
+        self,
+        *,
+        duration: int,
+        environment: typing.Optional[Environment] = None,
+        robot_id: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> StatusResponse:
+        """
+        Mimick the movements of a leader robot to a follower robot for a specified duration.
+
+        Parameters
+        ----------
+        duration : int
+
+        environment : typing.Optional[Environment]
+
+        robot_id : typing.Optional[int]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from phospho import AsyncPhosphoApi
+
+        client = AsyncPhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.control.mimicking_robots(
+                duration=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "move/mimick",
+            method="POST",
+            params={
+                "duration": duration,
+                "environment": environment,
+                "robot_id": robot_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    StatusResponse,
+                    parse_obj_as(
+                        type_=StatusResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
                 )
             _response_json = _response.json()
         except JSONDecodeError:
@@ -2184,6 +2211,7 @@ class AsyncControlClient:
     async def move_sleep(
         self,
         *,
+        disconnect: typing.Optional[bool] = None,
         robot_id: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
@@ -2192,6 +2220,8 @@ class AsyncControlClient:
 
         Parameters
         ----------
+        disconnect : typing.Optional[bool]
+
         robot_id : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
@@ -2223,6 +2253,7 @@ class AsyncControlClient:
             "move/sleep",
             method="POST",
             params={
+                "disconnect": disconnect,
                 "robot_id": robot_id,
             },
             request_options=request_options,
@@ -2251,7 +2282,7 @@ class AsyncControlClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def move_teleop_post(
+    async def move_teleoperation(
         self,
         *,
         open: float,
@@ -2263,10 +2294,11 @@ class AsyncControlClient:
         z: float,
         robot_id: typing.Optional[int] = None,
         source: typing.Optional[Source] = OMIT,
-        timestamp: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
         """
+        Update the robot position based on the received teleoperation data.
+
         Parameters
         ----------
         open : float
@@ -2292,9 +2324,6 @@ class AsyncControlClient:
         source : typing.Optional[Source]
             Which hand the data comes from. Can be left or right.
 
-        timestamp : typing.Optional[float]
-            Unix timestamp with milliseconds
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2315,7 +2344,7 @@ class AsyncControlClient:
 
 
         async def main() -> None:
-            await client.control.move_teleop_post(
+            await client.control.move_teleoperation(
                 open=1.1,
                 rx=1.1,
                 ry=1.1,
@@ -2340,7 +2369,6 @@ class AsyncControlClient:
                 "ry": ry,
                 "rz": rz,
                 "source": source,
-                "timestamp": timestamp,
                 "x": x,
                 "y": y,
                 "z": z,
@@ -2357,6 +2385,146 @@ class AsyncControlClient:
                     StatusResponse,
                     parse_obj_as(
                         type_=StatusResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def connect_robot(
+        self,
+        *,
+        robot_id: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> StatusResponse:
+        """
+        Connect the robot.
+
+        Parameters
+        ----------
+        robot_id : typing.Optional[int]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from phospho import AsyncPhosphoApi
+
+        client = AsyncPhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.control.connect_robot()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "robot/connect",
+            method="POST",
+            params={
+                "robot_id": robot_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    StatusResponse,
+                    parse_obj_as(
+                        type_=StatusResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def robot_connection_status(
+        self,
+        *,
+        robot_id: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> RobotConnectionResponse:
+        """
+        Get the status of the robot connection.
+
+        Parameters
+        ----------
+        robot_id : typing.Optional[int]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        RobotConnectionResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from phospho import AsyncPhosphoApi
+
+        client = AsyncPhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.control.robot_connection_status()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "robot/status",
+            method="POST",
+            params={
+                "robot_id": robot_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    RobotConnectionResponse,
+                    parse_obj_as(
+                        type_=RobotConnectionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
