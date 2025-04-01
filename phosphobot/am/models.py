@@ -134,20 +134,24 @@ try:
     from io import BytesIO
     from typing import Any, Callable, Dict
 
-    import torch  # type: ignore
     import zmq  # type: ignore
+    import pickle
 
     class TorchSerializer:
         @staticmethod
         def to_bytes(data: dict) -> bytes:
             buffer = BytesIO()
-            torch.save(data, buffer)
+            # torch.save(data, buffer)
+            # use pickle instead of torch
+            pickle.dump(data, buffer)
             return buffer.getvalue()
 
         @staticmethod
         def from_bytes(data: bytes) -> dict:
             buffer = BytesIO(data)
-            obj = torch.load(buffer, weights_only=False)
+            # obj = torch.load(buffer, weights_only=False)
+            # use pickle instead of torch
+            obj = pickle.load(buffer)
             return obj
 
     @dataclass
