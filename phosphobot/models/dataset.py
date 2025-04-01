@@ -370,8 +370,8 @@ class Episode(BaseModel):
                     frames=frames,
                     output_path=str(video_path),
                     target_size=(feature.shape[1], feature.shape[0]),
-                    fps=feature.video_info.video_fps,
-                    codec=feature.video_info.video_codec,
+                    fps=feature.info.video_fps,
+                    codec=feature.info.video_codec,
                 )
                 # Check if the video was saved
                 if (isinstance(saved_path, str) and os.path.exists(saved_path)) or (
@@ -474,7 +474,7 @@ class Episode(BaseModel):
         Add a step to the episode
         Handles the is_first, is_terminal and is_last flags to set the correct values when appending a step
         """
-        # When a step is added, it is the last of the episode by default until we add another step
+        # When a step is aded, it is the last of the episode by default until we add another step
         step.is_terminal = True
         step.is_last = True
         # If current step is the first step of the episode
@@ -600,9 +600,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -1899,30 +1899,10 @@ class VideoInfo(BaseModel):
     video_is_depth_map: bool = False
     has_audio: bool = False
 
-    def to_dict(self) -> dict:
-        """
-        Convert the VideoInfo to a dictionary.
-        """
-        # We can't use model.dump() because we want video.fps not video_fps etc...
-        return {
-            "video.fps": self.video_fps,
-            "video.codec": self.video_codec.value,
-            "video.pix_fmt": self.video_pix_fmt,
-            "video.is_depth_map": self.video_is_depth_map,
-            "has_audio": self.has_audio,
-        }
-
 
 class VideoFeatureDetails(FeatureDetails):
     dtype: Literal["video"] = "video"
-    video_info: VideoInfo
-
-    def to_dict(self) -> dict:
-        """Returns dictionnary of the video feature details"""
-        return {
-            "dtype": self.dtype,
-            "video_info": self.video_info.to_dict(),
-        }
+    info: VideoInfo
 
 
 class InfoFeatures(BaseModel):
@@ -1964,7 +1944,7 @@ class InfoFeatures(BaseModel):
 
         if self.observation_images is not None:
             for key, value in self.observation_images.items():
-                model_dict[key] = value.to_dict()
+                model_dict[key] = value.model_dump()
 
         model_dict.pop("observation_images")
 
@@ -2115,7 +2095,7 @@ class InfoModel(BaseModel):
                 VideoFeatureDetails(
                     shape=video_shape,
                     names=["height", "width", "channel"],
-                    video_info=video_info,
+                    info=video_info,
                 )
             )
 
@@ -2125,7 +2105,7 @@ class InfoModel(BaseModel):
                     VideoFeatureDetails(
                         shape=video_shape,
                         names=["height", "width", "channel"],
-                        video_info=video_info,
+                        info=video_info,
                     )
                 )
 
@@ -2186,7 +2166,7 @@ class InfoModel(BaseModel):
             observation_images[camera_key] = VideoFeatureDetails(
                 shape=[resize_video[1], resize_video[0], 3],
                 names=["height", "width", "channel"],
-                video_info=VideoInfo(
+                info=VideoInfo(
                     video_fps=fps,
                     video_codec="mp4v",
                     video_pix_fmt="yuv420p",
