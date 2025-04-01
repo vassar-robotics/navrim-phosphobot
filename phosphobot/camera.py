@@ -406,7 +406,7 @@ class VideoCamera(threading.Thread, BaseCamera):
 
             success, _ = self.video.read()
             if not success:
-                logger.warning(f"""{self.camera_name}: Failed to grab first frame
+                logger.error(f"""{self.camera_name}: Failed to grab first frame
 Camera id: {self.camera_id}
 Camera type: {self.camera_type}""")
                 return False
@@ -414,7 +414,7 @@ Camera type: {self.camera_type}""")
             return True
 
         except Exception as e:
-            logger.warning(f"{self.camera_name}: Error initializing {str(e)}")
+            logger.error(f"{self.camera_name}: Error initializing {str(e)}")
 
         return False
 
@@ -430,7 +430,7 @@ Camera type: {self.camera_type}""")
                     continue
 
                 if not self.video or not self.video.isOpened():
-                    logger.warning(f"{self.camera_name}: is not initialized")
+                    logger.error(f"{self.camera_name}: is not initialized")
                     self.last_frame = None
                     continue
 
@@ -442,7 +442,7 @@ Camera type: {self.camera_type}""")
                         break
 
                 if not success:
-                    logger.warning(f"{self.camera_name}: Failed to grab frame")
+                    logger.error(f"{self.camera_name}: Failed to grab frame")
                     self.last_frame = None
                 else:
                     self.last_frame = frame
@@ -625,7 +625,7 @@ class RealSenseCamera(BaseCamera):
         # Wait for a coherent pair of frames: depth and color
         last_bgr_frame = self.pipeline.wait_for_frames(timeout_ms=200).get_color_frame()
         if last_bgr_frame is None:
-            logger.warning(f"{self.camera_name} failed to grab frame")
+            logger.error(f"{self.camera_name} failed to grab frame")
             return None
         np_bgr_frame = np.asanyarray(last_bgr_frame.get_data())
         # Convert frame from BGR to RGB
@@ -646,7 +646,7 @@ class RealSenseCamera(BaseCamera):
             return None
         last_bgr_depth_frame = self.pipeline.wait_for_frames().get_depth_frame()
         if last_bgr_depth_frame is None:
-            logger.warning(f"{self.camera_name} Failed to grab frame")
+            logger.error(f"{self.camera_name} Failed to grab frame")
             return None
         np_bgr_depth_frame = np.asanyarray(last_bgr_depth_frame.get_data())
         frame = cv2.cvtColor(np_bgr_depth_frame, cv2.COLOR_BGR2RGB)
