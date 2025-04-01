@@ -3,8 +3,9 @@
 from ..core.pydantic_utilities import UniversalBaseModel
 import typing
 from .all_cameras_status import AllCamerasStatus
-from .status import Status
 import pydantic
+from .robot_config import RobotConfig
+from .status import Status
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 
 
@@ -14,8 +15,19 @@ class ServerStatus(UniversalBaseModel):
     """
 
     cameras: typing.Optional[AllCamerasStatus] = None
+    is_recording: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether the server is currently recording an episode.
+    """
+
     name: str
+    robot_status: typing.Optional[typing.List[RobotConfig]] = None
     robots: typing.Optional[typing.List[str]] = None
+    server_ip: str = pydantic.Field()
+    """
+    IP address of the server
+    """
+
     status: Status
     version_id: typing.Optional[str] = pydantic.Field(default=None)
     """
