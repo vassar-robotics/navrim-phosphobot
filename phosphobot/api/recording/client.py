@@ -126,27 +126,27 @@ class RecordingClient:
             List of camera ids to record. If set to None, records all available cameras.
 
         dataset_name : typing.Optional[str]
-            Name of the dataset to save the episode in.If None, defaults to the value set in Admin Settings.
+            Name of the dataset to save the episode in.If None, defaults to the value set in Admin Configuration.
 
         episode_format : typing.Optional[RecordingStartRequestEpisodeFormat]
             Format to save the episode.
             `json` is compatible with OpenVLA and stores videos as a series of npy.
-            `lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models).If None, defaults to the value set in Admin Settings.
+            `lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models).If None, defaults to the value set in Admin Configuration.
 
         freq : typing.Optional[int]
-            Records steps of the robot at this frequency.If None, defaults to the value set in Admin Settings.
+            Records steps of the robot at this frequency.If None, defaults to the value set in Admin Configuration.
 
         instruction : typing.Optional[str]
-            A text describing the recorded task. If set to None, defaults to the value set in Admin Settings.
+            A text describing the recorded task. If set to None, defaults to the value set in Admin Configuration.
 
         robot_serials_to_ignore : typing.Optional[typing.Sequence[str]]
             List of robot indexes to ignore. If set to None, records all available robots.
 
         target_video_size : typing.Optional[typing.Sequence[typing.Optional[typing.Any]]]
-            Target video size for the recording, all videos in the dataset should have the same size. If set to None, defaults to the value set in Admin Settings.
+            Target video size for the recording, all videos in the dataset should have the same size. If set to None, defaults to the value set in Admin Configuration.
 
         video_codec : typing.Optional[RecordingStartRequestVideoCodec]
-            Codec to use for the video saving.If None, defaults to the value set in Admin Settings.
+            Codec to use for the video saving.If None, defaults to the value set in Admin Configuration.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -396,27 +396,27 @@ class AsyncRecordingClient:
             List of camera ids to record. If set to None, records all available cameras.
 
         dataset_name : typing.Optional[str]
-            Name of the dataset to save the episode in.If None, defaults to the value set in Admin Settings.
+            Name of the dataset to save the episode in.If None, defaults to the value set in Admin Configuration.
 
         episode_format : typing.Optional[RecordingStartRequestEpisodeFormat]
             Format to save the episode.
             `json` is compatible with OpenVLA and stores videos as a series of npy.
-            `lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models).If None, defaults to the value set in Admin Settings.
+            `lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models).If None, defaults to the value set in Admin Configuration.
 
         freq : typing.Optional[int]
-            Records steps of the robot at this frequency.If None, defaults to the value set in Admin Settings.
+            Records steps of the robot at this frequency.If None, defaults to the value set in Admin Configuration.
 
         instruction : typing.Optional[str]
-            A text describing the recorded task. If set to None, defaults to the value set in Admin Settings.
+            A text describing the recorded task. If set to None, defaults to the value set in Admin Configuration.
 
         robot_serials_to_ignore : typing.Optional[typing.Sequence[str]]
             List of robot indexes to ignore. If set to None, records all available robots.
 
         target_video_size : typing.Optional[typing.Sequence[typing.Optional[typing.Any]]]
-            Target video size for the recording, all videos in the dataset should have the same size. If set to None, defaults to the value set in Admin Settings.
+            Target video size for the recording, all videos in the dataset should have the same size. If set to None, defaults to the value set in Admin Configuration.
 
         video_codec : typing.Optional[RecordingStartRequestVideoCodec]
-            Codec to use for the video saving.If None, defaults to the value set in Admin Settings.
+            Codec to use for the video saving.If None, defaults to the value set in Admin Configuration.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
