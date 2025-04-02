@@ -13,7 +13,7 @@ dependencies = [
     "ffmpeg-python>=0.2.0",
     "loguru>=0.7.3",
     "numpy<2",
-    "opencv-python-headless>=4",                              # Needed for compatibility with gr00t-N1
+    "opencv-python-headless>=4.0", # Needed for compatibility with gr00t-N1
     "openpi-client>=0.1.0",
     "rich>=13.9.4",
     "pandas-stubs>=2.2.2.240807",
