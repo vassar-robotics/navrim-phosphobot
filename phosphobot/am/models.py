@@ -306,8 +306,11 @@ try:
             arm = response["action.single_arm"]
             gripper = response["action.gripper"]
             # Fully close the gripper if it is less than 0.35
+            # if gripper.shape is (16,) (no last dimension), resize it to (16, 1)
+            gripper = gripper.reshape(-1, 1)
             gripper[gripper < 0.35] = 0.0
             action = np.concatenate((arm, gripper), axis=1)
+
             return action
 
 except ImportError:
