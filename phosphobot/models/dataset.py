@@ -534,7 +534,7 @@ class Episode(BaseModel):
         """
         for index, step in enumerate(self.steps):
             # Move the robot to the recorded position
-            time_start = time.time()
+            start_time = time.perf_counter()
             if index % 20 == 0:
                 logger.info(f"Playing step {index}")
                 logger.info(f"Joints position: {step.observation.joints_position}")
@@ -552,8 +552,9 @@ class Episode(BaseModel):
                         next_step.observation.timestamp - step.observation.timestamp
                     )
 
-                    while time.time() - time_start <= delta_timestamp:
-                        await asyncio.sleep(1e-6)
+                    time_to_wait = start_time + delta_timestamp - time.perf_counter()
+                    time_to_wait = max(time_to_wait, 0)
+                    await asyncio.sleep(time_to_wait)
 
     def get_episode_index(self, episode_recording_folder_path: str, dataset_name: str):
         dataset_path = os.path.join(
@@ -1198,7 +1199,7 @@ class Dataset:
             )
         return unique_shapes.pop()
 
-    def get_fps(self) -> float:
+    def get_average_fps(self) -> float:
         """
         Return the average FPS of the dataset
         """
