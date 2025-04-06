@@ -552,8 +552,8 @@ class Episode(BaseModel):
                         next_step.observation.timestamp - step.observation.timestamp
                     )
 
-                    time_to_wait = start_time + delta_timestamp - time.perf_counter()
-                    time_to_wait = max(time_to_wait, 0)
+                    elapsed = time.perf_counter() - start_time
+                    time_to_wait = max(delta_timestamp - elapsed, 0)
                     await asyncio.sleep(time_to_wait)
 
     def get_episode_index(self, episode_recording_folder_path: str, dataset_name: str):
