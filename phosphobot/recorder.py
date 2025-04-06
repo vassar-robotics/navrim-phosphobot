@@ -360,6 +360,8 @@ class Recorder:
         # Init variables to store the data of the episode
         step_count = 0
         while self.is_recording:
+            current_ts = time.perf_counter()
+
             main_frames = self.cameras.get_main_camera_frames(
                 target_video_size=target_size
             )
@@ -393,8 +395,6 @@ class Recorder:
                 state_other, joints_position_other = robot.get_observation()
                 state = np.append(state, state_other)
                 joints_position = np.append(joints_position, joints_position_other)
-
-            current_ts = time.perf_counter()
 
             observation = Observation(
                 main_image=main_frame,
@@ -442,6 +442,8 @@ class Recorder:
                 )
                 self.episodes_model.update(step=step, episode_index=self.episode.index)
                 self.tasks_model.update(step=step)
-            # Wait for 1 / freq seconds (default: 1/10s)
-            await asyncio.sleep(1 / self.freq)
+
+            elapsed = current_ts - time.perf_counter()
+            time_to_wait = max(self.freq - elapsed, 0)
+            await asyncio.sleep(time_to_wait)
             step_count += 1
