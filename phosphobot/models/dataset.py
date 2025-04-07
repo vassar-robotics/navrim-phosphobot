@@ -530,31 +530,59 @@ class Episode(BaseModel):
 
     async def play(self, robot: BaseRobot):
         """
-        Play the episode on the robot.
+        Play the episode on the robot with on-the-fly interpolation.
         """
+        # We create 4 times more steps than the original ones to have a smoother interpolation
+        interpolation_factor = 4
+
         for index, step in enumerate(self.steps):
-            # Move the robot to the recorded position
-            start_time = time.perf_counter()
-            if index % 20 == 0:
-                logger.info(f"Playing step {index}")
-                logger.info(f"Joints position: {step.observation.joints_position}")
-            robot.set_motors_positions(step.observation.joints_position[:6])
-            robot.control_gripper(step.observation.joints_position[-1])
-
-            # Compute the delta timestamp
+            # Get current and next step
+            curr_step = step
             next_step = self.steps[index + 1] if index + 1 < len(self.steps) else None
-            if next_step is not None:
-                if (
-                    next_step.observation.timestamp is not None
-                    and step.observation.timestamp is not None
-                ):
-                    delta_timestamp = (
-                        next_step.observation.timestamp - step.observation.timestamp
-                    )
 
+            if (
+                next_step is not None
+                and curr_step.observation.timestamp is not None
+                and next_step.observation.timestamp is not None
+            ):
+                # Calculate base delta timestamp
+                delta_timestamp = (
+                    next_step.observation.timestamp - curr_step.observation.timestamp
+                )
+                time_per_segment = delta_timestamp / interpolation_factor
+
+                # Perform interpolation steps
+                for i in range(interpolation_factor):
+                    start_time = time.perf_counter()
+
+                    # Calculate interpolation ratio (0 to 1 across all segments)
+                    t = i / interpolation_factor
+
+                    # Interpolate joint positions
+                    interp_joints = []
+                    for j1, j2 in zip(
+                        curr_step.observation.joints_position,
+                        next_step.observation.joints_position,
+                    ):
+                        interp_value = j1 + (j2 - j1) * t
+                        interp_joints.append(interp_value)
+
+                    if index % 20 == 0 and i == 0:
+                        logger.info(f"Playing step {index}")
+
+                    robot.set_motors_positions(np.array(interp_joints[:6]))
+                    robot.control_gripper(interp_joints[-1])
+
+                    # Timing control
                     elapsed = time.perf_counter() - start_time
-                    time_to_wait = max(delta_timestamp - elapsed, 0)
+                    time_to_wait = max(time_per_segment - elapsed, 0)
                     await asyncio.sleep(time_to_wait)
+
+            else:
+                # Handle last step or cases where timestamp is None
+                start_time = time.perf_counter()
+                robot.set_motors_positions(curr_step.observation.joints_position[:6])
+                robot.control_gripper(curr_step.observation.joints_position[-1])
 
     def get_episode_index(self, episode_recording_folder_path: str, dataset_name: str):
         dataset_path = os.path.join(
@@ -633,9 +661,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert (
-                step.action is not None
-            ), "The action must be set for each step before saving"
+            assert step.action is not None, (
+                "The action must be set for each step before saving"
+            )
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
