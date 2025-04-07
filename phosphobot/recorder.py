@@ -444,6 +444,6 @@ class Recorder:
                 self.tasks_model.update(step=step)
 
             elapsed = current_ts - time.perf_counter()
-            time_to_wait = max(self.freq - elapsed, 0)
+            time_to_wait = max(1 / self.freq - elapsed, 0)
             await asyncio.sleep(time_to_wait)
             step_count += 1
