@@ -3,8 +3,5 @@
 import typing
 
 SingleCameraStatusCameraType = typing.Union[
-    typing.Literal[
-        "classic", "stereo", "realsense", "dummy", "dummy_stereo", "unknown"
-    ],
-    typing.Any,
+    typing.Literal["classic", "stereo", "realsense", "dummy", "dummy_stereo", "unknown"], typing.Any
 ]

@@ -2,21 +2,18 @@
 
 import typing
 from ..core.client_wrapper import SyncClientWrapper
+from .raw_client import RawControlClient
 from ..core.request_options import RequestOptions
-from ..types.calibrate_response import CalibrateResponse
-from ..core.pydantic_utilities import parse_obj_as
-from ..errors.unprocessable_entity_error import UnprocessableEntityError
-from ..types.http_validation_error import HttpValidationError
-from json.decoder import JSONDecodeError
-from ..core.api_error import ApiError
-from ..types.end_effector_position import EndEffectorPosition
 from ..types.status_response import StatusResponse
+from ..types.calibrate_response import CalibrateResponse
+from ..types.end_effector_position import EndEffectorPosition
 from ..types.joints_read_response import JointsReadResponse
 from .types.unit import Unit
 from .types.source import Source
 from ..types.torque_read_response import TorqueReadResponse
 from ..types.voltage_read_response import VoltageReadResponse
 from ..core.client_wrapper import AsyncClientWrapper
+from .raw_client import AsyncRawControlClient
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -24,13 +21,149 @@ OMIT = typing.cast(typing.Any, ...)
 
 class ControlClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
-        self._client_wrapper = client_wrapper
+        self._raw_client = RawControlClient(client_wrapper=client_wrapper)
 
-    def calibrate(
+    @property
+    def with_raw_response(self) -> RawControlClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        RawControlClient
+        """
+        return self._raw_client
+
+    def pause_auto_control(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
+        """
+        Pause the auto control by AI.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        from phospho import PhosphoApi
+
+        client = PhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.control.pause_auto_control()
+        """
+        response = self._raw_client.pause_auto_control(
+            request_options=request_options,
+        )
+        return response.data
+
+    def resume_auto_control(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
+        """
+        Resume the auto control by AI.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        from phospho import PhosphoApi
+
+        client = PhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.control.resume_auto_control()
+        """
+        response = self._raw_client.resume_auto_control(
+            request_options=request_options,
+        )
+        return response.data
+
+    def start_auto_control(
         self,
         *,
-        robot_id: typing.Optional[int] = None,
+        model_id: str,
+        prompt: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
+    ) -> StatusResponse:
+        """
+        Start the auto control by AI.
+
+        Parameters
+        ----------
+        model_id : str
+            Hugging Face model id to use
+
+        prompt : typing.Optional[str]
+            Prompt to be followed by the robot
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        from phospho import PhosphoApi
+
+        client = PhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.control.start_auto_control(
+            model_id="model_id",
+        )
+        """
+        response = self._raw_client.start_auto_control(
+            model_id=model_id,
+            prompt=prompt,
+            request_options=request_options,
+        )
+        return response.data
+
+    def stop_auto_control(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
+        """
+        Stop the auto control by AI.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        from phospho import PhosphoApi
+
+        client = PhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.control.stop_auto_control()
+        """
+        response = self._raw_client.stop_auto_control(
+            request_options=request_options,
+        )
+        return response.data
+
+    def calibrate(
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> CalibrateResponse:
         """
         Start the calibration sequence for the robot.
@@ -56,43 +189,14 @@ class ControlClient:
         )
         client.control.calibrate()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "calibrate",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = self._raw_client.calibrate(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    CalibrateResponse,
-                    parse_obj_as(
-                        type_=CalibrateResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def end_effector_read(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> EndEffectorPosition:
         """
         Retrieve the position, orientation, and open status of the robot's end effector.
@@ -118,43 +222,14 @@ class ControlClient:
         )
         client.control.end_effector_read()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "end-effector/read",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = self._raw_client.end_effector_read(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    EndEffectorPosition,
-                    parse_obj_as(
-                        type_=EndEffectorPosition,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def start_gravity(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> StatusResponse:
         """
         Enable gravity compensation for the robot.
@@ -180,41 +255,13 @@ class ControlClient:
         )
         client.control.start_gravity()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "gravity/start",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = self._raw_client.start_gravity(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
-    def stop_gravity_compensation(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> StatusResponse:
+    def stop_gravity_compensation(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
         """
         Stop the gravity compensation.
 
@@ -237,30 +284,13 @@ class ControlClient:
         )
         client.control.stop_gravity_compensation()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "gravity/stop",
-            method="POST",
+        response = self._raw_client.stop_gravity_compensation(
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def read_joints(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> JointsReadResponse:
         """
         Read the current positions of the robot's joints in radians and motor units.
@@ -286,43 +316,18 @@ class ControlClient:
         )
         client.control.read_joints()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "joints/read",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = self._raw_client.read_joints(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    JointsReadResponse,
-                    parse_obj_as(
-                        type_=JointsReadResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def write_joints(
         self,
         *,
         angles: typing.Sequence[float],
         robot_id: typing.Optional[int] = None,
+        joints_ids: typing.Optional[typing.Sequence[int]] = OMIT,
         unit: typing.Optional[Unit] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
@@ -332,9 +337,12 @@ class ControlClient:
         Parameters
         ----------
         angles : typing.Sequence[float]
-            A list of length 7, with the position of each joint in radian.
+            A list with the position of each joint in radian.
 
         robot_id : typing.Optional[int]
+
+        joints_ids : typing.Optional[typing.Sequence[int]]
+            If set, only set the joints with these ids. If None, set all joints.Example: 'angles'=[1,1,1], 'joints_ids'=[0,1,2] will set the first 3 joints to 1 radian.
 
         unit : typing.Optional[Unit]
             The unit of the angles. Defaults to radian.
@@ -358,45 +366,14 @@ class ControlClient:
             angles=[1.1],
         )
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "joints/write",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            json={
-                "angles": angles,
-                "unit": unit,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = self._raw_client.write_joints(
+            angles=angles,
+            robot_id=robot_id,
+            joints_ids=joints_ids,
+            unit=unit,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def move_to_absolute_position(
         self,
@@ -476,59 +453,24 @@ class ControlClient:
             z=1.1,
         )
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "move/absolute",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            json={
-                "max_trials": max_trials,
-                "open": open,
-                "orientation_tolerance": orientation_tolerance,
-                "position_tolerance": position_tolerance,
-                "rx": rx,
-                "ry": ry,
-                "rz": rz,
-                "x": x,
-                "y": y,
-                "z": z,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = self._raw_client.move_to_absolute_position(
+            open=open,
+            rx=rx,
+            ry=ry,
+            rz=rz,
+            x=x,
+            y=y,
+            z=z,
+            robot_id=robot_id,
+            max_trials=max_trials,
+            orientation_tolerance=orientation_tolerance,
+            position_tolerance=position_tolerance,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def say_hello(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> StatusResponse:
         """
         Make the robot say hello by waving its end effector. (Test endpoint)
@@ -554,41 +496,13 @@ class ControlClient:
         )
         client.control.say_hello()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "move/hello",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = self._raw_client.say_hello(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
-    def move_init(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> StatusResponse:
+    def move_init(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
         """
         Initialize the robot to its initial position before starting the teleoperation.
 
@@ -611,32 +525,16 @@ class ControlClient:
         )
         client.control.move_init()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "move/init",
-            method="POST",
+        response = self._raw_client.move_init(
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def start_leader_follower(
         self,
         *,
         enable_gravity_compensation: typing.Optional[bool] = OMIT,
-        gravity_compensation_values: typing.Optional[
-            typing.Dict[str, typing.Optional[int]]
-        ] = OMIT,
+        gravity_compensation_values: typing.Optional[typing.Dict[str, typing.Optional[int]]] = OMIT,
         invert_controls: typing.Optional[bool] = OMIT,
         robot_order: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -675,48 +573,16 @@ class ControlClient:
         )
         client.control.start_leader_follower()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "move/leader/start",
-            method="POST",
-            json={
-                "enable_gravity_compensation": enable_gravity_compensation,
-                "gravity_compensation_values": gravity_compensation_values,
-                "invert_controls": invert_controls,
-                "robot_order": robot_order,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = self._raw_client.start_leader_follower(
+            enable_gravity_compensation=enable_gravity_compensation,
+            gravity_compensation_values=gravity_compensation_values,
+            invert_controls=invert_controls,
+            robot_order=robot_order,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
-    def stop_leader_follower(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> StatusResponse:
+    def stop_leader_follower(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
         """
         Stop the leader-follower control.
 
@@ -739,24 +605,10 @@ class ControlClient:
         )
         client.control.stop_leader_follower()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "move/leader/stop",
-            method="POST",
+        response = self._raw_client.stop_leader_follower(
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def move_relative(
         self,
@@ -823,56 +675,21 @@ class ControlClient:
             z=1.1,
         )
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "move/relative",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            json={
-                "open": open,
-                "rx": rx,
-                "ry": ry,
-                "rz": rz,
-                "x": x,
-                "y": y,
-                "z": z,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = self._raw_client.move_relative(
+            open=open,
+            rx=rx,
+            ry=ry,
+            rz=rz,
+            x=x,
+            y=y,
+            z=z,
+            robot_id=robot_id,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def move_sleep(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> StatusResponse:
         """
         Put the robot to its sleep position by giving direct instructions to joints.
@@ -898,37 +715,11 @@ class ControlClient:
         )
         client.control.move_sleep()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "move/sleep",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = self._raw_client.move_sleep(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def move_teleop_post(
         self,
@@ -999,58 +790,23 @@ class ControlClient:
             z=1.1,
         )
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "move/teleop",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            json={
-                "open": open,
-                "rx": rx,
-                "ry": ry,
-                "rz": rz,
-                "source": source,
-                "timestamp": timestamp,
-                "x": x,
-                "y": y,
-                "z": z,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = self._raw_client.move_teleop_post(
+            open=open,
+            rx=rx,
+            ry=ry,
+            rz=rz,
+            x=x,
+            y=y,
+            z=z,
+            robot_id=robot_id,
+            source=source,
+            timestamp=timestamp,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def read_torque(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> TorqueReadResponse:
         """
         Read the current torque of the robot's joints.
@@ -1076,37 +832,11 @@ class ControlClient:
         )
         client.control.read_torque()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "torque/read",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = self._raw_client.read_torque(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    TorqueReadResponse,
-                    parse_obj_as(
-                        type_=TorqueReadResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def toggle_torque(
         self,
@@ -1143,44 +873,15 @@ class ControlClient:
             torque_status=True,
         )
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "torque/toggle",
-            method="POST",
-            params={
-                "torque_status": torque_status,
-                "robot_id": robot_id,
-            },
+        response = self._raw_client.toggle_torque(
+            torque_status=torque_status,
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def read_voltage(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> VoltageReadResponse:
         """
         Read the current voltage of the robot's motors.
@@ -1206,48 +907,190 @@ class ControlClient:
         )
         client.control.read_voltage()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "voltage/read",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = self._raw_client.read_voltage(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    VoltageReadResponse,
-                    parse_obj_as(
-                        type_=VoltageReadResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
 
 class AsyncControlClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._client_wrapper = client_wrapper
+        self._raw_client = AsyncRawControlClient(client_wrapper=client_wrapper)
 
-    async def calibrate(
+    @property
+    def with_raw_response(self) -> AsyncRawControlClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        AsyncRawControlClient
+        """
+        return self._raw_client
+
+    async def pause_auto_control(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
+        """
+        Pause the auto control by AI.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from phospho import AsyncPhosphoApi
+
+        client = AsyncPhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.control.pause_auto_control()
+
+
+        asyncio.run(main())
+        """
+        response = await self._raw_client.pause_auto_control(
+            request_options=request_options,
+        )
+        return response.data
+
+    async def resume_auto_control(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
+        """
+        Resume the auto control by AI.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from phospho import AsyncPhosphoApi
+
+        client = AsyncPhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.control.resume_auto_control()
+
+
+        asyncio.run(main())
+        """
+        response = await self._raw_client.resume_auto_control(
+            request_options=request_options,
+        )
+        return response.data
+
+    async def start_auto_control(
         self,
         *,
-        robot_id: typing.Optional[int] = None,
+        model_id: str,
+        prompt: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
+    ) -> StatusResponse:
+        """
+        Start the auto control by AI.
+
+        Parameters
+        ----------
+        model_id : str
+            Hugging Face model id to use
+
+        prompt : typing.Optional[str]
+            Prompt to be followed by the robot
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from phospho import AsyncPhosphoApi
+
+        client = AsyncPhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.control.start_auto_control(
+                model_id="model_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        response = await self._raw_client.start_auto_control(
+            model_id=model_id,
+            prompt=prompt,
+            request_options=request_options,
+        )
+        return response.data
+
+    async def stop_auto_control(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
+        """
+        Stop the auto control by AI.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StatusResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from phospho import AsyncPhosphoApi
+
+        client = AsyncPhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.control.stop_auto_control()
+
+
+        asyncio.run(main())
+        """
+        response = await self._raw_client.stop_auto_control(
+            request_options=request_options,
+        )
+        return response.data
+
+    async def calibrate(
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> CalibrateResponse:
         """
         Start the calibration sequence for the robot.
@@ -1281,43 +1124,14 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "calibrate",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = await self._raw_client.calibrate(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    CalibrateResponse,
-                    parse_obj_as(
-                        type_=CalibrateResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def end_effector_read(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> EndEffectorPosition:
         """
         Retrieve the position, orientation, and open status of the robot's end effector.
@@ -1351,43 +1165,14 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "end-effector/read",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = await self._raw_client.end_effector_read(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    EndEffectorPosition,
-                    parse_obj_as(
-                        type_=EndEffectorPosition,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def start_gravity(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> StatusResponse:
         """
         Enable gravity compensation for the robot.
@@ -1421,37 +1206,11 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "gravity/start",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = await self._raw_client.start_gravity(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def stop_gravity_compensation(
         self, *, request_options: typing.Optional[RequestOptions] = None
@@ -1486,30 +1245,13 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "gravity/stop",
-            method="POST",
+        response = await self._raw_client.stop_gravity_compensation(
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def read_joints(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> JointsReadResponse:
         """
         Read the current positions of the robot's joints in radians and motor units.
@@ -1543,43 +1285,18 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "joints/read",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = await self._raw_client.read_joints(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    JointsReadResponse,
-                    parse_obj_as(
-                        type_=JointsReadResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def write_joints(
         self,
         *,
         angles: typing.Sequence[float],
         robot_id: typing.Optional[int] = None,
+        joints_ids: typing.Optional[typing.Sequence[int]] = OMIT,
         unit: typing.Optional[Unit] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
@@ -1589,9 +1306,12 @@ class AsyncControlClient:
         Parameters
         ----------
         angles : typing.Sequence[float]
-            A list of length 7, with the position of each joint in radian.
+            A list with the position of each joint in radian.
 
         robot_id : typing.Optional[int]
+
+        joints_ids : typing.Optional[typing.Sequence[int]]
+            If set, only set the joints with these ids. If None, set all joints.Example: 'angles'=[1,1,1], 'joints_ids'=[0,1,2] will set the first 3 joints to 1 radian.
 
         unit : typing.Optional[Unit]
             The unit of the angles. Defaults to radian.
@@ -1623,45 +1343,14 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "joints/write",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            json={
-                "angles": angles,
-                "unit": unit,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = await self._raw_client.write_joints(
+            angles=angles,
+            robot_id=robot_id,
+            joints_ids=joints_ids,
+            unit=unit,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def move_to_absolute_position(
         self,
@@ -1749,59 +1438,24 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "move/absolute",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            json={
-                "max_trials": max_trials,
-                "open": open,
-                "orientation_tolerance": orientation_tolerance,
-                "position_tolerance": position_tolerance,
-                "rx": rx,
-                "ry": ry,
-                "rz": rz,
-                "x": x,
-                "y": y,
-                "z": z,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = await self._raw_client.move_to_absolute_position(
+            open=open,
+            rx=rx,
+            ry=ry,
+            rz=rz,
+            x=x,
+            y=y,
+            z=z,
+            robot_id=robot_id,
+            max_trials=max_trials,
+            orientation_tolerance=orientation_tolerance,
+            position_tolerance=position_tolerance,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def say_hello(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> StatusResponse:
         """
         Make the robot say hello by waving its end effector. (Test endpoint)
@@ -1835,41 +1489,13 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "move/hello",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = await self._raw_client.say_hello(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
-    async def move_init(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> StatusResponse:
+    async def move_init(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
         """
         Initialize the robot to its initial position before starting the teleoperation.
 
@@ -1900,32 +1526,16 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "move/init",
-            method="POST",
+        response = await self._raw_client.move_init(
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def start_leader_follower(
         self,
         *,
         enable_gravity_compensation: typing.Optional[bool] = OMIT,
-        gravity_compensation_values: typing.Optional[
-            typing.Dict[str, typing.Optional[int]]
-        ] = OMIT,
+        gravity_compensation_values: typing.Optional[typing.Dict[str, typing.Optional[int]]] = OMIT,
         invert_controls: typing.Optional[bool] = OMIT,
         robot_order: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1972,48 +1582,16 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "move/leader/start",
-            method="POST",
-            json={
-                "enable_gravity_compensation": enable_gravity_compensation,
-                "gravity_compensation_values": gravity_compensation_values,
-                "invert_controls": invert_controls,
-                "robot_order": robot_order,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = await self._raw_client.start_leader_follower(
+            enable_gravity_compensation=enable_gravity_compensation,
+            gravity_compensation_values=gravity_compensation_values,
+            invert_controls=invert_controls,
+            robot_order=robot_order,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
-    async def stop_leader_follower(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> StatusResponse:
+    async def stop_leader_follower(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
         """
         Stop the leader-follower control.
 
@@ -2044,24 +1622,10 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "move/leader/stop",
-            method="POST",
+        response = await self._raw_client.stop_leader_follower(
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def move_relative(
         self,
@@ -2136,56 +1700,21 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "move/relative",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            json={
-                "open": open,
-                "rx": rx,
-                "ry": ry,
-                "rz": rz,
-                "x": x,
-                "y": y,
-                "z": z,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = await self._raw_client.move_relative(
+            open=open,
+            rx=rx,
+            ry=ry,
+            rz=rz,
+            x=x,
+            y=y,
+            z=z,
+            robot_id=robot_id,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def move_sleep(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> StatusResponse:
         """
         Put the robot to its sleep position by giving direct instructions to joints.
@@ -2219,37 +1748,11 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "move/sleep",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = await self._raw_client.move_sleep(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def move_teleop_post(
         self,
@@ -2328,58 +1831,23 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "move/teleop",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            json={
-                "open": open,
-                "rx": rx,
-                "ry": ry,
-                "rz": rz,
-                "source": source,
-                "timestamp": timestamp,
-                "x": x,
-                "y": y,
-                "z": z,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = await self._raw_client.move_teleop_post(
+            open=open,
+            rx=rx,
+            ry=ry,
+            rz=rz,
+            x=x,
+            y=y,
+            z=z,
+            robot_id=robot_id,
+            source=source,
+            timestamp=timestamp,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def read_torque(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> TorqueReadResponse:
         """
         Read the current torque of the robot's joints.
@@ -2413,37 +1881,11 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "torque/read",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = await self._raw_client.read_torque(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    TorqueReadResponse,
-                    parse_obj_as(
-                        type_=TorqueReadResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def toggle_torque(
         self,
@@ -2488,44 +1930,15 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "torque/toggle",
-            method="POST",
-            params={
-                "torque_status": torque_status,
-                "robot_id": robot_id,
-            },
+        response = await self._raw_client.toggle_torque(
+            torque_status=torque_status,
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def read_voltage(
-        self,
-        *,
-        robot_id: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> VoltageReadResponse:
         """
         Read the current voltage of the robot's motors.
@@ -2559,34 +1972,8 @@ class AsyncControlClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "voltage/read",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
+        response = await self._raw_client.read_voltage(
+            robot_id=robot_id,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    VoltageReadResponse,
-                    parse_obj_as(
-                        type_=VoltageReadResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data

@@ -2,24 +2,17 @@
 
 from ..core.pydantic_utilities import UniversalBaseModel
 import typing
-import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
+import pydantic
 
 
-class JointsReadResponse(UniversalBaseModel):
+class AdminSettingsTokenResponse(UniversalBaseModel):
     """
-    Response to read the joints of the robot.
-    """
-
-    angles_motor_units: typing.List[int] = pydantic.Field()
-    """
-    A list of length 6, with the position of each joint in motor units.
+    To each provider is assigned a bool, which is True
+    if the token is set and valid.
     """
 
-    angles_rad: typing.List[float] = pydantic.Field()
-    """
-    A list of length 6, with the position of each joint in radian.
-    """
+    huggingface: typing.Optional[bool] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

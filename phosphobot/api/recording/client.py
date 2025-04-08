@@ -2,19 +2,14 @@
 
 import typing
 from ..core.client_wrapper import SyncClientWrapper
+from .raw_client import RawRecordingClient
 from ..core.request_options import RequestOptions
 from ..types.status_response import StatusResponse
-from ..core.pydantic_utilities import parse_obj_as
-from ..errors.unprocessable_entity_error import UnprocessableEntityError
-from ..types.http_validation_error import HttpValidationError
-from json.decoder import JSONDecodeError
-from ..core.api_error import ApiError
-from .types.recording_start_request_episode_format import (
-    RecordingStartRequestEpisodeFormat,
-)
+from .types.recording_start_request_episode_format import RecordingStartRequestEpisodeFormat
 from .types.recording_start_request_video_codec import RecordingStartRequestVideoCodec
 from ..types.recording_stop_response import RecordingStopResponse
 from ..core.client_wrapper import AsyncClientWrapper
+from .raw_client import AsyncRawRecordingClient
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -22,7 +17,18 @@ OMIT = typing.cast(typing.Any, ...)
 
 class RecordingClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
-        self._client_wrapper = client_wrapper
+        self._raw_client = RawRecordingClient(client_wrapper=client_wrapper)
+
+    @property
+    def with_raw_response(self) -> RawRecordingClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        RawRecordingClient
+        """
+        return self._raw_client
 
     def play_recording(
         self,
@@ -58,44 +64,12 @@ class RecordingClient:
         )
         client.recording.play_recording()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "recording/play",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            json={
-                "episode_path": episode_path,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = self._raw_client.play_recording(
+            robot_id=robot_id,
+            episode_path=episode_path,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def start_recording_episode(
         self,
@@ -107,9 +81,7 @@ class RecordingClient:
         freq: typing.Optional[int] = OMIT,
         instruction: typing.Optional[str] = OMIT,
         robot_serials_to_ignore: typing.Optional[typing.Sequence[str]] = OMIT,
-        target_video_size: typing.Optional[
-            typing.Sequence[typing.Optional[typing.Any]]
-        ] = OMIT,
+        target_video_size: typing.Optional[typing.Sequence[typing.Optional[typing.Any]]] = OMIT,
         video_codec: typing.Optional[RecordingStartRequestVideoCodec] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
@@ -165,65 +137,28 @@ class RecordingClient:
         )
         client.recording.start_recording_episode()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "recording/start",
-            method="POST",
-            json={
-                "branch_path": branch_path,
-                "cameras_ids_to_record": cameras_ids_to_record,
-                "dataset_name": dataset_name,
-                "episode_format": episode_format,
-                "freq": freq,
-                "instruction": instruction,
-                "robot_serials_to_ignore": robot_serials_to_ignore,
-                "target_video_size": target_video_size,
-                "video_codec": video_codec,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = self._raw_client.start_recording_episode(
+            branch_path=branch_path,
+            cameras_ids_to_record=cameras_ids_to_record,
+            dataset_name=dataset_name,
+            episode_format=episode_format,
+            freq=freq,
+            instruction=instruction,
+            robot_serials_to_ignore=robot_serials_to_ignore,
+            target_video_size=target_video_size,
+            video_codec=video_codec,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     def stop_recording_episode(
-        self,
-        *,
-        recording_is_already_stopped: typing.Optional[bool] = OMIT,
-        save: typing.Optional[bool] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, save: typing.Optional[bool] = OMIT, request_options: typing.Optional[RequestOptions] = None
     ) -> RecordingStopResponse:
         """
         Stop the recording of the episode. The data is saved to disk to the user home directory, in the `phosphobot` folder.
 
         Parameters
         ----------
-        recording_is_already_stopped : typing.Optional[bool]
-            Whether the recording is stopped. Default to False.
-
         save : typing.Optional[bool]
             Whether to save the episode to disk. Defaults to True.
 
@@ -244,47 +179,27 @@ class RecordingClient:
         )
         client.recording.stop_recording_episode()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "recording/stop",
-            method="POST",
-            json={
-                "recording_is_already_stopped": recording_is_already_stopped,
-                "save": save,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = self._raw_client.stop_recording_episode(
+            save=save,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    RecordingStopResponse,
-                    parse_obj_as(
-                        type_=RecordingStopResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
 
 class AsyncRecordingClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._client_wrapper = client_wrapper
+        self._raw_client = AsyncRawRecordingClient(client_wrapper=client_wrapper)
+
+    @property
+    def with_raw_response(self) -> AsyncRawRecordingClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        AsyncRawRecordingClient
+        """
+        return self._raw_client
 
     async def play_recording(
         self,
@@ -328,44 +243,12 @@ class AsyncRecordingClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "recording/play",
-            method="POST",
-            params={
-                "robot_id": robot_id,
-            },
-            json={
-                "episode_path": episode_path,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = await self._raw_client.play_recording(
+            robot_id=robot_id,
+            episode_path=episode_path,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def start_recording_episode(
         self,
@@ -377,9 +260,7 @@ class AsyncRecordingClient:
         freq: typing.Optional[int] = OMIT,
         instruction: typing.Optional[str] = OMIT,
         robot_serials_to_ignore: typing.Optional[typing.Sequence[str]] = OMIT,
-        target_video_size: typing.Optional[
-            typing.Sequence[typing.Optional[typing.Any]]
-        ] = OMIT,
+        target_video_size: typing.Optional[typing.Sequence[typing.Optional[typing.Any]]] = OMIT,
         video_codec: typing.Optional[RecordingStartRequestVideoCodec] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> StatusResponse:
@@ -443,65 +324,28 @@ class AsyncRecordingClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "recording/start",
-            method="POST",
-            json={
-                "branch_path": branch_path,
-                "cameras_ids_to_record": cameras_ids_to_record,
-                "dataset_name": dataset_name,
-                "episode_format": episode_format,
-                "freq": freq,
-                "instruction": instruction,
-                "robot_serials_to_ignore": robot_serials_to_ignore,
-                "target_video_size": target_video_size,
-                "video_codec": video_codec,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = await self._raw_client.start_recording_episode(
+            branch_path=branch_path,
+            cameras_ids_to_record=cameras_ids_to_record,
+            dataset_name=dataset_name,
+            episode_format=episode_format,
+            freq=freq,
+            instruction=instruction,
+            robot_serials_to_ignore=robot_serials_to_ignore,
+            target_video_size=target_video_size,
+            video_codec=video_codec,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    StatusResponse,
-                    parse_obj_as(
-                        type_=StatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data
 
     async def stop_recording_episode(
-        self,
-        *,
-        recording_is_already_stopped: typing.Optional[bool] = OMIT,
-        save: typing.Optional[bool] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, save: typing.Optional[bool] = OMIT, request_options: typing.Optional[RequestOptions] = None
     ) -> RecordingStopResponse:
         """
         Stop the recording of the episode. The data is saved to disk to the user home directory, in the `phosphobot` folder.
 
         Parameters
         ----------
-        recording_is_already_stopped : typing.Optional[bool]
-            Whether the recording is stopped. Default to False.
-
         save : typing.Optional[bool]
             Whether to save the episode to disk. Defaults to True.
 
@@ -530,39 +374,8 @@ class AsyncRecordingClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "recording/stop",
-            method="POST",
-            json={
-                "recording_is_already_stopped": recording_is_already_stopped,
-                "save": save,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+        response = await self._raw_client.stop_recording_episode(
+            save=save,
             request_options=request_options,
-            omit=OMIT,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    RecordingStopResponse,
-                    parse_obj_as(
-                        type_=RecordingStopResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return response.data

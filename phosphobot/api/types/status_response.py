@@ -2,6 +2,7 @@
 
 from ..core.pydantic_utilities import UniversalBaseModel
 import typing
+from .status import Status
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 import pydantic
 
@@ -12,12 +13,10 @@ class StatusResponse(UniversalBaseModel):
     """
 
     message: typing.Optional[str] = None
-    status: typing.Optional[typing.Literal["ok"]] = None
+    status: typing.Optional[Status] = None
 
     if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:
 
         class Config:

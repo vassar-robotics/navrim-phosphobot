@@ -2,24 +2,17 @@
 
 from ..core.pydantic_utilities import UniversalBaseModel
 import typing
-import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
+import pydantic
 
 
-class JointsReadResponse(UniversalBaseModel):
+class DatasetListResponse(UniversalBaseModel):
     """
-    Response to read the joints of the robot.
-    """
-
-    angles_motor_units: typing.List[int] = pydantic.Field()
-    """
-    A list of length 6, with the position of each joint in motor units.
+    List of datasets
     """
 
-    angles_rad: typing.List[float] = pydantic.Field()
-    """
-    A list of length 6, with the position of each joint in radian.
-    """
+    local_datasets: typing.List[str]
+    pushed_datasets: typing.List[str]
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

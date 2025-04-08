@@ -14,29 +14,23 @@ class ItemInfo(UniversalBaseModel):
     """
 
     absolute_path: str
-    browse_url: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="browseUrl")
-    ] = None
-    can_delete_dataset: typing_extensions.Annotated[
-        typing.Optional[bool], FieldMetadata(alias="canDeleteDataset")
-    ] = None
+    browse_url: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="browseUrl")] = None
+    can_delete_dataset: typing_extensions.Annotated[typing.Optional[bool], FieldMetadata(alias="canDeleteDataset")] = (
+        None
+    )
     delete_dataset_action: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="deleteDatasetAction")
     ] = None
-    download_url: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="downloadUrl")
-    ] = None
+    download_url: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="downloadUrl")] = None
+    huggingface_url: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="huggingfaceUrl")] = None
+    is_dataset_dir: typing.Optional[bool] = None
     is_dir: bool
     name: str
     path: str
-    preview_url: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="previewUrl")
-    ] = None
+    preview_url: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="previewUrl")] = None
 
     if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:
 
         class Config:
