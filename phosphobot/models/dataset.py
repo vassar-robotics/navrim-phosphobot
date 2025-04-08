@@ -528,12 +528,15 @@ class Episode(BaseModel):
         if len(self.steps) > 0:
             self.steps[-1].action = step.observation.joints_position.copy()
 
-    async def play(self, robot: BaseRobot):
+    async def play(
+        self,
+        robot: BaseRobot,
+        playback_speed: float = 1.0,
+        interpolation_factor: int = 4,
+    ):
         """
         Play the episode on the robot with on-the-fly interpolation.
         """
-        # We create 4 times more steps than the original ones to have a smoother interpolation
-        interpolation_factor = 4
 
         for index, step in enumerate(self.steps):
             # Get current and next step
@@ -549,7 +552,11 @@ class Episode(BaseModel):
                 delta_timestamp = (
                     next_step.observation.timestamp - curr_step.observation.timestamp
                 )
-                time_per_segment = delta_timestamp / interpolation_factor
+                # Higher playback speed = less time per segment
+                # Higher interpolation factor = less time per segment + more segments
+                time_per_segment = (
+                    delta_timestamp / interpolation_factor / playback_speed
+                )
 
                 # Perform interpolation steps
                 for i in range(interpolation_factor):
@@ -661,9 +668,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
