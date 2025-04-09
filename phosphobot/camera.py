@@ -457,7 +457,7 @@ Camera type: {self.camera_type}""")
         type: np.uint8
         """
         if not self.is_active:
-            logger.error(f"{self.camera_name}: is not active")
+            logger.warning(f"{self.camera_name}: is not active")
         if self.last_frame is None:
             logger.warning(f"{self.camera_name}: No frame available")
 
