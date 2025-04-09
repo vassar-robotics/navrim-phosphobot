@@ -5,7 +5,7 @@ import typing
 from .server_status_ai_running_status import ServerStatusAiRunningStatus
 import pydantic
 from .all_cameras_status import AllCamerasStatus
-from .robot_config import RobotConfig
+from .robot_config_status import RobotConfigStatus
 from .status import Status
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 
@@ -27,7 +27,7 @@ class ServerStatus(UniversalBaseModel):
     """
 
     name: str
-    robot_status: typing.Optional[typing.List[RobotConfig]] = None
+    robot_status: typing.Optional[typing.List[RobotConfigStatus]] = None
     robots: typing.Optional[typing.List[str]] = None
     server_ip: str = pydantic.Field()
     """

@@ -29,6 +29,8 @@ class RawRecordingClient:
         *,
         robot_id: typing.Optional[int] = None,
         episode_path: typing.Optional[str] = OMIT,
+        interpolation_factor: typing.Optional[int] = OMIT,
+        playback_speed: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[StatusResponse]:
         """
@@ -40,6 +42,12 @@ class RawRecordingClient:
 
         episode_path : typing.Optional[str]
             Path to the .json or .parquet file of the episode to play.
+
+        interpolation_factor : typing.Optional[int]
+            Smoothen the playback by interpolating between frames. 1 means no interpolation, 2 means 1 frame every 2 frames, etc. 4 is the recommended value.
+
+        playback_speed : typing.Optional[float]
+            Speed of the playback. 1.0 is normal speed, 0.5 is half speed, 2.0 is double speed. High speed may cause the robot to break.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -57,6 +65,8 @@ class RawRecordingClient:
             },
             json={
                 "episode_path": episode_path,
+                "interpolation_factor": interpolation_factor,
+                "playback_speed": playback_speed,
             },
             headers={
                 "content-type": "application/json",
@@ -257,6 +267,8 @@ class AsyncRawRecordingClient:
         *,
         robot_id: typing.Optional[int] = None,
         episode_path: typing.Optional[str] = OMIT,
+        interpolation_factor: typing.Optional[int] = OMIT,
+        playback_speed: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[StatusResponse]:
         """
@@ -268,6 +280,12 @@ class AsyncRawRecordingClient:
 
         episode_path : typing.Optional[str]
             Path to the .json or .parquet file of the episode to play.
+
+        interpolation_factor : typing.Optional[int]
+            Smoothen the playback by interpolating between frames. 1 means no interpolation, 2 means 1 frame every 2 frames, etc. 4 is the recommended value.
+
+        playback_speed : typing.Optional[float]
+            Speed of the playback. 1.0 is normal speed, 0.5 is half speed, 2.0 is double speed. High speed may cause the robot to break.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -285,6 +303,8 @@ class AsyncRawRecordingClient:
             },
             json={
                 "episode_path": episode_path,
+                "interpolation_factor": interpolation_factor,
+                "playback_speed": playback_speed,
             },
             headers={
                 "content-type": "application/json",

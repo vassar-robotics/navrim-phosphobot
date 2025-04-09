@@ -6,7 +6,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 import pydantic
 
 
-class RobotConfig(UniversalBaseModel):
+class RobotConfigStatus(UniversalBaseModel):
     """
     Contains the configuration of a robot.
     """

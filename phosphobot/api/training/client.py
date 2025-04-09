@@ -28,90 +28,6 @@ class TrainingClient:
         """
         return self._raw_client
 
-    def get_models(self, *, request_options: typing.Optional[RequestOptions] = None) -> TrainingConfig:
-        """
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        TrainingConfig
-            Successful Response
-
-        Examples
-        --------
-        from phospho import PhosphoApi
-
-        client = PhosphoApi(
-            base_url="https://yourhost.com/path/to/api",
-        )
-        client.training.get_models()
-        """
-        response = self._raw_client.get_models(
-            request_options=request_options,
-        )
-        return response.data
-
-    def add_model_to_training_list(
-        self,
-        *,
-        creation_date: str,
-        dataset_name: str,
-        model_name: str,
-        model_type: str,
-        url: str,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> TrainingConfig:
-        """
-        Add a model to the training list
-
-        Parameters
-        ----------
-        creation_date : str
-
-        dataset_name : str
-
-        model_name : str
-
-        model_type : str
-
-        url : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        TrainingConfig
-            Successful Response
-
-        Examples
-        --------
-        from phospho import PhosphoApi
-
-        client = PhosphoApi(
-            base_url="https://yourhost.com/path/to/api",
-        )
-        client.training.add_model_to_training_list(
-            creation_date="creation_date",
-            dataset_name="dataset_name",
-            model_name="model_name",
-            model_type="model_type",
-            url="url",
-        )
-        """
-        response = self._raw_client.add_model_to_training_list(
-            creation_date=creation_date,
-            dataset_name=dataset_name,
-            model_name=model_name,
-            model_type=model_type,
-            url=url,
-            request_options=request_options,
-        )
-        return response.data
-
     def delete_model_from_training_list(
         self,
         *,
@@ -170,11 +86,39 @@ class TrainingClient:
         )
         return response.data
 
+    def get_models(self, *, request_options: typing.Optional[RequestOptions] = None) -> TrainingConfig:
+        """
+        Get the list of models to be trained
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        TrainingConfig
+            Successful Response
+
+        Examples
+        --------
+        from phospho import PhosphoApi
+
+        client = PhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.training.get_models()
+        """
+        response = self._raw_client.get_models(
+            request_options=request_options,
+        )
+        return response.data
+
     def update_model_status(
         self, *, model_url: str, request_options: typing.Optional[RequestOptions] = None
     ) -> ModelStatus:
         """
-        Fetch the status of a model
+        Fetch the status of a model, will return Not started, In progress or Done
 
         Parameters
         ----------
@@ -205,57 +149,7 @@ class TrainingClient:
         )
         return response.data
 
-
-class AsyncTrainingClient:
-    def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._raw_client = AsyncRawTrainingClient(client_wrapper=client_wrapper)
-
-    @property
-    def with_raw_response(self) -> AsyncRawTrainingClient:
-        """
-        Retrieves a raw implementation of this client that returns raw responses.
-
-        Returns
-        -------
-        AsyncRawTrainingClient
-        """
-        return self._raw_client
-
-    async def get_models(self, *, request_options: typing.Optional[RequestOptions] = None) -> TrainingConfig:
-        """
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        TrainingConfig
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from phospho import AsyncPhosphoApi
-
-        client = AsyncPhosphoApi(
-            base_url="https://yourhost.com/path/to/api",
-        )
-
-
-        async def main() -> None:
-            await client.training.get_models()
-
-
-        asyncio.run(main())
-        """
-        response = await self._raw_client.get_models(
-            request_options=request_options,
-        )
-        return response.data
-
-    async def add_model_to_training_list(
+    def add_model_to_training_list(
         self,
         *,
         creation_date: str,
@@ -266,7 +160,7 @@ class AsyncTrainingClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TrainingConfig:
         """
-        Add a model to the training list
+        Add a model to the training list, this will not start training
 
         Parameters
         ----------
@@ -290,28 +184,20 @@ class AsyncTrainingClient:
 
         Examples
         --------
-        import asyncio
+        from phospho import PhosphoApi
 
-        from phospho import AsyncPhosphoApi
-
-        client = AsyncPhosphoApi(
+        client = PhosphoApi(
             base_url="https://yourhost.com/path/to/api",
         )
-
-
-        async def main() -> None:
-            await client.training.add_model_to_training_list(
-                creation_date="creation_date",
-                dataset_name="dataset_name",
-                model_name="model_name",
-                model_type="model_type",
-                url="url",
-            )
-
-
-        asyncio.run(main())
+        client.training.add_model_to_training_list(
+            creation_date="creation_date",
+            dataset_name="dataset_name",
+            model_name="model_name",
+            model_type="model_type",
+            url="url",
+        )
         """
-        response = await self._raw_client.add_model_to_training_list(
+        response = self._raw_client.add_model_to_training_list(
             creation_date=creation_date,
             dataset_name=dataset_name,
             model_name=model_name,
@@ -320,6 +206,93 @@ class AsyncTrainingClient:
             request_options=request_options,
         )
         return response.data
+
+    def start_training(
+        self,
+        *,
+        dataset: str,
+        model_name: str,
+        batch_size: typing.Optional[int] = OMIT,
+        epochs: typing.Optional[int] = OMIT,
+        learning_rate: typing.Optional[float] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.Optional[typing.Any]:
+        """
+        Trigger training for a gr00t model on the specified dataset.
+
+        This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
+
+        Before launching a training, please make sure that:
+        - Your dataset is uploaded to Hugging Face
+        - Your dataset is in the Le Robot format (> v2.0)
+        - Your dataset has at least 10 episodes
+        - You are logged in to phosphobot
+
+        Pro usage:
+        - (You can add a wandb token in phosphobot to track your training)
+
+        Parameters
+        ----------
+        dataset : str
+            Dataset repository ID
+
+        model_name : str
+            Name of the model to be trained
+
+        batch_size : typing.Optional[int]
+            Batch size for training, default and max is 64
+
+        epochs : typing.Optional[int]
+            Number of epochs to train for, default is 20
+
+        learning_rate : typing.Optional[float]
+            Learning rate for training, default is 0.0002
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.Optional[typing.Any]
+            Successful Response
+
+        Examples
+        --------
+        from phospho import PhosphoApi
+
+        client = PhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.training.start_training(
+            dataset="dataset",
+            model_name="model_name",
+        )
+        """
+        response = self._raw_client.start_training(
+            dataset=dataset,
+            model_name=model_name,
+            batch_size=batch_size,
+            epochs=epochs,
+            learning_rate=learning_rate,
+            request_options=request_options,
+        )
+        return response.data
+
+
+class AsyncTrainingClient:
+    def __init__(self, *, client_wrapper: AsyncClientWrapper):
+        self._raw_client = AsyncRawTrainingClient(client_wrapper=client_wrapper)
+
+    @property
+    def with_raw_response(self) -> AsyncRawTrainingClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        AsyncRawTrainingClient
+        """
+        return self._raw_client
 
     async def delete_model_from_training_list(
         self,
@@ -387,11 +360,47 @@ class AsyncTrainingClient:
         )
         return response.data
 
+    async def get_models(self, *, request_options: typing.Optional[RequestOptions] = None) -> TrainingConfig:
+        """
+        Get the list of models to be trained
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        TrainingConfig
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from phospho import AsyncPhosphoApi
+
+        client = AsyncPhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.training.get_models()
+
+
+        asyncio.run(main())
+        """
+        response = await self._raw_client.get_models(
+            request_options=request_options,
+        )
+        return response.data
+
     async def update_model_status(
         self, *, model_url: str, request_options: typing.Optional[RequestOptions] = None
     ) -> ModelStatus:
         """
-        Fetch the status of a model
+        Fetch the status of a model, will return Not started, In progress or Done
 
         Parameters
         ----------
@@ -426,6 +435,151 @@ class AsyncTrainingClient:
         """
         response = await self._raw_client.update_model_status(
             model_url=model_url,
+            request_options=request_options,
+        )
+        return response.data
+
+    async def add_model_to_training_list(
+        self,
+        *,
+        creation_date: str,
+        dataset_name: str,
+        model_name: str,
+        model_type: str,
+        url: str,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> TrainingConfig:
+        """
+        Add a model to the training list, this will not start training
+
+        Parameters
+        ----------
+        creation_date : str
+
+        dataset_name : str
+
+        model_name : str
+
+        model_type : str
+
+        url : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        TrainingConfig
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from phospho import AsyncPhosphoApi
+
+        client = AsyncPhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.training.add_model_to_training_list(
+                creation_date="creation_date",
+                dataset_name="dataset_name",
+                model_name="model_name",
+                model_type="model_type",
+                url="url",
+            )
+
+
+        asyncio.run(main())
+        """
+        response = await self._raw_client.add_model_to_training_list(
+            creation_date=creation_date,
+            dataset_name=dataset_name,
+            model_name=model_name,
+            model_type=model_type,
+            url=url,
+            request_options=request_options,
+        )
+        return response.data
+
+    async def start_training(
+        self,
+        *,
+        dataset: str,
+        model_name: str,
+        batch_size: typing.Optional[int] = OMIT,
+        epochs: typing.Optional[int] = OMIT,
+        learning_rate: typing.Optional[float] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.Optional[typing.Any]:
+        """
+        Trigger training for a gr00t model on the specified dataset.
+
+        This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
+
+        Before launching a training, please make sure that:
+        - Your dataset is uploaded to Hugging Face
+        - Your dataset is in the Le Robot format (> v2.0)
+        - Your dataset has at least 10 episodes
+        - You are logged in to phosphobot
+
+        Pro usage:
+        - (You can add a wandb token in phosphobot to track your training)
+
+        Parameters
+        ----------
+        dataset : str
+            Dataset repository ID
+
+        model_name : str
+            Name of the model to be trained
+
+        batch_size : typing.Optional[int]
+            Batch size for training, default and max is 64
+
+        epochs : typing.Optional[int]
+            Number of epochs to train for, default is 20
+
+        learning_rate : typing.Optional[float]
+            Learning rate for training, default is 0.0002
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.Optional[typing.Any]
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from phospho import AsyncPhosphoApi
+
+        client = AsyncPhosphoApi(
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.training.start_training(
+                dataset="dataset",
+                model_name="model_name",
+            )
+
+
+        asyncio.run(main())
+        """
+        response = await self._raw_client.start_training(
+            dataset=dataset,
+            model_name=model_name,
+            batch_size=batch_size,
+            epochs=epochs,
+            learning_rate=learning_rate,
             request_options=request_options,
         )
         return response.data

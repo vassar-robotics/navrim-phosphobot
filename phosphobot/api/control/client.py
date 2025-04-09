@@ -337,7 +337,7 @@ class ControlClient:
         Parameters
         ----------
         angles : typing.Sequence[float]
-            A list with the position of each joint in radian.
+            A list with the position of each joint. The length of the list must be equal to the number of joints. The unit is given by the 'unit' field.
 
         robot_id : typing.Optional[int]
 
@@ -473,7 +473,7 @@ class ControlClient:
         self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> StatusResponse:
         """
-        Make the robot say hello by waving its end effector. (Test endpoint)
+        Make the robot say hello by opening and closing its gripper. (Test endpoint)
 
         Parameters
         ----------
@@ -851,6 +851,7 @@ class ControlClient:
         Parameters
         ----------
         torque_status : bool
+            Whether to enable or disable torque control.
 
         robot_id : typing.Optional[int]
 
@@ -1306,7 +1307,7 @@ class AsyncControlClient:
         Parameters
         ----------
         angles : typing.Sequence[float]
-            A list with the position of each joint in radian.
+            A list with the position of each joint. The length of the list must be equal to the number of joints. The unit is given by the 'unit' field.
 
         robot_id : typing.Optional[int]
 
@@ -1458,7 +1459,7 @@ class AsyncControlClient:
         self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> StatusResponse:
         """
-        Make the robot say hello by waving its end effector. (Test endpoint)
+        Make the robot say hello by opening and closing its gripper. (Test endpoint)
 
         Parameters
         ----------
@@ -1900,6 +1901,7 @@ class AsyncControlClient:
         Parameters
         ----------
         torque_status : bool
+            Whether to enable or disable torque control.
 
         robot_id : typing.Optional[int]
 

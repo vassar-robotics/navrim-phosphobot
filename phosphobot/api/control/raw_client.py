@@ -455,7 +455,7 @@ class RawControlClient:
         Parameters
         ----------
         angles : typing.Sequence[float]
-            A list with the position of each joint in radian.
+            A list with the position of each joint. The length of the list must be equal to the number of joints. The unit is given by the 'unit' field.
 
         robot_id : typing.Optional[int]
 
@@ -629,7 +629,7 @@ class RawControlClient:
         self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[StatusResponse]:
         """
-        Make the robot say hello by waving its end effector. (Test endpoint)
+        Make the robot say hello by opening and closing its gripper. (Test endpoint)
 
         Parameters
         ----------
@@ -1129,6 +1129,7 @@ class RawControlClient:
         Parameters
         ----------
         torque_status : bool
+            Whether to enable or disable torque control.
 
         robot_id : typing.Optional[int]
 
@@ -1144,10 +1145,16 @@ class RawControlClient:
             "torque/toggle",
             method="POST",
             params={
-                "torque_status": torque_status,
                 "robot_id": robot_id,
             },
+            json={
+                "torque_status": torque_status,
+            },
+            headers={
+                "content-type": "application/json",
+            },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -1657,7 +1664,7 @@ class AsyncRawControlClient:
         Parameters
         ----------
         angles : typing.Sequence[float]
-            A list with the position of each joint in radian.
+            A list with the position of each joint. The length of the list must be equal to the number of joints. The unit is given by the 'unit' field.
 
         robot_id : typing.Optional[int]
 
@@ -1831,7 +1838,7 @@ class AsyncRawControlClient:
         self, *, robot_id: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[StatusResponse]:
         """
-        Make the robot say hello by waving its end effector. (Test endpoint)
+        Make the robot say hello by opening and closing its gripper. (Test endpoint)
 
         Parameters
         ----------
@@ -2333,6 +2340,7 @@ class AsyncRawControlClient:
         Parameters
         ----------
         torque_status : bool
+            Whether to enable or disable torque control.
 
         robot_id : typing.Optional[int]
 
@@ -2348,10 +2356,16 @@ class AsyncRawControlClient:
             "torque/toggle",
             method="POST",
             params={
-                "torque_status": torque_status,
                 "robot_id": robot_id,
             },
+            json={
+                "torque_status": torque_status,
+            },
+            headers={
+                "content-type": "application/json",
+            },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:

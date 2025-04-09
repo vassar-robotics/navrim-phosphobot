@@ -18,7 +18,7 @@ from .types import (
     ModelStatusModelStatus,
     ModelTrainingConfig,
     RecordingStopResponse,
-    RobotConfig,
+    RobotConfigStatus,
     ServerStatus,
     ServerStatusAiRunningStatus,
     SingleCameraStatus,
@@ -33,14 +33,12 @@ from .types import (
     VoltageReadResponse,
 )
 from .errors import InternalServerError, NotFoundError, UnprocessableEntityError
-from . import camera, control, recording, training
+from . import auth, camera, control, networking, pages, recording, training, update
 from .camera import VideoFeedForCameraVideoCameraIdGetRequestCameraId
 from .client import AsyncPhosphoApi, PhosphoApi
 from .control import Source, Unit
-from .recording import (
-    RecordingStartRequestEpisodeFormat,
-    RecordingStartRequestVideoCodec,
-)
+from .pages import UserSettingsRequestVideoCodec
+from .recording import RecordingStartRequestEpisodeFormat, RecordingStartRequestVideoCodec
 
 __all__ = [
     "AdminSettingsResponse",
@@ -66,7 +64,7 @@ __all__ = [
     "RecordingStartRequestEpisodeFormat",
     "RecordingStartRequestVideoCodec",
     "RecordingStopResponse",
-    "RobotConfig",
+    "RobotConfigStatus",
     "ServerStatus",
     "ServerStatusAiRunningStatus",
     "SingleCameraStatus",
@@ -84,8 +82,12 @@ __all__ = [
     "VideoFeedForCameraVideoCameraIdGetRequestCameraId",
     "VizSettingsResponse",
     "VoltageReadResponse",
+    "auth",
     "camera",
     "control",
+    "networking",
+    "pages",
     "recording",
     "training",
+    "update",
 ]

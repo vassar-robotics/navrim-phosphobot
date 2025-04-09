@@ -4,13 +4,11 @@ import typing
 from ..core.client_wrapper import SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..core.http_response import HttpResponse
-from ..types.training_config import TrainingConfig
 from ..core.pydantic_utilities import parse_obj_as
-from ..errors.unprocessable_entity_error import UnprocessableEntityError
-from ..types.http_validation_error import HttpValidationError
 from json.decoder import JSONDecodeError
 from ..core.api_error import ApiError
-from ..types.model_status import ModelStatus
+from ..errors.unprocessable_entity_error import UnprocessableEntityError
+from ..types.http_validation_error import HttpValidationError
 from ..core.client_wrapper import AsyncClientWrapper
 from ..core.http_response import AsyncHttpResponse
 
@@ -18,281 +16,56 @@ from ..core.http_response import AsyncHttpResponse
 OMIT = typing.cast(typing.Any, ...)
 
 
-class RawTrainingClient:
+class RawAuthClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def delete_model_from_training_list(
-        self,
-        *,
-        creation_date: str,
-        dataset_name: str,
-        model_name: str,
-        model_type: str,
-        url: str,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[TrainingConfig]:
-        """
-        Delete a model from the training list
-
-        Parameters
-        ----------
-        creation_date : str
-
-        dataset_name : str
-
-        model_name : str
-
-        model_type : str
-
-        url : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[TrainingConfig]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "training/models/delete",
-            method="POST",
-            json={
-                "creation_date": creation_date,
-                "dataset_name": dataset_name,
-                "model_name": model_name,
-                "model_type": model_type,
-                "url": url,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    TrainingConfig,
-                    parse_obj_as(
-                        type_=TrainingConfig,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def get_models(self, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[TrainingConfig]:
-        """
-        Get the list of models to be trained
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[TrainingConfig]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "training/models/read",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    TrainingConfig,
-                    parse_obj_as(
-                        type_=TrainingConfig,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def update_model_status(
-        self, *, model_url: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ModelStatus]:
-        """
-        Fetch the status of a model, will return Not started, In progress or Done
-
-        Parameters
-        ----------
-        model_url : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ModelStatus]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "training/models/status",
-            method="POST",
-            json={
-                "model_url": model_url,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ModelStatus,
-                    parse_obj_as(
-                        type_=ModelStatus,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def add_model_to_training_list(
-        self,
-        *,
-        creation_date: str,
-        dataset_name: str,
-        model_name: str,
-        model_type: str,
-        url: str,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[TrainingConfig]:
-        """
-        Add a model to the training list, this will not start training
-
-        Parameters
-        ----------
-        creation_date : str
-
-        dataset_name : str
-
-        model_name : str
-
-        model_type : str
-
-        url : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[TrainingConfig]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "training/models/write",
-            method="POST",
-            json={
-                "creation_date": creation_date,
-                "dataset_name": dataset_name,
-                "model_name": model_name,
-                "model_type": model_type,
-                "url": url,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    TrainingConfig,
-                    parse_obj_as(
-                        type_=TrainingConfig,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def start_training(
-        self,
-        *,
-        dataset: str,
-        model_name: str,
-        batch_size: typing.Optional[int] = OMIT,
-        epochs: typing.Optional[int] = OMIT,
-        learning_rate: typing.Optional[float] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+    def is_authenticated(
+        self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[typing.Optional[typing.Any]]:
         """
-        Trigger training for a gr00t model on the specified dataset.
-
-        This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
-
-        Before launching a training, please make sure that:
-        - Your dataset is uploaded to Hugging Face
-        - Your dataset is in the Le Robot format (> v2.0)
-        - Your dataset has at least 10 episodes
-        - You are logged in to phosphobot
-
-        Pro usage:
-        - (You can add a wandb token in phosphobot to track your training)
+        Check if the user is authenticated by validating the session with Supabase.
+        Returns a JSON response indicating authentication status.
 
         Parameters
         ----------
-        dataset : str
-            Dataset repository ID
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
 
-        model_name : str
-            Name of the model to be trained
+        Returns
+        -------
+        HttpResponse[typing.Optional[typing.Any]]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "auth/check_auth",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Optional[typing.Any],
+                    parse_obj_as(
+                        type_=typing.Optional[typing.Any],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
 
-        batch_size : typing.Optional[int]
-            Batch size for training, default and max is 64
+    def confirm_email(
+        self, *, access_token: str, refresh_token: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[typing.Optional[typing.Any]]:
+        """
+        Parameters
+        ----------
+        access_token : str
 
-        epochs : typing.Optional[int]
-            Number of epochs to train for, default is 20
-
-        learning_rate : typing.Optional[float]
-            Learning rate for training, default is 0.0002
+        refresh_token : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -303,14 +76,11 @@ class RawTrainingClient:
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
-            "training/start",
+            "auth/confirm",
             method="POST",
             json={
-                "batch_size": batch_size,
-                "dataset": dataset,
-                "epochs": epochs,
-                "learning_rate": learning_rate,
-                "model_name": model_name,
+                "access_token": access_token,
+                "refresh_token": refresh_token,
             },
             headers={
                 "content-type": "application/json",
@@ -343,141 +113,29 @@ class RawTrainingClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-
-class AsyncRawTrainingClient:
-    def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._client_wrapper = client_wrapper
-
-    async def delete_model_from_training_list(
-        self,
-        *,
-        creation_date: str,
-        dataset_name: str,
-        model_name: str,
-        model_type: str,
-        url: str,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[TrainingConfig]:
+    def forgot_password(
+        self, *, email: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[typing.Optional[typing.Any]]:
         """
-        Delete a model from the training list
+        Send a password reset email to the provided email address.
 
         Parameters
         ----------
-        creation_date : str
-
-        dataset_name : str
-
-        model_name : str
-
-        model_type : str
-
-        url : str
+        email : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[TrainingConfig]
+        HttpResponse[typing.Optional[typing.Any]]
             Successful Response
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "training/models/delete",
+        _response = self._client_wrapper.httpx_client.request(
+            "auth/forgot-password",
             method="POST",
             json={
-                "creation_date": creation_date,
-                "dataset_name": dataset_name,
-                "model_name": model_name,
-                "model_type": model_type,
-                "url": url,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    TrainingConfig,
-                    parse_obj_as(
-                        type_=TrainingConfig,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def get_models(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[TrainingConfig]:
-        """
-        Get the list of models to be trained
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[TrainingConfig]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "training/models/read",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    TrainingConfig,
-                    parse_obj_as(
-                        type_=TrainingConfig,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def update_model_status(
-        self, *, model_url: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ModelStatus]:
-        """
-        Fetch the status of a model, will return Not started, In progress or Done
-
-        Parameters
-        ----------
-        model_url : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ModelStatus]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "training/models/status",
-            method="POST",
-            json={
-                "model_url": model_url,
+                "email": email,
             },
             headers={
                 "content-type": "application/json",
@@ -488,13 +146,13 @@ class AsyncRawTrainingClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ModelStatus,
+                    typing.Optional[typing.Any],
                     parse_obj_as(
-                        type_=ModelStatus,  # type: ignore
+                        type_=typing.Optional[typing.Any],  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return AsyncHttpResponse(response=_response, data=_data)
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     typing.cast(
@@ -510,48 +168,77 @@ class AsyncRawTrainingClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def add_model_to_training_list(
+    def logout(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[typing.Optional[typing.Any]]:
+        """
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[typing.Optional[typing.Any]]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "auth/logout",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Optional[typing.Any],
+                    parse_obj_as(
+                        type_=typing.Optional[typing.Any],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def reset_password(
         self,
         *,
-        creation_date: str,
-        dataset_name: str,
-        model_name: str,
-        model_type: str,
-        url: str,
+        access_token: str,
+        new_password: str,
+        refresh_token: str,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[TrainingConfig]:
+    ) -> HttpResponse[typing.Optional[typing.Any]]:
         """
-        Add a model to the training list, this will not start training
+        Reset a user's password using the recovery tokens from the Supabase reset email.
 
         Parameters
         ----------
-        creation_date : str
+        access_token : str
 
-        dataset_name : str
+        new_password : str
 
-        model_name : str
-
-        model_type : str
-
-        url : str
+        refresh_token : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[TrainingConfig]
+        HttpResponse[typing.Optional[typing.Any]]
             Successful Response
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "training/models/write",
+        _response = self._client_wrapper.httpx_client.request(
+            "auth/reset-password",
             method="POST",
             json={
-                "creation_date": creation_date,
-                "dataset_name": dataset_name,
-                "model_name": model_name,
-                "model_type": model_type,
-                "url": url,
+                "access_token": access_token,
+                "new_password": new_password,
+                "refresh_token": refresh_token,
+            },
+            headers={
+                "content-type": "application/json",
             },
             request_options=request_options,
             omit=OMIT,
@@ -559,13 +246,13 @@ class AsyncRawTrainingClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    TrainingConfig,
+                    typing.Optional[typing.Any],
                     parse_obj_as(
-                        type_=TrainingConfig,  # type: ignore
+                        type_=typing.Optional[typing.Any],  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return AsyncHttpResponse(response=_response, data=_data)
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     typing.cast(
@@ -581,46 +268,167 @@ class AsyncRawTrainingClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def start_training(
-        self,
-        *,
-        dataset: str,
-        model_name: str,
-        batch_size: typing.Optional[int] = OMIT,
-        epochs: typing.Optional[int] = OMIT,
-        learning_rate: typing.Optional[float] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    def signin(
+        self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[typing.Optional[typing.Any]]:
         """
-        Trigger training for a gr00t model on the specified dataset.
-
-        This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
-
-        Before launching a training, please make sure that:
-        - Your dataset is uploaded to Hugging Face
-        - Your dataset is in the Le Robot format (> v2.0)
-        - Your dataset has at least 10 episodes
-        - You are logged in to phosphobot
-
-        Pro usage:
-        - (You can add a wandb token in phosphobot to track your training)
+        Sign in an existing user.
 
         Parameters
         ----------
-        dataset : str
-            Dataset repository ID
+        email : str
 
-        model_name : str
-            Name of the model to be trained
+        password : str
 
-        batch_size : typing.Optional[int]
-            Batch size for training, default and max is 64
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
 
-        epochs : typing.Optional[int]
-            Number of epochs to train for, default is 20
+        Returns
+        -------
+        HttpResponse[typing.Optional[typing.Any]]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "auth/signin",
+            method="POST",
+            json={
+                "email": email,
+                "password": password,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Optional[typing.Any],
+                    parse_obj_as(
+                        type_=typing.Optional[typing.Any],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
 
-        learning_rate : typing.Optional[float]
-            Learning rate for training, default is 0.0002
+    def signup(
+        self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[typing.Optional[typing.Any]]:
+        """
+        Sign up a new user.
+
+        Parameters
+        ----------
+        email : str
+
+        password : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[typing.Optional[typing.Any]]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "auth/signup",
+            method="POST",
+            json={
+                "email": email,
+                "password": password,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Optional[typing.Any],
+                    parse_obj_as(
+                        type_=typing.Optional[typing.Any],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+
+class AsyncRawAuthClient:
+    def __init__(self, *, client_wrapper: AsyncClientWrapper):
+        self._client_wrapper = client_wrapper
+
+    async def is_authenticated(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+        """
+        Check if the user is authenticated by validating the session with Supabase.
+        Returns a JSON response indicating authentication status.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[typing.Optional[typing.Any]]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "auth/check_auth",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Optional[typing.Any],
+                    parse_obj_as(
+                        type_=typing.Optional[typing.Any],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def confirm_email(
+        self, *, access_token: str, refresh_token: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+        """
+        Parameters
+        ----------
+        access_token : str
+
+        refresh_token : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -631,17 +439,279 @@ class AsyncRawTrainingClient:
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "training/start",
+            "auth/confirm",
             method="POST",
             json={
-                "batch_size": batch_size,
-                "dataset": dataset,
-                "epochs": epochs,
-                "learning_rate": learning_rate,
-                "model_name": model_name,
+                "access_token": access_token,
+                "refresh_token": refresh_token,
             },
             headers={
                 "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Optional[typing.Any],
+                    parse_obj_as(
+                        type_=typing.Optional[typing.Any],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def forgot_password(
+        self, *, email: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+        """
+        Send a password reset email to the provided email address.
+
+        Parameters
+        ----------
+        email : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[typing.Optional[typing.Any]]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "auth/forgot-password",
+            method="POST",
+            json={
+                "email": email,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Optional[typing.Any],
+                    parse_obj_as(
+                        type_=typing.Optional[typing.Any],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def logout(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+        """
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[typing.Optional[typing.Any]]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "auth/logout",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Optional[typing.Any],
+                    parse_obj_as(
+                        type_=typing.Optional[typing.Any],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def reset_password(
+        self,
+        *,
+        access_token: str,
+        new_password: str,
+        refresh_token: str,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+        """
+        Reset a user's password using the recovery tokens from the Supabase reset email.
+
+        Parameters
+        ----------
+        access_token : str
+
+        new_password : str
+
+        refresh_token : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[typing.Optional[typing.Any]]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "auth/reset-password",
+            method="POST",
+            json={
+                "access_token": access_token,
+                "new_password": new_password,
+                "refresh_token": refresh_token,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Optional[typing.Any],
+                    parse_obj_as(
+                        type_=typing.Optional[typing.Any],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def signin(
+        self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+        """
+        Sign in an existing user.
+
+        Parameters
+        ----------
+        email : str
+
+        password : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[typing.Optional[typing.Any]]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "auth/signin",
+            method="POST",
+            json={
+                "email": email,
+                "password": password,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Optional[typing.Any],
+                    parse_obj_as(
+                        type_=typing.Optional[typing.Any],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def signup(
+        self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+        """
+        Sign up a new user.
+
+        Parameters
+        ----------
+        email : str
+
+        password : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[typing.Optional[typing.Any]]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "auth/signup",
+            method="POST",
+            json={
+                "email": email,
+                "password": password,
             },
             request_options=request_options,
             omit=OMIT,

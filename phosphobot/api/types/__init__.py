@@ -17,7 +17,7 @@ from .model_status import ModelStatus
 from .model_status_model_status import ModelStatusModelStatus
 from .model_training_config import ModelTrainingConfig
 from .recording_stop_response import RecordingStopResponse
-from .robot_config import RobotConfig
+from .robot_config_status import RobotConfigStatus
 from .server_status import ServerStatus
 from .server_status_ai_running_status import ServerStatusAiRunningStatus
 from .single_camera_status import SingleCameraStatus
@@ -49,7 +49,7 @@ __all__ = [
     "ModelStatusModelStatus",
     "ModelTrainingConfig",
     "RecordingStopResponse",
-    "RobotConfig",
+    "RobotConfigStatus",
     "ServerStatus",
     "ServerStatusAiRunningStatus",
     "SingleCameraStatus",
