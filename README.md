@@ -1,6 +1,6 @@
 # phosphobot
 
-A community-driven platform for robotics enthusiasts to share and explore creative projects built with the phospho Junior Dev Kit.
+A community-driven platform for robotics enthusiasts to share and explore creative projects built with the phospho starter pack.
 
 <div align="center">
 
@@ -12,11 +12,11 @@ A community-driven platform for robotics enthusiasts to share and explore creati
 
 ## Overview
 
-This repository contains demo code and community projects developed using the phospho Junior Dev Kit. Whether you're a beginner or an experienced developer, you can explore existing projects or contribute your own creations.
+This repository contains demo code and community projects developed using the phospho starter pack. Whether you're a beginner or an experienced developer, you can explore existing projects or contribute your own creations.
 
 ## Getting Started
 
-1. **Get Your Dev Kit**: Purchase your Phospho Junior Dev Kit at [robots.phospho.ai](https://robots.phospho.ai). Unbox it and set it up following the instructions in the box.
+1. **Get Your Dev Kit**: Purchase your Phospho starter pack at [robots.phospho.ai](https://robots.phospho.ai). Unbox it and set it up following the instructions in the box.
 
 2. **Control your Robot**: Donwload the Meta Quest app, connect it to your robot, start teleoperating it.
 
