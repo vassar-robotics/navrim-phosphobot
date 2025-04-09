@@ -58,7 +58,7 @@ Launch the phosphobot server:
 phosphobot run
 ```
 
-Run the folowing script to control your robot using the model:
+Run this script to control your robot using the model:
 
 ```python
 from phosphobot.camera import AllCameras
