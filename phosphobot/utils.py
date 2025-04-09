@@ -1,5 +1,6 @@
 import base64
 import functools
+import inspect
 import json
 import os
 import traceback
@@ -386,18 +387,27 @@ def get_hf_token() -> str | None:
 
 def background_task_log_exceptions(func):
     """
-    Decorator to log exceptions in background tasks.
+    Decorator to log exceptions in background tasks (works for both sync/async functions).
     Otherwise, the exception is silently swallowed.
     """
 
     @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def async_wrapper(*args, **kwargs):
         try:
             return await func(*args, **kwargs)
         except Exception as e:
-            # Log the full exception with traceback
             logger.error(f"Background task error: {str(e)}\n{traceback.format_exc()}")
-            # Optionally re-raise if you want to crash the worker
             raise
 
-    return wrapper
+    @functools.wraps(func)
+    def sync_wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Background task error: {str(e)}\n{traceback.format_exc()}")
+            raise
+
+    if inspect.iscoroutinefunction(func):
+        return async_wrapper
+    else:
+        return sync_wrapper
