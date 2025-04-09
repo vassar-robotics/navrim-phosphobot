@@ -44,7 +44,7 @@ We release new versions very often.
 
 2. **Install LeRobot**. [LeRobot](https://github.com/huggingface/lerobot) by HuggingFace is a research-oriented library for AI training which is still a work in progress. We made a few workarounds to make sure it works reliably. On MacOS, here is a step by step guide.
 
-2.1. Install [uv](https://github.com/astral-sh/uv), a Python environment manager.
+2.1. Install [uv](https://docs.astral.sh/uv/), a Python environment manager.
 
 ```bash
 # On macOS and Linux.
