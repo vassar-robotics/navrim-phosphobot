@@ -21,7 +21,7 @@ from phosphobot.models import (
     TasksModel,
 )
 from phosphobot.types import VideoCodecs
-from phosphobot.utils import get_home_app_path
+from phosphobot.utils import background_task_log_exceptions, get_home_app_path
 
 
 class Recorder:
@@ -207,7 +207,7 @@ class Recorder:
             self.global_index = self.info_model.total_frames
 
         background_tasks.add_task(
-            self.record,
+            background_task_log_exceptions(self.record),
             target_size=target_size,
             language_instruction=instruction or config.DEFAULT_TASK_INSTRUCTION,
         )

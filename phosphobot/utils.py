@@ -1,14 +1,16 @@
 import base64
+import functools
 import json
 import os
+import traceback
 from pathlib import Path
 from typing import Annotated, Any, Tuple, Union
 
 import cv2
-from huggingface_hub import HfApi
 import numpy as np
-from loguru import logger
 import pandas as pd
+from huggingface_hub import HfApi
+from loguru import logger
 from pydantic import BeforeValidator, PlainSerializer
 from rich import print
 
@@ -380,3 +382,22 @@ def get_hf_token() -> str | None:
     else:
         logger.warning(f"Empty token file: {token_file}.")
         return None
+
+
+def background_task_log_exceptions(func):
+    """
+    Decorator to log exceptions in background tasks.
+    Otherwise, the exception is silently swallowed.
+    """
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            # Log the full exception with traceback
+            logger.error(f"Background task error: {str(e)}\n{traceback.format_exc()}")
+            # Optionally re-raise if you want to crash the worker
+            raise
+
+    return wrapper
