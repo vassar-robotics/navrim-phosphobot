@@ -15,27 +15,27 @@ git clone https://github.com/phospho-app/phosphobot.git
 git clone https://github.com/huggingface/lerobot.git
 ```
 
-# Setup an inference server
+# Setup a server
 
-## Inference on ACT models
+## Deploy an ACT model
 
 If you use pip, just run
 
 ```bash
 cd phosphobot/inference
 pip install .
-python ACT/inference.py --model_id=<YOUR_HF_DATASET_NAME>
+python ACT/server.py --model_id=<YOUR_HF_DATASET_NAME>
 ```
 
-This will load your model and create an /act endpoint that expects the robot's current position and images. If using a local model, you can pass the path of a local model instead of a HF model with the "--model_id=..." flag.
+This will load your model and create an `/act` endpoint that expects the robot's current position and images. If using a local model, you can pass the path of a local model instead of a HF model with the "--model_id=..." flag.
 
-This inference script is intended to run on a machine with a GPU, separately from your phosphobot installation.
+This server script is intended to run on a machine with a GPU, separately from your phosphobot installation.
 
 You can edit the URL and Port parameters in your phohsphobot Admin panel to connect your robot to the inference server. By default, these should be localhost and 8080.
 
 ## Inference on Pi0 models
 
-Follow the instruction in the [Physical-Intelligence/openpi](https://github.com/Physical-Intelligence/openpi) repo to setup a inference server.
+Follow the instruction in the [Physical-Intelligence/openpi](https://github.com/Physical-Intelligence/openpi) repo to setup your server for inference.
 
 # Call your inference server from a python script
 
@@ -45,105 +45,6 @@ You can implement the `ActionModel` class with you own logic [here](phosphobot/a
 At this point, go to your phosphobot dashboard > docs and launch the auto/start endpoint that will communicate with the inference server to automatically control the robot.
 
 You can stop at any time by calling the auto/stop endpoint.
-
-## Example script for ACT
-
-```python
-from phosphobot.camera import AllCameras
-from phosphobot.api.client import PhosphoApi
-from phosphobot.am import ACT
-
-import time
-import numpy as np
-
-# Connect to the phosphobot server
-client = PhosphoApi(base_url="http://localhost:80")
-
-# Get a camera frame
-allcameras = AllCameras()
-
-# Need to wait for the cameras to initialize
-time.sleep(1)
-
-# Instantiate the model
-model = ACT()
-
-# Get the frames from the cameras
-# We will use this model: LegrandFrederic/Orange-brick-in-black-box
-# It requires 3 cameras as you can see in the config.json
-# https://huggingface.co/LegrandFrederic/Orange-brick-in-black-box/blob/main/config.json
-
-while True:
-    images = [
-        allcameras.get_rgb_frame(camera_id=0, resize=(240, 320)),
-        allcameras.get_rgb_frame(camera_id=1, resize=(240, 320)),
-        allcameras.get_rgb_frame(camera_id=2, resize=(240, 320)),
-    ]
-
-    # Get the robot state
-    state = client.control.read_joints()
-
-    inputs = {"state": np.array(state.angles_rad), "images": np.array(images)}
-
-    # Go through the model
-    actions = model(inputs)
-
-    for action in actions:
-        # Send the new joint postion to the robot
-        client.control.write_joints(angles=action.tolist())
-        # Wait to respect frequency control (30 Hz)
-        time.sleep(1 / 30)
-```
-
-## Example script for Pi0
-
-```python
-from phosphobot.camera import AllCameras
-from phosphobot.api.client import PhosphoApi
-from phosphobot.am import Pi0
-
-import time
-import numpy as np
-
-# Connect to the phosphobot server
-client = PhosphoApi(base_url="http://localhost:80")
-
-# Get a camera frame
-allcameras = AllCameras()
-
-# Need to wait for the cameras to initialize
-time.sleep(1)
-
-# Instantiate the model
-model = Pi0(server_url="YOUR_SERVER_URL")
-
-while True:
-    # Get the frames from the cameras
-    # We will use this model: PLB/pi0-so100-orangelegobrick-wristcam
-    # It requires 2 cameras (a context cam and a wrist cam)
-    images = [
-        allcameras.get_rgb_frame(camera_id=0, resize=(240, 320)),
-        allcameras.get_rgb_frame(camera_id=1, resize=(240, 320)),
-    ]
-
-    # Get the robot state
-    state = client.control.read_joints()
-
-    inputs = {
-        "state": np.array(state.angles_rad),
-        "images": np.array(images),
-        "prompt": "Pick up the orange brick",
-    }
-
-    # Go through the model
-    actions = model(inputs)
-
-    for action in actions:
-        # Send the new joint postion to the robot
-        client.control.write_joints(angles=action.tolist())
-        # Wait to respect frequency control (30 Hz)
-        time.sleep(1 / 30)
-```
 
 ### Notes
 

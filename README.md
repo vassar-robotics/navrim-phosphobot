@@ -87,8 +87,8 @@ Change the `--policy.device` flag based on your hardware: `cuda` if you have an 
 3.1 Launch the ACT server to run inference. This should be running on a beefy GPU machine. Check out our folder [/inference] for more details.
 
 ```bash
-curl -o act_server.py https://raw.githubusercontent.com/phospho-app/phosphobot/refs/heads/main/inference/ACT/inference.py
-uv run act_server.py
+curl -o server.py https://raw.githubusercontent.com/phospho-app/phosphobot/refs/heads/main/inference/ACT/server.py
+uv run server.py
 ```
 
 3.2 Make sure the [phosphobot server](https://docs.phospho.ai/installation) is running to control your robot:
@@ -100,7 +100,7 @@ curl -fsSL https://raw.githubusercontent.com/phospho-app/phosphobot/main/install
 phosphobot run
 ```
 
-3.3 Create a script called `my_model/inference.py` and copy paste the content below.
+3.3 Create a script called `my_model/client.py` and copy paste the content below.
 
 ```python
 # /// script
@@ -153,7 +153,7 @@ while True:
 3.4 Run this script to control your robot using the model:
 
 ```
-uv run my_model/inference.py
+uv run my_model/client.py
 ```
 
 For the full detailed instructions and other model (Pi0, OpenVLA,...), refer to the [docs](https://docs.phospho.ai/basic-usage/inference).
