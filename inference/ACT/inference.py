@@ -1,3 +1,14 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "lerobot",
+#     "phosphobot",
+#     "torch",
+# ]
+#
+# [tool.uv.sources]
+# lerobot = { git = "https://github.com/phospho-app/lerobot" }
+# ///
 import argparse
 import logging
 from pathlib import Path
