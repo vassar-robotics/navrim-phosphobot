@@ -33,12 +33,14 @@ from .types import (
     VoltageReadResponse,
 )
 from .errors import InternalServerError, NotFoundError, UnprocessableEntityError
-from . import auth, camera, control, networking, pages, recording, training, update
+from . import auth, camera, control, recording, training, update
 from .camera import VideoFeedForCameraVideoCameraIdGetRequestCameraId
 from .client import AsyncPhosphoApi, PhosphoApi
 from .control import Source, Unit
-from .pages import UserSettingsRequestVideoCodec
-from .recording import RecordingStartRequestEpisodeFormat, RecordingStartRequestVideoCodec
+from .recording import (
+    RecordingStartRequestEpisodeFormat,
+    RecordingStartRequestVideoCodec,
+)
 
 __all__ = [
     "AdminSettingsResponse",
@@ -85,8 +87,6 @@ __all__ = [
     "auth",
     "camera",
     "control",
-    "networking",
-    "pages",
     "recording",
     "training",
     "update",

@@ -4,11 +4,9 @@ import typing
 import httpx
 from .core.client_wrapper import SyncClientWrapper
 from .raw_client import RawPhosphoApi
-from .pages.client import PagesClient
 from .control.client import ControlClient
 from .auth.client import AuthClient
 from .camera.client import CameraClient
-from .networking.client import NetworkingClient
 from .recording.client import RecordingClient
 from .training.client import TrainingClient
 from .update.client import UpdateClient
@@ -16,11 +14,9 @@ from .core.request_options import RequestOptions
 from .types.server_status import ServerStatus
 from .core.client_wrapper import AsyncClientWrapper
 from .raw_client import AsyncRawPhosphoApi
-from .pages.client import AsyncPagesClient
 from .control.client import AsyncControlClient
 from .auth.client import AsyncAuthClient
 from .camera.client import AsyncCameraClient
-from .networking.client import AsyncNetworkingClient
 from .recording.client import AsyncRecordingClient
 from .training.client import AsyncTrainingClient
 from .update.client import AsyncUpdateClient
@@ -62,23 +58,27 @@ class PhosphoApi:
         httpx_client: typing.Optional[httpx.Client] = None,
     ):
         _defaulted_timeout = (
-            timeout if timeout is not None else 60 if httpx_client is None else httpx_client.timeout.read
+            timeout
+            if timeout is not None
+            else 60
+            if httpx_client is None
+            else httpx_client.timeout.read
         )
         self._client_wrapper = SyncClientWrapper(
             base_url=base_url,
             httpx_client=httpx_client
             if httpx_client is not None
-            else httpx.Client(timeout=_defaulted_timeout, follow_redirects=follow_redirects)
+            else httpx.Client(
+                timeout=_defaulted_timeout, follow_redirects=follow_redirects
+            )
             if follow_redirects is not None
             else httpx.Client(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
         self._raw_client = RawPhosphoApi(client_wrapper=self._client_wrapper)
-        self.pages = PagesClient(client_wrapper=self._client_wrapper)
         self.control = ControlClient(client_wrapper=self._client_wrapper)
         self.auth = AuthClient(client_wrapper=self._client_wrapper)
         self.camera = CameraClient(client_wrapper=self._client_wrapper)
-        self.networking = NetworkingClient(client_wrapper=self._client_wrapper)
         self.recording = RecordingClient(client_wrapper=self._client_wrapper)
         self.training = TrainingClient(client_wrapper=self._client_wrapper)
         self.update = UpdateClient(client_wrapper=self._client_wrapper)
@@ -94,7 +94,9 @@ class PhosphoApi:
         """
         return self._raw_client
 
-    def status_status_get(self, *, request_options: typing.Optional[RequestOptions] = None) -> ServerStatus:
+    def status_status_get(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ServerStatus:
         """
         Get the status of the server.
 
@@ -159,23 +161,27 @@ class AsyncPhosphoApi:
         httpx_client: typing.Optional[httpx.AsyncClient] = None,
     ):
         _defaulted_timeout = (
-            timeout if timeout is not None else 60 if httpx_client is None else httpx_client.timeout.read
+            timeout
+            if timeout is not None
+            else 60
+            if httpx_client is None
+            else httpx_client.timeout.read
         )
         self._client_wrapper = AsyncClientWrapper(
             base_url=base_url,
             httpx_client=httpx_client
             if httpx_client is not None
-            else httpx.AsyncClient(timeout=_defaulted_timeout, follow_redirects=follow_redirects)
+            else httpx.AsyncClient(
+                timeout=_defaulted_timeout, follow_redirects=follow_redirects
+            )
             if follow_redirects is not None
             else httpx.AsyncClient(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
         self._raw_client = AsyncRawPhosphoApi(client_wrapper=self._client_wrapper)
-        self.pages = AsyncPagesClient(client_wrapper=self._client_wrapper)
         self.control = AsyncControlClient(client_wrapper=self._client_wrapper)
         self.auth = AsyncAuthClient(client_wrapper=self._client_wrapper)
         self.camera = AsyncCameraClient(client_wrapper=self._client_wrapper)
-        self.networking = AsyncNetworkingClient(client_wrapper=self._client_wrapper)
         self.recording = AsyncRecordingClient(client_wrapper=self._client_wrapper)
         self.training = AsyncTrainingClient(client_wrapper=self._client_wrapper)
         self.update = AsyncUpdateClient(client_wrapper=self._client_wrapper)
@@ -191,7 +197,9 @@ class AsyncPhosphoApi:
         """
         return self._raw_client
 
-    async def status_status_get(self, *, request_options: typing.Optional[RequestOptions] = None) -> ServerStatus:
+    async def status_status_get(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ServerStatus:
         """
         Get the status of the server.
 
