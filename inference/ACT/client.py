@@ -18,7 +18,7 @@ allcameras = AllCameras()
 time.sleep(1)  # Camera warmup
 
 # Connect to ACT server
-model = ACT(server_url="http://localhost:8000")
+model = ACT(server_url="http://localhost:8080")
 
 while True:
     # Capture multi-camera frames (adjust camera IDs as needed)
