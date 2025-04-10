@@ -9,7 +9,6 @@ from typing import Generator, List, Literal, Optional, Dict, cast
 
 import cv2
 import numpy as np
-import pyrealsense2 as rs  # type: ignore
 from loguru import logger
 
 from phosphobot.configs import config
@@ -565,103 +564,119 @@ class StereoCamera(VideoCamera):
         return right_frame
 
 
-class RealSenseCamera(BaseCamera):
-    """
-    A Realsense camera is an Intel camera that can capture depth and RGB frames.
+try:
+    import pyrealsense2 as rs
 
-    It's based on infrared technology and can be used to capture 3D images.
-    """
+    class RealSenseCamera(BaseCamera):
+        """
+        A Realsense camera is an Intel camera that can capture depth and RGB frames.
 
-    camera_type: CameraTypes = "realsense"
-    last_rgb_frame: np.ndarray
-    last_depth_frame: np.ndarray
-    pipeline: rs.pipeline
-    is_connected: bool = False
-    device_info: str
+        It's based on infrared technology and can be used to capture 3D images.
+        """
 
-    def __init__(
-        self, disable: bool = False, width: int = 640, height: int = 480, fps: int = 30
-    ):
-        super().__init__(width, height, fps)
+        camera_type: CameraTypes = "realsense"
+        last_rgb_frame: np.ndarray
+        last_depth_frame: np.ndarray
+        pipeline: rs.pipeline
+        is_connected: bool = False
+        device_info: str
 
-        # Configure depth and color streams
-        self.pipeline = rs.pipeline()
-        config = rs.config()
+        def __init__(
+            self,
+            disable: bool = False,
+            width: int = 640,
+            height: int = 480,
+            fps: int = 30,
+        ):
+            super().__init__(width, height, fps)
 
-        # Get the number of realsense devices
-        ctx = rs.context()
-        realsense_devices = ctx.query_devices()
+            # Configure depth and color streams
+            self.pipeline = rs.pipeline()
+            config = rs.config()
 
-        if realsense_devices.size() == 0:
-            return
+            # Get the number of realsense devices
+            ctx = rs.context()
+            realsense_devices = ctx.query_devices()
 
-        self.is_connected = True
-        if disable:
-            logger.debug(f"{self.camera_name} disabled")
-            return
+            if realsense_devices.size() == 0:
+                return
 
-        # TODO: When multiple realsense cameras are connected, we need to select the correct one
-        time.sleep(0.2)
-        self.device_info = realsense_devices.front().get_info(rs.camera_info.name)
+            self.is_connected = True
+            if disable:
+                logger.debug(f"{self.camera_name} disabled")
+                return
 
-        config.enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
-        config.enable_stream(rs.stream.depth, width, height, rs.format.z16, fps)
+            # TODO: When multiple realsense cameras are connected, we need to select the correct one
+            time.sleep(0.2)
+            self.device_info = realsense_devices.front().get_info(rs.camera_info.name)
 
-        # Start streaming
-        self.pipeline.start(config)
-        time.sleep(0.2)
-        self.is_active = True
+            config.enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
+            config.enable_stream(rs.stream.depth, width, height, rs.format.z16, fps)
 
-    @property
-    def camera_name(self) -> str:
-        return f"RealsenseCamera {self.camera_type}"
+            # Start streaming
+            self.pipeline.start(config)
+            time.sleep(0.2)
+            self.is_active = True
 
-    def get_rgb_frame(
-        self, resize: tuple[int, int] | None = None
-    ) -> Optional[cv2.typing.MatLike]:
-        # To get the video frame, get the couple (video, depth) frame from the wait_for_frames method
-        if not self.is_active:
-            logger.warning(f"{self.camera_name} is not active")
-            return None
-        # Wait for a coherent pair of frames: depth and color
-        last_bgr_frame = self.pipeline.wait_for_frames(timeout_ms=200).get_color_frame()
-        if last_bgr_frame is None:
-            logger.warning(f"{self.camera_name} failed to grab frame")
-            return None
-        np_bgr_frame = np.asanyarray(last_bgr_frame.get_data())
-        # Convert frame from BGR to RGB
-        frame = cv2.cvtColor(np_bgr_frame, cv2.COLOR_BGR2RGB)
-        if resize is not None:
-            frame = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
-        return frame
+        @property
+        def camera_name(self) -> str:
+            return f"RealsenseCamera {self.camera_type}"
 
-    def get_depth_frame(
-        self, resize: tuple[int, int] | None = None
-    ) -> Optional[cv2.typing.MatLike]:
-        # To get the depth frame, also get the couple (video, depth) frame from the wait_for_frames method
-        # The method get_depth and get_rgb_frame can be called simultaneously without lagging (tested)
-        # One should load them together for recording to be sure that the depth and video frame are coherent
+        def get_rgb_frame(
+            self, resize: tuple[int, int] | None = None
+        ) -> Optional[cv2.typing.MatLike]:
+            # To get the video frame, get the couple (video, depth) frame from the wait_for_frames method
+            if not self.is_active:
+                logger.warning(f"{self.camera_name} is not active")
+                return None
+            # Wait for a coherent pair of frames: depth and color
+            last_bgr_frame = self.pipeline.wait_for_frames(
+                timeout_ms=200
+            ).get_color_frame()
+            if last_bgr_frame is None:
+                logger.warning(f"{self.camera_name} failed to grab frame")
+                return None
+            np_bgr_frame = np.asanyarray(last_bgr_frame.get_data())
+            # Convert frame from BGR to RGB
+            frame = cv2.cvtColor(np_bgr_frame, cv2.COLOR_BGR2RGB)
+            if resize is not None:
+                frame = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
+            return frame
 
-        if not self.is_active:
-            logger.warning(f"{self.camera_name} is not active")
-            return None
-        last_bgr_depth_frame = self.pipeline.wait_for_frames().get_depth_frame()
-        if last_bgr_depth_frame is None:
-            logger.warning(f"{self.camera_name} Failed to grab frame")
-            return None
-        np_bgr_depth_frame = np.asanyarray(last_bgr_depth_frame.get_data())
-        frame = cv2.cvtColor(np_bgr_depth_frame, cv2.COLOR_BGR2RGB)
-        if resize is not None:
-            frame = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
-        return frame
+        def get_depth_frame(
+            self, resize: tuple[int, int] | None = None
+        ) -> Optional[cv2.typing.MatLike]:
+            # To get the depth frame, also get the couple (video, depth) frame from the wait_for_frames method
+            # The method get_depth and get_rgb_frame can be called simultaneously without lagging (tested)
+            # One should load them together for recording to be sure that the depth and video frame are coherent
 
-    def stop(self) -> None:
-        if self.is_active:
-            try:
-                self.pipeline.stop()
-            except Exception as e:
-                logger.warning(f"{self.camera_name} failed to stop: {str(e)}")
-            self.is_active = False
+            if not self.is_active:
+                logger.warning(f"{self.camera_name} is not active")
+                return None
+            last_bgr_depth_frame = self.pipeline.wait_for_frames().get_depth_frame()
+            if last_bgr_depth_frame is None:
+                logger.warning(f"{self.camera_name} Failed to grab frame")
+                return None
+            np_bgr_depth_frame = np.asanyarray(last_bgr_depth_frame.get_data())
+            frame = cv2.cvtColor(np_bgr_depth_frame, cv2.COLOR_BGR2RGB)
+            if resize is not None:
+                frame = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
+            return frame
+
+        def stop(self) -> None:
+            if self.is_active:
+                try:
+                    self.pipeline.stop()
+                except Exception as e:
+                    logger.warning(f"{self.camera_name} failed to stop: {str(e)}")
+                self.is_active = False
+
+except ImportError:
+    logger.debug("pyrealsense2 not available, RealSenseCamera will not be available")
+
+    class RealSenseCamera(BaseCamera):  # type: ignore
+        def __init__(self, *args, **kwargs):
+            raise ImportError("Install pyrealsense2 to add RealSense camera support. ")
 
 
 class AllCameras:
