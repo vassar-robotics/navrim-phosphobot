@@ -156,7 +156,7 @@ while True:
 3.4 Run this script to control your robot using the model:
 
 ```
-uv run my_model/client.py
+uv run client.py
 ```
 
 For the full detailed instructions and other model (Pi0, OpenVLA,...), refer to the [docs](https://docs.phospho.ai/basic-usage/inference).
