@@ -509,6 +509,15 @@ class Episode(BaseModel):
         # When a step is aded, it is the last of the episode by default until we add another step
         step.is_terminal = True
         step.is_last = True
+
+        # Check if the observation are all NAN values (this is the case when there is a read error on motors)
+        # If so, replace them with the previous step values
+        if len(self.steps) > 0 and np.isnan(step.observation.joints_position).all():
+            # Replace the joints_position with the previous step
+            step.observation.joints_position = self.steps[
+                -1
+            ].observation.joints_position.copy()
+
         # If current step is the first step of the episode
         if not self.steps:
             step.is_first = True
