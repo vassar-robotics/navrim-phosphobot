@@ -96,8 +96,6 @@ class ACT(ActionModel):
             timeout=self.timeout,
         ).json()
 
-        print(response)
-
         action = json_numpy.loads(response)
 
         return np.array([action])
