@@ -28,6 +28,8 @@ class RawRecordingClient:
         self,
         *,
         robot_id: typing.Optional[int] = None,
+        dataset_name: typing.Optional[str] = OMIT,
+        episode_id: typing.Optional[int] = OMIT,
         episode_path: typing.Optional[str] = OMIT,
         interpolation_factor: typing.Optional[int] = OMIT,
         playback_speed: typing.Optional[float] = OMIT,
@@ -40,8 +42,14 @@ class RawRecordingClient:
         ----------
         robot_id : typing.Optional[int]
 
+        dataset_name : typing.Optional[str]
+            Name of the dataset to play the episode from. If None, defaults to the last dataset recorded.
+
+        episode_id : typing.Optional[int]
+            ID of the episode to play. If a dataset_name is specified but episode_id is None, plays the last episode recorded of this dataset. If dataset_name is None, this is ignored and plays the last episode recorded.
+
         episode_path : typing.Optional[str]
-            Path to the .json or .parquet file of the episode to play.
+            (Optional) Path to the .json or .parquet file of the episode to play. If specified, overrides any dataset_name or episode_id.
 
         interpolation_factor : typing.Optional[int]
             Smoothen the playback by interpolating between frames. 1 means no interpolation, 2 means 1 frame every 2 frames, etc. 4 is the recommended value.
@@ -64,6 +72,8 @@ class RawRecordingClient:
                 "robot_id": robot_id,
             },
             json={
+                "dataset_name": dataset_name,
+                "episode_id": episode_id,
                 "episode_path": episode_path,
                 "interpolation_factor": interpolation_factor,
                 "playback_speed": playback_speed,
@@ -266,6 +276,8 @@ class AsyncRawRecordingClient:
         self,
         *,
         robot_id: typing.Optional[int] = None,
+        dataset_name: typing.Optional[str] = OMIT,
+        episode_id: typing.Optional[int] = OMIT,
         episode_path: typing.Optional[str] = OMIT,
         interpolation_factor: typing.Optional[int] = OMIT,
         playback_speed: typing.Optional[float] = OMIT,
@@ -278,8 +290,14 @@ class AsyncRawRecordingClient:
         ----------
         robot_id : typing.Optional[int]
 
+        dataset_name : typing.Optional[str]
+            Name of the dataset to play the episode from. If None, defaults to the last dataset recorded.
+
+        episode_id : typing.Optional[int]
+            ID of the episode to play. If a dataset_name is specified but episode_id is None, plays the last episode recorded of this dataset. If dataset_name is None, this is ignored and plays the last episode recorded.
+
         episode_path : typing.Optional[str]
-            Path to the .json or .parquet file of the episode to play.
+            (Optional) Path to the .json or .parquet file of the episode to play. If specified, overrides any dataset_name or episode_id.
 
         interpolation_factor : typing.Optional[int]
             Smoothen the playback by interpolating between frames. 1 means no interpolation, 2 means 1 frame every 2 frames, etc. 4 is the recommended value.
@@ -302,6 +320,8 @@ class AsyncRawRecordingClient:
                 "robot_id": robot_id,
             },
             json={
+                "dataset_name": dataset_name,
+                "episode_id": episode_id,
                 "episode_path": episode_path,
                 "interpolation_factor": interpolation_factor,
                 "playback_speed": playback_speed,

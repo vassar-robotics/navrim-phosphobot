@@ -5,7 +5,8 @@ from ..core.client_wrapper import SyncClientWrapper
 from .raw_client import RawTrainingClient
 from ..core.request_options import RequestOptions
 from ..types.training_config import TrainingConfig
-from ..types.model_status import ModelStatus
+from ..types.model_status_response import ModelStatusResponse
+from ..types.status_response import StatusResponse
 from ..core.client_wrapper import AsyncClientWrapper
 from .raw_client import AsyncRawTrainingClient
 
@@ -116,20 +117,21 @@ class TrainingClient:
 
     def update_model_status(
         self, *, model_url: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> ModelStatus:
+    ) -> ModelStatusResponse:
         """
-        Fetch the status of a model, will return Not started, In progress or Done
+        Get the status of a model. Will return Not started, In progress or Done.
 
         Parameters
         ----------
         model_url : str
+            Hugging Face model URL
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        ModelStatus
+        ModelStatusResponse
             Successful Response
 
         Examples
@@ -216,20 +218,9 @@ class TrainingClient:
         epochs: typing.Optional[int] = OMIT,
         learning_rate: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> StatusResponse:
         """
-        Trigger training for a gr00t model on the specified dataset.
-
-        This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
-
-        Before launching a training, please make sure that:
-        - Your dataset is uploaded to Hugging Face
-        - Your dataset is in the Le Robot format (> v2.0)
-        - Your dataset has at least 10 episodes
-        - You are logged in to phosphobot
-
-        Pro usage:
-        - (You can add a wandb token in phosphobot to track your training)
+        Start training a gr00t model on the specified dataset. This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
 
         Parameters
         ----------
@@ -253,7 +244,7 @@ class TrainingClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        StatusResponse
             Successful Response
 
         Examples
@@ -398,20 +389,21 @@ class AsyncTrainingClient:
 
     async def update_model_status(
         self, *, model_url: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> ModelStatus:
+    ) -> ModelStatusResponse:
         """
-        Fetch the status of a model, will return Not started, In progress or Done
+        Get the status of a model. Will return Not started, In progress or Done.
 
         Parameters
         ----------
         model_url : str
+            Hugging Face model URL
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        ModelStatus
+        ModelStatusResponse
             Successful Response
 
         Examples
@@ -514,20 +506,9 @@ class AsyncTrainingClient:
         epochs: typing.Optional[int] = OMIT,
         learning_rate: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> StatusResponse:
         """
-        Trigger training for a gr00t model on the specified dataset.
-
-        This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
-
-        Before launching a training, please make sure that:
-        - Your dataset is uploaded to Hugging Face
-        - Your dataset is in the Le Robot format (> v2.0)
-        - Your dataset has at least 10 episodes
-        - You are logged in to phosphobot
-
-        Pro usage:
-        - (You can add a wandb token in phosphobot to track your training)
+        Start training a gr00t model on the specified dataset. This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
 
         Parameters
         ----------
@@ -551,7 +532,7 @@ class AsyncTrainingClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        StatusResponse
             Successful Response
 
         Examples

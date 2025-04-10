@@ -4,11 +4,14 @@ import typing
 from ..core.client_wrapper import SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..core.http_response import HttpResponse
+from ..types.auth_response import AuthResponse
 from ..core.pydantic_utilities import parse_obj_as
 from json.decoder import JSONDecodeError
 from ..core.api_error import ApiError
+from ..types.session_reponse import SessionReponse
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.http_validation_error import HttpValidationError
+from ..types.status_response import StatusResponse
 from ..core.client_wrapper import AsyncClientWrapper
 from ..core.http_response import AsyncHttpResponse
 
@@ -22,7 +25,7 @@ class RawAuthClient:
 
     def is_authenticated(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+    ) -> HttpResponse[AuthResponse]:
         """
         Check if the user is authenticated by validating the session with Supabase.
         Returns a JSON response indicating authentication status.
@@ -34,7 +37,7 @@ class RawAuthClient:
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[AuthResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -45,9 +48,9 @@ class RawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    AuthResponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=AuthResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -59,7 +62,7 @@ class RawAuthClient:
 
     def confirm_email(
         self, *, access_token: str, refresh_token: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+    ) -> HttpResponse[SessionReponse]:
         """
         Parameters
         ----------
@@ -72,7 +75,7 @@ class RawAuthClient:
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[SessionReponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -91,9 +94,9 @@ class RawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    SessionReponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=SessionReponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -115,7 +118,7 @@ class RawAuthClient:
 
     def forgot_password(
         self, *, email: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+    ) -> HttpResponse[StatusResponse]:
         """
         Send a password reset email to the provided email address.
 
@@ -128,7 +131,7 @@ class RawAuthClient:
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[StatusResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -146,9 +149,9 @@ class RawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    StatusResponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=StatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -168,9 +171,7 @@ class RawAuthClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def logout(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+    def logout(self, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[StatusResponse]:
         """
         Parameters
         ----------
@@ -179,7 +180,7 @@ class RawAuthClient:
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[StatusResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -190,9 +191,9 @@ class RawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    StatusResponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=StatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -209,24 +210,27 @@ class RawAuthClient:
         new_password: str,
         refresh_token: str,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+    ) -> HttpResponse[StatusResponse]:
         """
         Reset a user's password using the recovery tokens from the Supabase reset email.
 
         Parameters
         ----------
         access_token : str
+            Access token from the reset email
 
         new_password : str
+            New password to set for the user
 
         refresh_token : str
+            Refresh token from the reset email
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[StatusResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -246,9 +250,9 @@ class RawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    StatusResponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=StatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -270,7 +274,7 @@ class RawAuthClient:
 
     def signin(
         self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+    ) -> HttpResponse[SessionReponse]:
         """
         Sign in an existing user.
 
@@ -285,7 +289,7 @@ class RawAuthClient:
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[SessionReponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -301,9 +305,9 @@ class RawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    SessionReponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=SessionReponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -325,7 +329,7 @@ class RawAuthClient:
 
     def signup(
         self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+    ) -> HttpResponse[SessionReponse]:
         """
         Sign up a new user.
 
@@ -340,7 +344,7 @@ class RawAuthClient:
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[SessionReponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -356,9 +360,9 @@ class RawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    SessionReponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=SessionReponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -385,7 +389,7 @@ class AsyncRawAuthClient:
 
     async def is_authenticated(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    ) -> AsyncHttpResponse[AuthResponse]:
         """
         Check if the user is authenticated by validating the session with Supabase.
         Returns a JSON response indicating authentication status.
@@ -397,7 +401,7 @@ class AsyncRawAuthClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[AuthResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -408,9 +412,9 @@ class AsyncRawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    AuthResponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=AuthResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -422,7 +426,7 @@ class AsyncRawAuthClient:
 
     async def confirm_email(
         self, *, access_token: str, refresh_token: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    ) -> AsyncHttpResponse[SessionReponse]:
         """
         Parameters
         ----------
@@ -435,7 +439,7 @@ class AsyncRawAuthClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[SessionReponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -454,9 +458,9 @@ class AsyncRawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    SessionReponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=SessionReponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -478,7 +482,7 @@ class AsyncRawAuthClient:
 
     async def forgot_password(
         self, *, email: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    ) -> AsyncHttpResponse[StatusResponse]:
         """
         Send a password reset email to the provided email address.
 
@@ -491,7 +495,7 @@ class AsyncRawAuthClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[StatusResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -509,9 +513,9 @@ class AsyncRawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    StatusResponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=StatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -533,7 +537,7 @@ class AsyncRawAuthClient:
 
     async def logout(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    ) -> AsyncHttpResponse[StatusResponse]:
         """
         Parameters
         ----------
@@ -542,7 +546,7 @@ class AsyncRawAuthClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[StatusResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -553,9 +557,9 @@ class AsyncRawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    StatusResponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=StatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -572,24 +576,27 @@ class AsyncRawAuthClient:
         new_password: str,
         refresh_token: str,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    ) -> AsyncHttpResponse[StatusResponse]:
         """
         Reset a user's password using the recovery tokens from the Supabase reset email.
 
         Parameters
         ----------
         access_token : str
+            Access token from the reset email
 
         new_password : str
+            New password to set for the user
 
         refresh_token : str
+            Refresh token from the reset email
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[StatusResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -609,9 +616,9 @@ class AsyncRawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    StatusResponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=StatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -633,7 +640,7 @@ class AsyncRawAuthClient:
 
     async def signin(
         self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    ) -> AsyncHttpResponse[SessionReponse]:
         """
         Sign in an existing user.
 
@@ -648,7 +655,7 @@ class AsyncRawAuthClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[SessionReponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -664,9 +671,9 @@ class AsyncRawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    SessionReponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=SessionReponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -688,7 +695,7 @@ class AsyncRawAuthClient:
 
     async def signup(
         self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    ) -> AsyncHttpResponse[SessionReponse]:
         """
         Sign up a new user.
 
@@ -703,7 +710,7 @@ class AsyncRawAuthClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[SessionReponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -719,9 +726,9 @@ class AsyncRawAuthClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    SessionReponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=SessionReponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
