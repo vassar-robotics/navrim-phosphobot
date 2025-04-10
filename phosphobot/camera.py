@@ -609,6 +609,7 @@ class RealSenseCamera(BaseCamera):
 
         # Start streaming
         self.pipeline.start(config)
+        time.sleep(0.2)
         self.is_active = True
 
     @property
@@ -656,7 +657,10 @@ class RealSenseCamera(BaseCamera):
 
     def stop(self) -> None:
         if self.is_active:
-            self.pipeline.stop()
+            try:
+                self.pipeline.stop()
+            except Exception as e:
+                logger.warning(f"{self.camera_name} failed to stop: {str(e)}")
             self.is_active = False
 
 
