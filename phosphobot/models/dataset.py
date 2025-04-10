@@ -613,18 +613,10 @@ class Episode(BaseModel):
                     # Calculate interpolation ratio (0 to 1 across all segments)
                     t = i / interpolation_factor
 
-                    # Interpolate joint positions
-                    logger.debug(
-                        f"Current step joints: {curr_step.observation.joints_position}"
-                    )
-                    logger.debug(
-                        f"Next step joints: {next_step.observation.joints_position}"
-                    )
-
+                    # Interpolate between the current and next step
                     interp_value = t * (next_step.observation.joints_position) + (
                         1 - t
                     ) * (curr_step.observation.joints_position)
-                    logger.debug(f"Interpolated value: {interp_value}")
 
                     if index % 20 == 0 and i == 0:
                         logger.info(f"Playing step {index}")
