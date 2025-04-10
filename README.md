@@ -88,7 +88,10 @@ Change the `--policy.device` flag based on your hardware: `cuda` if you have an 
 
 ```bash
 curl -o server.py https://raw.githubusercontent.com/phospho-app/phosphobot/refs/heads/main/inference/ACT/server.py
-uv run server.py
+```
+
+```bash
+uv run server.py --model_id LegrandFrederic/Orange-brick-in-black-box # Replace with <YOUR_HF_MODEL_ID>
 ```
 
 3.2 Make sure the [phosphobot server](https://docs.phospho.ai/installation) is running to control your robot:
