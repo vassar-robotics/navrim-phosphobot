@@ -2,4 +2,4 @@
 
 import typing
 
-ServerStatusAiRunningStatus = typing.Union[typing.Literal["stopped", "running", "paused"], typing.Any]
+ServerStatusAiRunningStatus = typing.Union[typing.Literal["stopped", "running", "paused", "waiting"], typing.Any]

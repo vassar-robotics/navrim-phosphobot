@@ -10,7 +10,8 @@ from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.http_validation_error import HttpValidationError
 from json.decoder import JSONDecodeError
 from ..core.api_error import ApiError
-from ..types.model_status import ModelStatus
+from ..types.model_status_response import ModelStatusResponse
+from ..types.status_response import StatusResponse
 from ..core.client_wrapper import AsyncClientWrapper
 from ..core.http_response import AsyncHttpResponse
 
@@ -129,20 +130,21 @@ class RawTrainingClient:
 
     def update_model_status(
         self, *, model_url: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ModelStatus]:
+    ) -> HttpResponse[ModelStatusResponse]:
         """
-        Fetch the status of a model, will return Not started, In progress or Done
+        Get the status of a model. Will return Not started, In progress or Done.
 
         Parameters
         ----------
         model_url : str
+            Hugging Face model URL
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[ModelStatus]
+        HttpResponse[ModelStatusResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -160,9 +162,9 @@ class RawTrainingClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ModelStatus,
+                    ModelStatusResponse,
                     parse_obj_as(
-                        type_=ModelStatus,  # type: ignore
+                        type_=ModelStatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -262,20 +264,9 @@ class RawTrainingClient:
         epochs: typing.Optional[int] = OMIT,
         learning_rate: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+    ) -> HttpResponse[StatusResponse]:
         """
-        Trigger training for a gr00t model on the specified dataset.
-
-        This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
-
-        Before launching a training, please make sure that:
-        - Your dataset is uploaded to Hugging Face
-        - Your dataset is in the Le Robot format (> v2.0)
-        - Your dataset has at least 10 episodes
-        - You are logged in to phosphobot
-
-        Pro usage:
-        - (You can add a wandb token in phosphobot to track your training)
+        Start training a gr00t model on the specified dataset. This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
 
         Parameters
         ----------
@@ -299,7 +290,7 @@ class RawTrainingClient:
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[StatusResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -321,9 +312,9 @@ class RawTrainingClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    StatusResponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=StatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -457,20 +448,21 @@ class AsyncRawTrainingClient:
 
     async def update_model_status(
         self, *, model_url: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ModelStatus]:
+    ) -> AsyncHttpResponse[ModelStatusResponse]:
         """
-        Fetch the status of a model, will return Not started, In progress or Done
+        Get the status of a model. Will return Not started, In progress or Done.
 
         Parameters
         ----------
         model_url : str
+            Hugging Face model URL
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[ModelStatus]
+        AsyncHttpResponse[ModelStatusResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -488,9 +480,9 @@ class AsyncRawTrainingClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ModelStatus,
+                    ModelStatusResponse,
                     parse_obj_as(
-                        type_=ModelStatus,  # type: ignore
+                        type_=ModelStatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -590,20 +582,9 @@ class AsyncRawTrainingClient:
         epochs: typing.Optional[int] = OMIT,
         learning_rate: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    ) -> AsyncHttpResponse[StatusResponse]:
         """
-        Trigger training for a gr00t model on the specified dataset.
-
-        This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
-
-        Before launching a training, please make sure that:
-        - Your dataset is uploaded to Hugging Face
-        - Your dataset is in the Le Robot format (> v2.0)
-        - Your dataset has at least 10 episodes
-        - You are logged in to phosphobot
-
-        Pro usage:
-        - (You can add a wandb token in phosphobot to track your training)
+        Start training a gr00t model on the specified dataset. This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.
 
         Parameters
         ----------
@@ -627,7 +608,7 @@ class AsyncRawTrainingClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[StatusResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -649,9 +630,9 @@ class AsyncRawTrainingClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    StatusResponse,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=StatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

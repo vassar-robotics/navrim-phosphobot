@@ -4,6 +4,7 @@ from .admin_settings_response import AdminSettingsResponse
 from .admin_settings_response_video_codec import AdminSettingsResponseVideoCodec
 from .admin_settings_token_response import AdminSettingsTokenResponse
 from .all_cameras_status import AllCamerasStatus
+from .auth_response import AuthResponse
 from .browse_files_response import BrowseFilesResponse
 from .calibrate_response import CalibrateResponse
 from .calibrate_response_calibration_status import CalibrateResponseCalibrationStatus
@@ -12,14 +13,16 @@ from .end_effector_position import EndEffectorPosition
 from .http_validation_error import HttpValidationError
 from .item_info import ItemInfo
 from .joints_read_response import JointsReadResponse
-from .login_credentials import LoginCredentials
-from .model_status import ModelStatus
-from .model_status_model_status import ModelStatusModelStatus
+from .login_credentials_request import LoginCredentialsRequest
+from .model_status_response import ModelStatusResponse
+from .model_status_response_model_status import ModelStatusResponseModelStatus
 from .model_training_config import ModelTrainingConfig
 from .recording_stop_response import RecordingStopResponse
 from .robot_config_status import RobotConfigStatus
 from .server_status import ServerStatus
 from .server_status_ai_running_status import ServerStatusAiRunningStatus
+from .session import Session
+from .session_reponse import SessionReponse
 from .single_camera_status import SingleCameraStatus
 from .single_camera_status_camera_type import SingleCameraStatusCameraType
 from .status import Status
@@ -36,6 +39,7 @@ __all__ = [
     "AdminSettingsResponseVideoCodec",
     "AdminSettingsTokenResponse",
     "AllCamerasStatus",
+    "AuthResponse",
     "BrowseFilesResponse",
     "CalibrateResponse",
     "CalibrateResponseCalibrationStatus",
@@ -44,14 +48,16 @@ __all__ = [
     "HttpValidationError",
     "ItemInfo",
     "JointsReadResponse",
-    "LoginCredentials",
-    "ModelStatus",
-    "ModelStatusModelStatus",
+    "LoginCredentialsRequest",
+    "ModelStatusResponse",
+    "ModelStatusResponseModelStatus",
     "ModelTrainingConfig",
     "RecordingStopResponse",
     "RobotConfigStatus",
     "ServerStatus",
     "ServerStatusAiRunningStatus",
+    "Session",
+    "SessionReponse",
     "SingleCameraStatus",
     "SingleCameraStatusCameraType",
     "Status",

@@ -4,6 +4,9 @@ import typing
 from ..core.client_wrapper import SyncClientWrapper
 from .raw_client import RawAuthClient
 from ..core.request_options import RequestOptions
+from ..types.auth_response import AuthResponse
+from ..types.session_reponse import SessionReponse
+from ..types.status_response import StatusResponse
 from ..core.client_wrapper import AsyncClientWrapper
 from .raw_client import AsyncRawAuthClient
 
@@ -26,9 +29,7 @@ class AuthClient:
         """
         return self._raw_client
 
-    def is_authenticated(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    def is_authenticated(self, *, request_options: typing.Optional[RequestOptions] = None) -> AuthResponse:
         """
         Check if the user is authenticated by validating the session with Supabase.
         Returns a JSON response indicating authentication status.
@@ -40,7 +41,7 @@ class AuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        AuthResponse
             Successful Response
 
         Examples
@@ -59,7 +60,7 @@ class AuthClient:
 
     def confirm_email(
         self, *, access_token: str, refresh_token: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    ) -> SessionReponse:
         """
         Parameters
         ----------
@@ -72,7 +73,7 @@ class AuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        SessionReponse
             Successful Response
 
         Examples
@@ -94,9 +95,7 @@ class AuthClient:
         )
         return response.data
 
-    def forgot_password(
-        self, *, email: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    def forgot_password(self, *, email: str, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
         """
         Send a password reset email to the provided email address.
 
@@ -109,7 +108,7 @@ class AuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        StatusResponse
             Successful Response
 
         Examples
@@ -129,7 +128,7 @@ class AuthClient:
         )
         return response.data
 
-    def logout(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Optional[typing.Any]:
+    def logout(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
         """
         Parameters
         ----------
@@ -138,7 +137,7 @@ class AuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        StatusResponse
             Successful Response
 
         Examples
@@ -162,24 +161,27 @@ class AuthClient:
         new_password: str,
         refresh_token: str,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> StatusResponse:
         """
         Reset a user's password using the recovery tokens from the Supabase reset email.
 
         Parameters
         ----------
         access_token : str
+            Access token from the reset email
 
         new_password : str
+            New password to set for the user
 
         refresh_token : str
+            Refresh token from the reset email
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        StatusResponse
             Successful Response
 
         Examples
@@ -205,7 +207,7 @@ class AuthClient:
 
     def signin(
         self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    ) -> SessionReponse:
         """
         Sign in an existing user.
 
@@ -220,7 +222,7 @@ class AuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        SessionReponse
             Successful Response
 
         Examples
@@ -244,7 +246,7 @@ class AuthClient:
 
     def signup(
         self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    ) -> SessionReponse:
         """
         Sign up a new user.
 
@@ -259,7 +261,7 @@ class AuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        SessionReponse
             Successful Response
 
         Examples
@@ -297,9 +299,7 @@ class AsyncAuthClient:
         """
         return self._raw_client
 
-    async def is_authenticated(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    async def is_authenticated(self, *, request_options: typing.Optional[RequestOptions] = None) -> AuthResponse:
         """
         Check if the user is authenticated by validating the session with Supabase.
         Returns a JSON response indicating authentication status.
@@ -311,7 +311,7 @@ class AsyncAuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        AuthResponse
             Successful Response
 
         Examples
@@ -338,7 +338,7 @@ class AsyncAuthClient:
 
     async def confirm_email(
         self, *, access_token: str, refresh_token: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    ) -> SessionReponse:
         """
         Parameters
         ----------
@@ -351,7 +351,7 @@ class AsyncAuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        SessionReponse
             Successful Response
 
         Examples
@@ -383,7 +383,7 @@ class AsyncAuthClient:
 
     async def forgot_password(
         self, *, email: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    ) -> StatusResponse:
         """
         Send a password reset email to the provided email address.
 
@@ -396,7 +396,7 @@ class AsyncAuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        StatusResponse
             Successful Response
 
         Examples
@@ -424,7 +424,7 @@ class AsyncAuthClient:
         )
         return response.data
 
-    async def logout(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Optional[typing.Any]:
+    async def logout(self, *, request_options: typing.Optional[RequestOptions] = None) -> StatusResponse:
         """
         Parameters
         ----------
@@ -433,7 +433,7 @@ class AsyncAuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        StatusResponse
             Successful Response
 
         Examples
@@ -465,24 +465,27 @@ class AsyncAuthClient:
         new_password: str,
         refresh_token: str,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> StatusResponse:
         """
         Reset a user's password using the recovery tokens from the Supabase reset email.
 
         Parameters
         ----------
         access_token : str
+            Access token from the reset email
 
         new_password : str
+            New password to set for the user
 
         refresh_token : str
+            Refresh token from the reset email
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        StatusResponse
             Successful Response
 
         Examples
@@ -516,7 +519,7 @@ class AsyncAuthClient:
 
     async def signin(
         self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    ) -> SessionReponse:
         """
         Sign in an existing user.
 
@@ -531,7 +534,7 @@ class AsyncAuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        SessionReponse
             Successful Response
 
         Examples
@@ -563,7 +566,7 @@ class AsyncAuthClient:
 
     async def signup(
         self, *, email: str, password: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    ) -> SessionReponse:
         """
         Sign up a new user.
 
@@ -578,7 +581,7 @@ class AsyncAuthClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        SessionReponse
             Successful Response
 
         Examples
