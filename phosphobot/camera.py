@@ -565,7 +565,7 @@ class StereoCamera(VideoCamera):
 
 
 try:
-    import pyrealsense2 as rs
+    import pyrealsense2 as rs  # type: ignore
 
     class RealSenseCamera(BaseCamera):
         """
