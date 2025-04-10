@@ -69,9 +69,15 @@ class ActionModel:
 
 
 class ACT(ActionModel):
-    def __init__(self, server_url: str = "http://localhost", server_port: int = 8080):
+    def __init__(
+        self,
+        server_url: str = "http://localhost",
+        server_port: int = 8080,
+        timeout: int = 10,
+    ):
         super().__init__(server_url, server_port)
         self.required_input_keys: List[str] = ["images", "state"]
+        self.timeout = timeout
 
     def sample_actions(self, inputs: dict) -> np.ndarray:
         # Build the payload
@@ -87,7 +93,7 @@ class ACT(ActionModel):
         response = requests.post(
             f"{self.server_url}:{self.server_port}/act",
             json=encoded_payload,
-            timeout=5.0,  # Add timeout to prevent hanging
+            timeout=self.timeout,
         ).json()
 
         print(response)
