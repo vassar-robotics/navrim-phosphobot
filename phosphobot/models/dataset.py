@@ -530,13 +530,37 @@ class Episode(BaseModel):
 
     async def play(
         self,
-        robot: BaseRobot,
+        robots: List[BaseRobot],
         playback_speed: float = 1.0,
         interpolation_factor: int = 4,
     ):
         """
         Play the episode on the robot with on-the-fly interpolation.
         """
+
+        def move_robots(joints: np.ndarray) -> None:
+            """
+            Solve which robot should move depending on the number of joints and
+            the number of robots.
+            - If nb robots == nb joints, move each robot with its respective joints
+            - If nb joints > nb robots, move each robot with its respective joints until
+                the last robot. Extra joints are ignored.
+            - If nb joints < nb robots, move each robot with its respective joints until
+                the last joint. Extra robots are ignored
+            """
+
+            nonlocal robots
+
+            nb_joints = len(joints) % 6  # 6 joints per robot
+            for i, robot in enumerate(robots):  # extra joints are ignored
+                # If there are more robots than joints, ignore the extra robots
+                if i > nb_joints:
+                    break
+
+                # Get the joints for the current robot
+                robot_joints = joints[i * 6 : (i + 1) * 6]
+                # Move the robot with its respective joints
+                robot.set_motors_positions(robot_joints, enable_gripper=True)
 
         for index, step in enumerate(self.steps):
             # Get current and next step
@@ -547,7 +571,15 @@ class Episode(BaseModel):
                 next_step is not None
                 and curr_step.observation.timestamp is not None
                 and next_step.observation.timestamp is not None
+                and curr_step.observation.joints_position is not None
+                and next_step.observation.joints_position is not None
             ):
+                # if the current step is all NAN, skip
+                if np.isnan(curr_step.observation.joints_position).all():
+                    logger.warning(
+                        f"Skipping step {index} because all joints positions are NaN"
+                    )
+                    continue
                 # Calculate base delta timestamp
                 delta_timestamp = (
                     next_step.observation.timestamp - curr_step.observation.timestamp
@@ -558,6 +590,13 @@ class Episode(BaseModel):
                     delta_timestamp / interpolation_factor / playback_speed
                 )
 
+                # Fill empty values from the next step joints with the current step
+                next_step.observation.joints_position = np.where(
+                    np.isnan(next_step.observation.joints_position),
+                    curr_step.observation.joints_position,
+                    next_step.observation.joints_position,
+                )
+
                 # Perform interpolation steps
                 for i in range(interpolation_factor):
                     start_time = time.perf_counter()
@@ -566,20 +605,22 @@ class Episode(BaseModel):
                     t = i / interpolation_factor
 
                     # Interpolate joint positions
-                    interp_joints = []
-                    for j1, j2 in zip(
-                        curr_step.observation.joints_position,
-                        next_step.observation.joints_position,
-                    ):
-                        interp_value = j1 + (j2 - j1) * t
-                        interp_joints.append(interp_value)
+                    logger.debug(
+                        f"Current step joints: {curr_step.observation.joints_position}"
+                    )
+                    logger.debug(
+                        f"Next step joints: {next_step.observation.joints_position}"
+                    )
+
+                    interp_value = t * (next_step.observation.joints_position) + (
+                        1 - t
+                    ) * (curr_step.observation.joints_position)
+                    logger.debug(f"Interpolated value: {interp_value}")
 
                     if index % 20 == 0 and i == 0:
                         logger.info(f"Playing step {index}")
 
-                    robot.set_motors_positions(np.array(interp_joints[:6]))
-                    robot.control_gripper(interp_joints[-1])
-
+                    move_robots(interp_value)
                     # Timing control
                     elapsed = time.perf_counter() - start_time
                     time_to_wait = max(time_per_segment - elapsed, 0)
@@ -588,8 +629,7 @@ class Episode(BaseModel):
             else:
                 # Handle last step or cases where timestamp is None
                 start_time = time.perf_counter()
-                robot.set_motors_positions(curr_step.observation.joints_position[:6])
-                robot.control_gripper(curr_step.observation.joints_position[-1])
+                move_robots(curr_step.observation.joints_position)
 
     def get_episode_index(self, episode_recording_folder_path: str, dataset_name: str):
         dataset_path = os.path.join(
