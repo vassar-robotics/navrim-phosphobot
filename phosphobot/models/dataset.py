@@ -561,15 +561,15 @@ class Episode(BaseModel):
 
             nonlocal robots
 
-            nb_joints = len(joints) % 6  # 6 joints per robot
+            nb_joints = 1 + len(joints) % 6  # 6 joints per robot
             for i, robot in enumerate(robots):  # extra joints are ignored
                 # If there are more robots than joints, ignore the extra robots
-                if i > nb_joints:
+                if i >= nb_joints:
                     if replicate is False:
                         break
                     else:
                         # Go back to the first robot
-                        i = i % len(robots)
+                        i = i % nb_joints
 
                 # Get the joints for the current robot
                 robot_joints = joints[i * 6 : (i + 1) * 6]
