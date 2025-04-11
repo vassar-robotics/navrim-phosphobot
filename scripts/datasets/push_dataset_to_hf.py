@@ -41,7 +41,8 @@ def push_dataset_to_hub(
         readme_path = os.path.join(dataset_path, "README.md")
         if not os.path.exists(readme_path):
             with open(readme_path, "w") as readme_file:
-                readme_file.write(f"""
+                readme_file.write(
+                    f"""
 ---
 tags:
 - phosphobot
@@ -60,7 +61,8 @@ More information on [robots.phospho.ai](https://robots.phospho.ai).
 This dataset contains a series of episodes recorded with a robot and multiple cameras. \
 It can be directly used to train a policy using imitation learning. \
 It's compatible with LeRobot and RLDS.
-""")
+"""
+                )
 
         # Construct full repo name
         dataset_repo_name = f"{username_or_org_id}/{dataset_name}"
