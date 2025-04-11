@@ -542,6 +542,7 @@ class Episode(BaseModel):
         robots: List[BaseRobot],
         playback_speed: float = 1.0,
         interpolation_factor: int = 4,
+        replicate: bool = False,
     ):
         """
         Play the episode on the robot with on-the-fly interpolation.
@@ -564,7 +565,11 @@ class Episode(BaseModel):
             for i, robot in enumerate(robots):  # extra joints are ignored
                 # If there are more robots than joints, ignore the extra robots
                 if i > nb_joints:
-                    break
+                    if replicate is False:
+                        break
+                    else:
+                        # Go back to the first robot
+                        i = i % len(robots)
 
                 # Get the joints for the current robot
                 robot_joints = joints[i * 6 : (i + 1) * 6]
