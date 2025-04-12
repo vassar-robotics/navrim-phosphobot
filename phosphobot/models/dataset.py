@@ -20,7 +20,7 @@ from huggingface_hub import (
     upload_folder,
 )
 from loguru import logger
-from pydantic import AliasChoices, BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from phosphobot.types import VideoCodecs
 from phosphobot.utils import (
@@ -224,6 +224,7 @@ class Step(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+        extra = "ignore"
 
 
 class Episode(BaseModel):
@@ -238,6 +239,9 @@ class Episode(BaseModel):
 
     steps: List[Step] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
+
+    class Config:
+        extra = "ignore"
 
     @property
     def dataset_path(self) -> Path:
