@@ -2392,9 +2392,33 @@ class InfoModel(BaseModel):
         """
         Update the info given a new recorded Episode.
         """
-        self.total_episodes += 1
+        # Read the number of total episodes and videos based on the number of files
+        # in the data folder
+
+        nb_episodes = len(
+            [
+                file
+                for file in os.listdir(episode.episodes_path)
+                if file.endswith(".parquet")
+            ]
+        )
+
+        self.total_episodes = nb_episodes
         self.total_frames += len(episode.steps)
-        self.total_videos += len(self.features.observation_images.keys())
+        # Count the number of videos in every subfolder
+        video_path = os.path.join(episode.dataset_path, "videos", "chunk-000")
+        total_videos = 0
+        for camera_name in os.listdir(video_path):
+            # Count the number of videos in the subfolder
+            total_videos += len(
+                [
+                    file
+                    for file in os.listdir(os.path.join(video_path, camera_name))
+                    if file.endswith(".mp4")
+                ]
+            )
+
+        self.total_videos = total_videos
         self.splits = {"train": f"0:{self.total_episodes}"}
         # TODO: Handle multiple language instructions
         # TODO: Implement support for multiple chunks
@@ -2548,10 +2572,9 @@ class EpisodesModel(BaseModel):
         episode_index is the index of the episode of the current step.
         """
         # If episode_index is not in the episodes, add it
-        if (
-            episode_index not in [episode.episode_index for episode in self.episodes]
-            or len(self.episodes) <= episode_index
-        ):
+        if episode_index not in [
+            episode.episode_index for episode in self.episodes
+        ] or episode_index >= len(self.episodes):
             self.episodes.append(
                 EpisodesFeatures(
                     episode_index=episode_index,
