@@ -609,10 +609,8 @@ try:
             # TODO: When multiple realsense cameras are connected, we need to select the correct one
             time.sleep(0.2)
             self.device_info = realsense_devices.front().get_info(rs.camera_info.name)
-
             config.enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
             config.enable_stream(rs.stream.depth, width, height, rs.format.z16, fps)
-
             # Start streaming
             self.pipeline.start(config)
             time.sleep(0.2)
@@ -764,6 +762,7 @@ class AllCameras:
         self.camera_ids = []
 
         camera_names: List[str] = get_camera_names()
+        self.initialize_realsense_camera()
 
         # Get the available video indexes from a range of 0 to MAX_OPENCV_INDEX
         possible_camera_ids = detect_video_indexes()
@@ -819,8 +818,6 @@ class AllCameras:
                 self.camera_ids.append(index)
             else:
                 logger.debug(f"Ignoring camera {index}: {camera_type}")
-
-        self.initialize_realsense_camera()
 
         if self.realsensecamera and self.realsensecamera.is_connected:
             # Generate unique camera IDs for virtual cameras
