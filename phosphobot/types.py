@@ -5,7 +5,14 @@ from enum import Enum
 VideoCodecs = Literal["avc1", "hev1", "mp4v", "hvc1", "avc3", "av01", "vp09"]
 
 CameraTypes = Literal[
-    "classic", "stereo", "realsense", "dummy", "dummy_stereo", "unknown"
+    "classic",
+    "stereo",
+    "realsense",
+    "realsense_rgb",
+    "realsense_depth",
+    "dummy",
+    "dummy_stereo",
+    "unknown",
 ]
 
 

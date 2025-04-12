@@ -671,12 +671,72 @@ try:
                     logger.warning(f"{self.camera_name} failed to stop: {str(e)}")
                 self.is_active = False
 
+    class RealSenseVirtualCamera(VideoCamera):
+        def __init__(
+            self,
+            realsense_camera: RealSenseCamera,
+            frame_type: Literal["rgb", "depth"],
+            camera_id: int,
+            disable: bool = False,
+        ):
+            super().__init__(
+                width=realsense_camera.width,
+                height=realsense_camera.height,
+                fps=realsense_camera.fps,
+            )
+            self.realsense_camera = realsense_camera
+            self.frame_type = frame_type
+            self.camera_type = cast(CameraTypes, f"realsense_{frame_type}")
+            self.camera_id = camera_id
+            self._is_active = not disable
+
+        @property
+        def is_active(self) -> bool:
+            return self._is_active and self.realsense_camera.is_active
+
+        @is_active.setter
+        def is_active(self, value):
+            return
+
+        def get_rgb_frame(
+            self, resize: Optional[tuple[int, int]] = None
+        ) -> Optional[cv2.typing.MatLike]:
+            if not self.is_active:
+                return None
+            if self.frame_type == "rgb":
+                frame = self.realsense_camera.get_rgb_frame(resize=resize)
+            else:
+                depth_frame = self.realsense_camera.get_depth_frame(resize=resize)
+                if depth_frame is not None:
+                    # Normalize depth data for visualization
+                    normalized_depth = cv2.normalize(
+                        depth_frame, depth_frame, 0, 255, cv2.NORM_MINMAX
+                    )
+                    normalized_depth = normalized_depth.astype(np.uint8)
+                    # Apply colormap for better visualization
+                    frame = cv2.applyColorMap(normalized_depth, cv2.COLORMAP_JET)
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                else:
+                    frame = None
+            return frame
+
+        def stop(self) -> None:
+            self._is_active = False
+
+        @property
+        def camera_name(self) -> str:
+            return f"RealSenseVirtualCamera {self.camera_type} {self.camera_id}"
+
 except ImportError:
     logger.debug("pyrealsense2 not available, RealSenseCamera will not be available")
 
     class RealSenseCamera(BaseCamera):  # type: ignore
         def __init__(self, *args, **kwargs):
-            raise ImportError("Install pyrealsense2 to add RealSense camera support. ")
+            raise ImportError("Install pyrealsense2 to add RealSense camera support.")
+
+    class RealSenseVirtualCamera(VideoCamera):  # type: ignore
+        def __init__(self, *args, **kwargs):
+            raise ImportError("Install pyrealsense2 to add RealSense camera support.")
 
 
 class AllCameras:
@@ -704,8 +764,6 @@ class AllCameras:
         self.camera_ids = []
 
         camera_names: List[str] = get_camera_names()
-
-        self.initialize_realsense_camera()
 
         # Get the available video indexes from a range of 0 to MAX_OPENCV_INDEX
         possible_camera_ids = detect_video_indexes()
@@ -761,6 +819,39 @@ class AllCameras:
                 self.camera_ids.append(index)
             else:
                 logger.debug(f"Ignoring camera {index}: {camera_type}")
+
+        self.initialize_realsense_camera()
+
+        if self.realsensecamera and self.realsensecamera.is_connected:
+            # Generate unique camera IDs for virtual cameras
+            max_id = max(self.camera_ids) if self.camera_ids else 0
+            virtual_rgb_id = max_id + 1
+            virtual_depth_id = max_id + 2
+
+            # Check if virtual cameras are disabled
+            disabled = (
+                self.disabled_cameras if self.disabled_cameras is not None else []
+            )
+            virtual_rgb_disabled = virtual_rgb_id in disabled
+            virtual_depth_disabled = virtual_depth_id in disabled
+
+            # Create virtual cameras
+            virtual_rgb = RealSenseVirtualCamera(
+                self.realsensecamera,
+                "rgb",
+                virtual_rgb_id,
+                disable=virtual_rgb_disabled,
+            )
+            virtual_depth = RealSenseVirtualCamera(
+                self.realsensecamera,
+                "depth",
+                virtual_depth_id,
+                disable=virtual_depth_disabled,
+            )
+
+            # Add to video cameras and camera IDs
+            self.video_cameras.extend([virtual_rgb, virtual_depth])
+            self.camera_ids.extend([virtual_rgb_id, virtual_depth_id])
 
         self._cameras_ids_to_record = self.camera_ids
 
