@@ -351,7 +351,7 @@ class VideoCamera(threading.Thread, BaseCamera):
         camera_id: Optional[int] = 0,
         width: int = 640,
         height: int = 360,
-        fps: int = 30,
+        fps: int = 22,
         camera_type: Optional[CameraTypes] = None,
     ):
         threading.Thread.__init__(self)
