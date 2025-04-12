@@ -2548,7 +2548,10 @@ class EpisodesModel(BaseModel):
         episode_index is the index of the episode of the current step.
         """
         # If episode_index is not in the episodes, add it
-        if episode_index not in [episode.episode_index for episode in self.episodes]:
+        if (
+            episode_index not in [episode.episode_index for episode in self.episodes]
+            or len(self.episodes) <= episode_index
+        ):
             self.episodes.append(
                 EpisodesFeatures(
                     episode_index=episode_index,
