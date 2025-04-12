@@ -71,7 +71,7 @@ def delete_DS_Store(dataset_path):
 
 def process_parquet_files(folder_path):
     """
-    Process all parquet files in the given folder by adding an episode_index column.
+    Process all parquet files in the given folder by correcting the episode_index column.
     The value in episode_index will match the episode number in the filename.
 
     Args:
@@ -108,7 +108,7 @@ def process_parquet_files(folder_path):
             "Episode numbers are not continuous or starting from 0. Renaming files and videos..."
         )
         for i, file in enumerate(parquet_files):
-            # We alway start from 0
+            # We always start from 0
             new_episode_number = i
             new_file = os.path.join(
                 folder_path, f"episode_{new_episode_number:06d}.parquet"
@@ -126,6 +126,13 @@ def process_parquet_files(folder_path):
                 )
                 os.rename(video_file, new_video_file)
                 print(f"Renamed {video_file} to {new_video_file}")
+
+        # Update the list of parquet files after renaming
+        parquet_files = glob.glob(os.path.join(folder_path, "episode_*.parquet"))
+        parquet_files.sort(
+            key=lambda x: int(re.search(r"episode_(\d+)\.parquet", x).group(1))
+        )
+        print("Updated parquet files list after renaming")
 
     # Process each parquet file
     total_index = 0
