@@ -478,7 +478,7 @@ class Episode(BaseModel):
         # Add metadata to the episode
         # the path is like this : dataset_name/data/chunk-000/episode_xxxxxx.parquet
         # get the path : dataset_name
-        dataset_path = episode_data_path.split("/")[:-2]
+        dataset_path = episode_data_path.split("/")[-2]
 
         metadata = {
             "dataset_name": dataset_path,
