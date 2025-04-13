@@ -217,6 +217,8 @@ def detect_video_indexes(
         possible_camera_ids = [
             int(port.removeprefix("/dev/video")) for port in possible_ports
         ]
+        # Sort by increasing
+        possible_camera_ids = sorted(possible_camera_ids)
         logger.info(
             f"(Linux) Found possible ports through scanning '/dev/video*': {possible_camera_ids}"
         )
