@@ -476,9 +476,12 @@ class Episode(BaseModel):
         episode_df["observation"] = episode_df[cols].to_dict(orient="records")
 
         # Add metadata to the episode
-        index_of_lerobotv2 = episode_data_path.split("/").index("lerobot_v2")
+        # the path is like this : dataset_name/data/chunk-000/episode_xxxxxx.parquet
+        # get the path : dataset_name
+        dataset_path = episode_data_path.split("/")[:-2]
+
         metadata = {
-            "dataset_name": episode_data_path.split("/")[index_of_lerobotv2 + 1],
+            "dataset_name": dataset_path,
             "format": "lerobot_v2",
             "index": episode_df["episode_index"].iloc[0],
         }
