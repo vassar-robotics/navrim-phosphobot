@@ -5,7 +5,7 @@ Store constants and configurations for the app in this file.
 from pathlib import Path
 from typing import Literal
 
-import yaml
+import yaml  # type: ignore
 from loguru import logger
 from pydantic import BaseModel
 
@@ -66,6 +66,7 @@ class Configuration(BaseModel):
     DEFAULT_TASK_INSTRUCTION: str = "None"
     # List of camera ids to disable, set to -1 to disable all cameras
     DEFAULT_CAMERAS_TO_DISABLE: list[int] | None = None
+    DEFAULT_CAMERAS_TO_RECORD: list[int] | None = None
 
     @classmethod
     def from_yaml(cls, config_path: str | Path | None = None) -> "Configuration":
