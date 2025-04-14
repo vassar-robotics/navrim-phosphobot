@@ -115,7 +115,7 @@ class Configuration(BaseModel):
         try:
             # Read the user_settings as a config
             user_settings = rename_keys_for_config(user_settings)
-            new_config = Configuration(**user_settings)
+            new_config = Configuration.model_validate(user_settings)
         except Exception as e:
             logger.error(f"Error saving user settings: {e}")
             return
@@ -125,7 +125,7 @@ class Configuration(BaseModel):
             yaml.dump(user_settings, file)
 
         # Then, replace inplace the fields of the current instance with the new instance
-        for field in new_config.model_fields.keys():
+        for field in Configuration.model_fields.keys():
             setattr(self, field, getattr(new_config, field))
 
 
