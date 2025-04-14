@@ -1488,6 +1488,10 @@ class Stats(BaseModel):
         if value is None:
             return None
 
+        # If square_sum is None, use the std to compute the square sum
+        if self.square_sum is None and self.std is not None and self.mean is not None:
+            self.square_sum = self.std**2 + self.mean**2
+
         # Update the max and min
         if self.max is None:
             self.max = value
@@ -1537,6 +1541,10 @@ class Stats(BaseModel):
 
         if image_value is None:
             return None
+
+        # Compute the square sum if not available
+        if self.square_sum is None and self.std is not None and self.mean is not None:
+            self.square_sum = self.std**2 + self.mean**2
 
         image_norm_32 = image_value.astype(dtype=np.float32) / 255.0
 
