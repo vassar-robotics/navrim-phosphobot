@@ -319,12 +319,33 @@ class Gr00tN1(ActionModel):
     def sample_actions(self, inputs: dict) -> np.ndarray:
         # Get the dict from the server
         response = self.client.get_action(inputs)
-        arm = response["action.single_arm"]
-        gripper = response["action.gripper"]
-        # Fully close the gripper if it is less than 0.35
-        # if gripper.shape is (16,) (no last dimension), resize it to (16, 1)
-        gripper = gripper.reshape(-1, 1)
-        gripper[gripper < 0.35] = 0.0
-        action = np.concatenate((arm, gripper), axis=1)
+        # TODO: Improve this logic to work for all configs
+        if "action.single_arm" in response and "action.gripper" in response:
+            arm = response["action.single_arm"]
+            gripper = response["action.gripper"]
+            # Fully close the gripper if it is less than 0.35
+            # if gripper.shape is (16,) (no last dimension), resize it to (16, 1)
+            gripper = gripper.reshape(-1, 1)
+            gripper[gripper < 0.35] = 0.0
+            action = np.concatenate((arm, gripper), axis=1)
+        elif (
+            "action.left_arm" in response
+            and "action.right_arm" in response
+            and "action.left_gripper" in response
+            and "action.right_gripper" in response
+        ):
+            left_arm = response["action.left_arm"]
+            left_gripper = response["action.left_gripper"]
+            right_arm = response["action.right_arm"]
+            right_gripper = response["action.right_gripper"]
+            # Resize the grippers
+            left_gripper = left_gripper.reshape(-1, 1)
+            right_gripper = right_gripper.reshape(-1, 1)
+            # Fully close the gripper if it is less than 0.35
+            left_gripper[left_gripper < 0.35] = 0.0
+            right_gripper[right_gripper < 0.35] = 0.0
+            action = np.concatenate(
+                (left_arm, left_gripper, right_arm, right_gripper), axis=1
+            )
 
         return action
