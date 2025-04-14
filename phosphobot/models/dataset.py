@@ -1519,12 +1519,12 @@ class Stats(BaseModel):
             return
 
         self.mean = self.sum / self.count
-        # self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
         if (self.square_sum / self.count - self.mean**2 < 0).any():
             logger.error(
                 f"Negative value in the square sum. Setting std to 0.\nsquare_sum={self.square_sum}\ncount={self.count}\nmean={self.mean**2}"
             )
             self.std = np.zeros_like(self.mean)
+        self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
 
     def update_image(self, image_value: np.ndarray) -> None:
         """
