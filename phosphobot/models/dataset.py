@@ -20,7 +20,7 @@ from huggingface_hub import (
     upload_folder,
 )
 from loguru import logger
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 from phosphobot.types import VideoCodecs
 from phosphobot.utils import (
@@ -927,6 +927,25 @@ class Dataset:
             name.replace(" ", "_").replace("/", "_").replace("-", "_")
 
         return name
+
+    @classmethod
+    def remove_ds_store_files(cls, folder_path: str):
+        try:
+            # Iterate through all items in the folder
+            for item in os.listdir(folder_path):
+                item_path = os.path.join(folder_path, item)
+
+                # If item is a .DS_Store file, remove it
+                if item == ".DS_Store":
+                    os.remove(item_path)
+                    continue
+
+                # If item is a directory, recurse into it
+                if os.path.isdir(item_path):
+                    cls.remove_ds_store_files(item_path)
+
+        except (PermissionError, OSError):
+            pass
 
     def get_episode_data_path(self, episode_id: int) -> str:
         """Get the full path to the data with episode id"""
