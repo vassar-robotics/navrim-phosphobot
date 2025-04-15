@@ -308,7 +308,6 @@ def parse_hf_username_or_orgid(user_info: dict) -> str | None:
     scoped_permissions = fine_grained_permissions.get("scoped", [])
 
     # Check if the token has write access to the user account
-    user_has_write_access = False
     org_with_write_access = None
 
     for scope in scoped_permissions:
@@ -319,7 +318,6 @@ def parse_hf_username_or_orgid(user_info: dict) -> str | None:
 
         # Check if the entity is the user and has write access
         if entity_type == "user" and "repo.write" in permissions:
-            user_has_write_access = True
             # Return the username
             return username
 
