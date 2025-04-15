@@ -61,7 +61,7 @@ class Configuration(BaseModel):
     DEFAULT_DATASET_NAME: str = "example_dataset"
     DEFAULT_FREQ: int = 30
     DEFAULT_EPISODE_FORMAT: Literal["lerobot_v2", "json"] = "lerobot_v2"
-    DEFAULT_VIDEO_CODEC: VideoCodecs = "hev1"
+    DEFAULT_VIDEO_CODEC: VideoCodecs = "hvc1"
     DEFAULT_VIDEO_SIZE: list[int] = [320, 240]
     DEFAULT_TASK_INSTRUCTION: str = "None"
     # List of camera ids to disable, set to -1 to disable all cameras
