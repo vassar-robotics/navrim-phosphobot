@@ -694,6 +694,7 @@ try:
                 width=realsense_camera.width,
                 height=realsense_camera.height,
                 fps=realsense_camera.fps,
+                disable=disable,
             )
             self.realsense_camera = realsense_camera
             self.frame_type = frame_type
