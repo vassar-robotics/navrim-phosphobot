@@ -19,6 +19,17 @@ from phosphobot.types import CameraTypes
 MAX_OPENCV_INDEX = 10
 
 
+def cv2VideoCapture(index: int) -> cv2.VideoCapture:
+    """
+    Utility function to create a cv2.VideoCapture object.
+    """
+    # On Windows, add the cv2.CAP_DSHOW flag to avoid errors
+    if platform.system() == "Windows":
+        return cv2.VideoCapture(index, cv2.CAP_DSHOW)
+    else:
+        return cv2.VideoCapture(index)
+
+
 def get_camera_names() -> List[str]:
     """
     This function returns the list of cameras connected to the computer.
@@ -688,11 +699,10 @@ try:
             self.frame_type = frame_type
             self.camera_type = cast(CameraTypes, f"realsense_{frame_type}")
             self.camera_id = camera_id
-            self._is_active = not disable
 
         @property
         def is_active(self) -> bool:
-            return self._is_active and self.realsense_camera.is_active
+            return self.realsense_camera.is_active
 
         @is_active.setter
         def is_active(self, value):
@@ -721,7 +731,7 @@ try:
             return frame
 
         def stop(self) -> None:
-            self._is_active = False
+            self.realsense_camera.stop()
 
         @property
         def camera_name(self) -> str:
