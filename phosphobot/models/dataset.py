@@ -721,9 +721,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -1544,9 +1544,11 @@ class Stats(BaseModel):
         self.mean = self.sum / self.count
         if (self.square_sum / self.count - self.mean**2 < 0).any():
             logger.warning(
-                f"Negative value in the square sum. Setting std to 0.\nsquare_sum={self.square_sum}\ncount={self.count}\nmean={self.mean**2}"
+                f"Negative value in the square sum. Replacing the negative values of std with 0.\nsquare_sum={self.square_sum}\ncount={self.count}\nmean={self.mean**2}"
             )
-            self.std = np.zeros_like(self.mean)
+            variance = self.square_sum / self.count - self.mean**2
+            variance[variance <= 0] = 0
+            self.std = np.sqrt(variance)
         else:
             self.std = np.sqrt(self.square_sum / self.count - self.mean**2)
 
