@@ -155,6 +155,8 @@ class Recorder:
         self.is_recording = True
         self.start_ts = time.perf_counter()
 
+        self.robots = robots
+
         # Count the number of files in meta_folder_path/data/chunk-000 to get episode_index
         os.makedirs(self.data_folder_path, exist_ok=True)
         episode_index = len(os.listdir(self.data_folder_path))
@@ -423,15 +425,15 @@ class Recorder:
             # Second, we add the step with the observations
             self.episode.add_step(step)
             if self.episode_format == "lerobot_v2":
-                assert (
-                    self.stats_model is not None
-                ), "Stats model is not initialized. Call start() first"
-                assert (
-                    self.episodes_model is not None
-                ), "Episodes model is not initialized. Call start() first"
-                assert (
-                    self.tasks_model is not None
-                ), "Tasks model is not initialized. Call start() first"
+                assert self.stats_model is not None, (
+                    "Stats model is not initialized. Call start() first"
+                )
+                assert self.episodes_model is not None, (
+                    "Episodes model is not initialized. Call start() first"
+                )
+                assert self.tasks_model is not None, (
+                    "Tasks model is not initialized. Call start() first"
+                )
                 # Update the models
 
                 # We pass the step count to update frame index properly
