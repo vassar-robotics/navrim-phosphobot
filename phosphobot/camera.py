@@ -690,16 +690,17 @@ try:
             camera_id: int,
             disable: bool = False,
         ):
-            super().__init__(
-                width=realsense_camera.width,
-                height=realsense_camera.height,
-                fps=realsense_camera.fps,
-                disable=disable,
-            )
+            self.width = realsense_camera.width
+            self.height = realsense_camera.height
+            self.fps = realsense_camera.fps
+            self.is_active = not disable and realsense_camera.is_active
+
             self.realsense_camera = realsense_camera
             self.frame_type = frame_type
             self.camera_type = cast(CameraTypes, f"realsense_{frame_type}")
             self.camera_id = camera_id
+
+            atexit.register(self.stop)
 
         @property
         def is_active(self) -> bool:
