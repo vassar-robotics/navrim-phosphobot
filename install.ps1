@@ -49,6 +49,7 @@ function Install-Phosphobot {
     Move-Item -Path $temp_file -Destination $dest_path -Force
 
     # Add to PATH if not already present
+    Write-Information "Checking PATH"
     if (-not ($env:Path -split ";" -contains $install_dir)) {
         Add-Path $install_dir
         Write-Information "Added $install_dir to your PATH"
