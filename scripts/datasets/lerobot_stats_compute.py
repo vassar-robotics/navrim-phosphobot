@@ -493,7 +493,7 @@ def decode_video_frames_torchvision(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compute statistics for a dataset.")
     parser.add_argument(
-        "--dataset_path",
+        "--dataset-path",
         type=str,
         required=True,
         help="Path to the dataset directory containing data, videos, and meta subfolders.",

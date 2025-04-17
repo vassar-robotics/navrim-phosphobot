@@ -181,7 +181,7 @@ def run_stats_script(dataset_path):
 
     try:
         subprocess.run(
-            ["uv", "run", script_path, "--dataset_path", dataset_path],
+            ["uv", "run", script_path, "--dataset-path", dataset_path],
             check=True,
         )
         print(f"Successfully executed {script_path} with uv")
@@ -220,7 +220,7 @@ def delete_indexes(indexes: list[int]):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(
-            "Usage: python repair_dataset.py --dataset-path <dataset_path> --indexes-to-delete <indexes_to_delete_comma_separated>\nFor example: python repair_dataset.py --dataset-path /path/to/dataset --indexes-to-delete 2,7,12"
+            "Usage: uv run repair_dataset.py --dataset-path <dataset_path> --indexes-to-delete <indexes_to_delete_comma_separated>\nFor example: python repair_dataset.py --dataset-path /path/to/dataset --indexes-to-delete 2,7,12"
         )
         sys.exit(1)
 

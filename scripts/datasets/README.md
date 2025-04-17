@@ -1,9 +1,10 @@
 # Le Robot Dataset Toolkit
 
-This folder holds scripts to repair/update your Le Robot datasets.
+This folder holds scripts to repair/update/edit your Le Robot datasets.
 
 This folder will help you:
 
+- remove duplicate arms in your dataset
 - delete episodes
 - repair a broken Le Robot dataset
 - push your dataset to Hugging Face
@@ -18,7 +19,31 @@ This handles the dependancies.
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
+## Tips
+
+These scripts edit your files locally, you'll need to download the dataset locally which you can do using the hugging face cli like so:
+
+```bash
+huggingface-cli login
+
+huggingface-cli download <HF_DATASET_NAME> --repo-type dataset --local-dir <DIRECTORY_TO_SAVE_YOUR_DATASET>
+```
+
 ## Usage
+
+### Remove duplicate arms in your dataset
+
+```bash
+uv run remove_duplicate_arms.py --dataset-path <local_dataset_path>
+```
+
+For example: uv run remove_duplicate_arms.py --dataset-path ~/phosphobot/recordings/lerobot_v2/example_dataset
+
+This will:
+
+- go through all the parquets and remove the extra arm
+- recompute the meta files
+- upload your dataset to huggingface
 
 ### Delete episodes from your dataset
 
