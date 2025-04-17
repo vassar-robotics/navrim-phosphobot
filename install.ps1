@@ -29,7 +29,7 @@ function Install-Phosphobot {
     
     # Platform detection
     $arch = if ([System.Environment]::Is64BitOperatingSystem) { "amd64" } else { "i686" }
-    $artifact_name = "$app_name-v$version-$arch.exe"
+    $artifact_name = "$app_name-$version-$arch.exe"
     $download_url = $latest_release.assets | Where-Object name -eq $artifact_name | Select-Object -First 1 -ExpandProperty browser_download_url
 
     if (-not $download_url) {
