@@ -157,7 +157,7 @@ It's compatible with LeRobot and RLDS.
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python push_dataset_to_hf.py <dataset_path> <dataset_name>")
+        print("Usage: uv run push_dataset_to_hf.py <dataset_path> <dataset_name>")
         sys.exit(1)
 
     DATASET_PATH = sys.argv[1]
