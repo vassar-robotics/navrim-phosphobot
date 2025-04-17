@@ -264,7 +264,6 @@ class Episode(BaseModel):
         """
         Return the file path of the episode
         """
-        # Ensure there is a older folder_name/episode_format/dataset_name/data/chunk-000/
         path = self.dataset_path / "data" / "chunk-000"
         os.makedirs(path, exist_ok=True)
         return path
@@ -478,7 +477,7 @@ class Episode(BaseModel):
         # Add metadata to the episode
         # the path is like this : dataset_name/data/chunk-000/episode_xxxxxx.parquet
         # get the path : dataset_name
-        dataset_path = episode_data_path.split("/")[-2]
+        dataset_path = episode_data_path.split("/")[-4]
 
         metadata = {
             "dataset_name": dataset_path,
@@ -721,9 +720,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert (
-                step.action is not None
-            ), "The action must be set for each step before saving"
+            assert step.action is not None, (
+                "The action must be set for each step before saving"
+            )
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -998,9 +997,6 @@ class Dataset:
         Return the huggingface repository id
         """
         repo_id = f"{get_hf_username_or_orgid()}/{self.dataset_name}"
-        # Check that the repository exists
-        if not self.check_repo_exists(repo_id):
-            logger.warning(f"Repository {repo_id} does not exist on Hugging Face")
         return repo_id
 
     def check_repo_exists(self, repo_id: str | None) -> bool:
@@ -1131,6 +1127,7 @@ class Dataset:
         Delete the episode data from the dataset.
         If format is lerobot_v2, also delete the episode videos from the dataset
         and updates the meta data.
+        JSON format not supported
 
         If update_hub is True, also delete the episode data from the Hugging Face repository
         """
@@ -1169,7 +1166,7 @@ class Dataset:
             # Update meta data before episode removal
             tasks_model.update_for_episode_removal(
                 df_episode_to_delete=episode_to_delete.parquet(),
-                data_folder_full_path=self.meta_folder_full_path,
+                data_folder_full_path=self.data_folder_full_path,
             )
             tasks_model.save(meta_folder_path=self.meta_folder_full_path)
             logger.info("Tasks model updated")
@@ -1774,9 +1771,22 @@ class StatsModel(BaseModel):
         # Load the parquet file
         nb_steps_deleted_episode = len(df_episode_to_delete)
 
-        # Compute the sum and square sum for each column
+        # Remove [nan, nan, ...] arrays from actions and observation.state columns
+        df_episode_to_delete = df_episode_to_delete[
+            df_episode_to_delete["observation.state"].apply(
+                lambda x: not np.all(np.isnan(x))
+            )
+        ]
+        df_episode_to_delete = df_episode_to_delete[
+            df_episode_to_delete["action"].apply(lambda x: not np.all(np.isnan(x)))
+        ]
+
         df_sums_squaresums = pd.concat(
-            [df_episode_to_delete.sum(), (df_episode_to_delete**2).sum()], axis=1
+            [
+                df_episode_to_delete.sum(skipna=True),
+                (df_episode_to_delete**2).sum(skipna=True),
+            ],
+            axis=1,
         )
         df_sums_squaresums = df_sums_squaresums.rename(
             columns={0: "sums", 1: "squaresums"}
