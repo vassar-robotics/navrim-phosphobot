@@ -40,7 +40,7 @@ function Install-Phosphobot {
     New-Item -ItemType Directory -Path $install_dir -Force | Out-Null
 
     # Download and install
-    Write-Information "Downloading $app_name $version..."
+    Write-Host "Downloading $app_name $version..."
     $temp_file = Join-Path $env:TEMP $artifact_name
     Invoke-WebRequest -Uri $download_url -OutFile $temp_file
 
@@ -49,14 +49,14 @@ function Install-Phosphobot {
     Move-Item -Path $temp_file -Destination $dest_path -Force
 
     # Add to PATH if not already present
-    Write-Information "Checking PATH"
+    Write-Host "Checking PATH"
     if (-not ($env:Path -split ";" -contains $install_dir)) {
         Add-Path $install_dir
-        Write-Information "Added $install_dir to your PATH"
+        Write-Host "Added $install_dir to your PATH"
     }
 
-    Write-Information "`nInstallation complete! Run with:"
-    Write-Information "    phosphobot run`n"
+    Write-Host "`nInstallation complete! Run with:"
+    Write-Host "    phosphobot run`n"
 }
 
 function Add-Path($Path) {
