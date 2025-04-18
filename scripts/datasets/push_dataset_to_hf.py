@@ -47,7 +47,7 @@ def push_dataset_to_hub(
 tags:
 - phosphobot
 - so100
-- phospho-dk1
+- phospho-dk
 task_categories:
 - robotics                                                   
 ---
