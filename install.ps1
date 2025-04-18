@@ -59,12 +59,22 @@ function Install-Phosphobot {
     Write-Host "    phosphobot run`n"
 }
 
-function Add-Path($Path) {
-    $persistentPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    if ($persistentPath -split ';' -notcontains $Path) {
-        [Environment]::SetEnvironmentVariable('Path', "$Path;$persistentPath", 'User')
-    }
+function Add-Path($dir) {
+    # Read the *user* PATH
+    $userPath = [Environment]::GetEnvironmentVariable('Path','User')
+    # Bail if it’s already there
+    if ($userPath -split ';' | Where‑Object { $_ -eq $dir }) { return }
+
+    # Prepend and write back
+    $newUserPath = "$dir;$userPath"
+    [Environment]::SetEnvironmentVariable('Path', $newUserPath, 'User')
+
+    # Update this session so that subsequent calls to e.g. Move‑Item will see the new PATH
+    $env:Path = $newUserPath
+
+    Write-Host "✅ Added `$dir` to your USER PATH. You can start using it immediately."
 }
+
 
 function Initialize-Environment() {
     If ($PSVersionTable.PSVersion.Major -lt 5) {
