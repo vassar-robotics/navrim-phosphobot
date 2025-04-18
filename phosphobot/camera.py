@@ -915,12 +915,13 @@ class AllCameras:
         """
 
         realsense_available = False
-        if (
-            self.realsensecamera is not None
-            and self.realsensecamera.is_active
-            and self.realsensecamera.is_connected
-        ):
-            realsense_available = True
+        # Don't show realsense
+        # if (
+        #     self.realsensecamera is not None
+        #     and self.realsensecamera.is_active
+        #     and self.realsensecamera.is_connected
+        # ):
+        #     realsense_available = True
 
         return AllCamerasStatus(
             video_cameras_ids=self.camera_ids,
