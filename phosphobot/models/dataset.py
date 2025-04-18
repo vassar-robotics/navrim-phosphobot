@@ -720,9 +720,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -875,24 +875,23 @@ class Dataset:
     episode_format: Literal["json", "lerobot_v2"]
     data_file_extension: str
     # Full path to the dataset folder
-    folder_full_path: str
+    folder_full_path: Path
 
     def __init__(self, path: str) -> None:
         """
         Load an existing dataset.
         """
         # Check path format
-        path_parts = path.split("/")
+        path_obj = Path(path)
+        path_parts = path_obj.parts
         if len(path_parts) < 2 or path_parts[-2] not in ["json", "lerobot_v2"]:
-            raise ValueError(
-                "Wrong dataset path provided. Path must contain json or lerobot_v2 format."
-            )
+            raise ValueError("Wrong dataset path provided.")
 
-        self.path = path
+        self.path = str(path_obj)
         self.episodes = []
         self.dataset_name = path_parts[-1]
         self.episode_format = cast(Literal["json", "lerobot_v2"], path_parts[-2])
-        self.folder_full_path = path
+        self.folder_full_path = path_obj
         self.data_file_extension = "json" if path_parts[-2] == "json" else "parquet"
         self.HF_API = HfApi()
 
@@ -966,17 +965,17 @@ class Dataset:
     @property
     def meta_folder_full_path(self) -> str:
         """Get the folder path of the dataset"""
-        return os.path.join(self.folder_full_path, "meta")
+        return str(self.folder_full_path / "meta")
 
     @property
     def data_folder_full_path(self) -> str:
         """Get the full path to the data folder"""
-        return os.path.join(self.folder_full_path, "data", "chunk-000")
+        return str(self.folder_full_path / "data" / "chunk-000")
 
     @property
     def videos_folder_full_path(self) -> str:
         """Get the full path to the videos folder"""
-        return os.path.join(self.folder_full_path, "videos", "chunk-000")
+        return str(self.folder_full_path / "videos" / "chunk-000")
 
     def get_df_episode(self, episode_id: int) -> pd.DataFrame:
         """Get the episode data as a pandas DataFrame"""
