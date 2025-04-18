@@ -16,15 +16,15 @@ from phosphobot.am import Gr00tN1
 from phosphobot.api.client import PhosphoApi
 from phosphobot.camera import AllCameras
 
-host = "20.199.85.87"
+host = "YOUR_SERVER_IP"  # Change this to your server IP (this is the IP of the machine running the Gr00tN1 server using a GPU)
 port = 5555
 
-# Change this by your task description
+# Change this with your task description
 TASK_DESCRIPTION = (
     "Pick up the green lego brick from the table and put it in the black container."
 )
 
-# Connect to the phosphobot server
+# Connect to the phosphobot server, this is different from the server IP above
 client = PhosphoApi(base_url="http://localhost:80")
 
 allcameras = AllCameras()
@@ -53,6 +53,9 @@ while True:
     model = Gr00tN1(server_url=host, server_port=port)
 
     state = np.array(client.control.read_joints().angles_rad)
+    # Take a look at the experiment_cfg/metadata.json file in your Gr00t model and check the names of the images, states, and observations
+    # You may need to adapt the obs JSON to match these names
+    # The following JSON should work for one arm and 2 video cameras
     obs = {
         "video.cam_context": images[0],
         "video.cam_wrist": images[1],
@@ -60,6 +63,20 @@ while True:
         "state.gripper": np.array([state[5]]).reshape(1, 1),
         "annotation.human.action.task_description": [TASK_DESCRIPTION],
     }
+    # Uncomment this if you want to use this script for a bimanual setup
+    #
+    # You may also need to change the name and order of the images based on their incoming order and names in the experiment_cfg/metadata.json file in your model
+    #
+    # obs = {
+    #     "video.cam_context": images[0],
+    #     "video.cam_wrist_left": images[1],
+    #     "video.cam_wrist_right": images[2],
+    #     "state.left_arm": state[0:5].reshape(1, 5),
+    #     "state.left_gripper": np.array([state[5]]).reshape(1, 1),
+    #     "state.right_arm": state[6:11].reshape(1, 5),
+    #     "state.right_gripper": np.array([state[11]]).reshape(1, 1),
+    #     "annotation.human.action.task_description": [TASK_DESCRIPTION],
+    # }
 
     action = model.sample_actions(obs)
 
