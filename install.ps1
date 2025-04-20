@@ -63,7 +63,7 @@ function Add-Path($dir) {
     # Read the *user* PATH
     $userPath = [Environment]::GetEnvironmentVariable('Path','User')
     # Bail if it’s already there
-    if ($userPath -split ';' | Where‑Object { $_ -eq $dir }) { return }
+    if ($userPath -split ';' | Where-Object { $_ -eq $dir }) { return }
 
     # Prepend and write back
     $newUserPath = "$dir;$userPath"
