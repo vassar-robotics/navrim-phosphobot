@@ -28,6 +28,7 @@ embodiment_tag = "new_embodiment"  # Change this to your embodiment tag, in most
 data_config = None
 # data_config = "so100" # For a single arm with 1 camera
 # data_config = "so100_wc" # For a single arm with 2 cameras
+# data_config = "so100_w2c" # For a single arm with 3 cameras
 # data_config = "double_so100_1cam" # For a bimanual setup with 1 camera
 # data_config = "double_so100" # For a bimanual setup with 2 cameras
 # data_config = "double_so100_wc" # For a bimanual setup with 3 cameras
