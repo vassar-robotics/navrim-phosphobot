@@ -525,10 +525,10 @@ if __name__ == "__main__":
     INFO_FILE = os.path.join(META_PATH, "info.json")
     with open(INFO_FILE, "r") as f:
         info = json.load(f)
-        info["total_episodes"] = total_episodes
-        info["total_frames"] = total_frames
-        info["total_videos"] = total_videos
-        info["splits"] = splits
+    info["total_episodes"] = total_episodes
+    info["total_frames"] = total_frames
+    info["total_videos"] = total_videos
+    info["splits"] = splits
 
     with open(INFO_FILE, "w") as f:
         json.dump(info, f, indent=4)

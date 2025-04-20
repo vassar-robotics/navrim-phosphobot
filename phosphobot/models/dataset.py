@@ -1667,13 +1667,13 @@ class StatsModel(BaseModel):
         with open(f"{meta_folder_path}/stats.json", "r") as f:
             stats_dict: Dict[str, Stats] = json.load(f)
 
-            # Create a temporary dictionary for observation_images
-            observation_images = {}
-            # We need to create a list of keys in order not to modify
-            # the dictionary while iterating over it
-            for key in list(stats_dict.keys()):
-                if "image" in key:
-                    observation_images[key] = stats_dict.pop(key)
+        # Create a temporary dictionary for observation_images
+        observation_images = {}
+        # We need to create a list of keys in order not to modify
+        # the dictionary while iterating over it
+        for key in list(stats_dict.keys()):
+            if "image" in key:
+                observation_images[key] = stats_dict.pop(key)
 
         # Pass observation_images into the model constructor
         return cls(**stats_dict, observation_images=observation_images)
@@ -1845,7 +1845,7 @@ class StatsModel(BaseModel):
         info_path = os.path.join(meta_folder_path, "info.json")
         with open(info_path, "r") as f:
             info_dict = json.load(f)
-            return info_dict.get("total_frames", 0)
+        return info_dict.get("total_frames", 0)
 
     def get_images_shapes(self, meta_folder_path: str, camera_key: str) -> List[int]:
         """
@@ -1854,7 +1854,7 @@ class StatsModel(BaseModel):
         info_path = os.path.join(meta_folder_path, "info.json")
         with open(info_path, "r") as f:
             info_dict = json.load(f)
-            return info_dict["features"][camera_key]["shape"]
+        return info_dict["features"][camera_key]["shape"]
 
     def _compute_count_sum_square_sum_item_from_mean_std(
         self, stats_item: "Stats", stats_key: str, meta_folder_path: str

@@ -109,7 +109,7 @@ class Configuration(BaseModel):
 
             with open(config_path, "w") as file:
                 file.write("")
-                return cls()
+            return cls()
 
         with open(config_path, "r") as file:
             try:
@@ -120,9 +120,9 @@ class Configuration(BaseModel):
                 )
                 config = None
 
-            if config is None or not isinstance(config, dict):
-                config = {}
-            config = rename_keys_for_config(config)
+        if config is None or not isinstance(config, dict):
+            config = {}
+        config = rename_keys_for_config(config)
 
         return cls(**config)
 
