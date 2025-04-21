@@ -1,3 +1,4 @@
+import asyncio
 import atexit
 from pathlib import Path
 import subprocess
@@ -5,9 +6,10 @@ import threading
 import time
 import platform
 from abc import ABC, abstractmethod
-from typing import Generator, List, Literal, Optional, Dict, cast
+from typing import AsyncGenerator, Generator, List, Literal, Optional, Dict, cast
 
 import cv2
+from fastapi import Request
 import numpy as np
 from loguru import logger
 
@@ -313,15 +315,19 @@ class BaseCamera(ABC):
 
         return jpeg.tobytes()
 
-    def generate_rgb_frames(
+    async def generate_rgb_frames(
         self,
         target_size: tuple[int, int] | None,
         quality: int | None,
         is_video_frame: bool = True,
-    ) -> Generator:
+        request: Request | None = None,
+    ) -> AsyncGenerator:
         """Generator for video frames"""
         try:
-            while self.is_active:
+            while self.is_active and (
+                request is None or not await request.is_disconnected()
+            ):
+                time_start = time.perf_counter()
                 frame = self.get_jpeg_rgb_frame(
                     is_video_frame=is_video_frame,
                     target_size=target_size,
@@ -336,7 +342,12 @@ class BaseCamera(ABC):
                         f"{self.camera_name} Skipped frame due to capture error"
                     )
                     # Prevent tight loop
-                    time.sleep(0.02)
+                    await asyncio.sleep(0.02)
+                # Wait according to the fps
+                time_spent = time.perf_counter() - time_start
+                time_to_wait = max(0, 1 / self.fps - time_spent)
+                logger.debug(f"{self.camera_name} time_to_wait: {time_to_wait:.6f}s")
+                await asyncio.sleep(time_to_wait)
         except GeneratorExit:
             logger.info(f"{self.camera_name} Generator exited")
         except KeyboardInterrupt:
@@ -346,8 +357,8 @@ class BaseCamera(ABC):
             logger.error(f"{self.camera_name} Error generating frames: {str(e)}")
             self.stop()
 
-    def generate_depth_frames(self):
-        return self.generate_rgb_frames(is_video_frame=False)
+    async def generate_depth_frames(self):
+        return await self.generate_rgb_frames(is_video_frame=False)
 
 
 class VideoCamera(threading.Thread, BaseCamera):
