@@ -346,7 +346,6 @@ class BaseCamera(ABC):
                 # Wait according to the fps
                 time_spent = time.perf_counter() - time_start
                 time_to_wait = max(0, 1 / self.fps - time_spent)
-                logger.debug(f"{self.camera_name} time_to_wait: {time_to_wait:.6f}s")
                 await asyncio.sleep(time_to_wait)
         except GeneratorExit:
             logger.info(f"{self.camera_name} Generator exited")
