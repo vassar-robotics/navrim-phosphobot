@@ -35,27 +35,6 @@ def remove_default_prefix(config_dict: dict) -> dict:
     }
 
 
-def initialize_video_codec() -> VideoCodecs:
-    """
-    Initialize video codec based on the system, in order to respect available codecs.
-
-    MacOS: avc1
-    Linux: mp4v
-    Windows: mp4v
-    """
-    import platform
-
-    system = platform.system()
-    if system == "Darwin":  # MacOS
-        return "avc1"
-    elif system == "Linux":
-        return "mp4v"
-    elif system == "Windows":
-        return "mp4v"
-    else:
-        return "mp4v"
-
-
 class Configuration(BaseModel):
     # Server
     PORT: int = 80
@@ -82,7 +61,7 @@ class Configuration(BaseModel):
     DEFAULT_DATASET_NAME: str = "example_dataset"
     DEFAULT_FREQ: int = 30
     DEFAULT_EPISODE_FORMAT: Literal["lerobot_v2", "json"] = "lerobot_v2"
-    DEFAULT_VIDEO_CODEC: VideoCodecs = Field(default_factory=initialize_video_codec)
+    DEFAULT_VIDEO_CODEC: VideoCodecs = Field(default_factory=lambda: "avc1")
     DEFAULT_VIDEO_SIZE: list[int] = [320, 240]
     DEFAULT_TASK_INSTRUCTION: str = "None"
     # List of camera ids to disable, set to -1 to disable all cameras
