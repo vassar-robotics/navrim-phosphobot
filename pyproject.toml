@@ -20,6 +20,7 @@ dependencies = [
     "json-numpy>=2.1.0",
     "fastapi>=0.115.11",
     "zmq>=0.0.0",
+    "pyav>=14.2.1",
 ]
 
 [dependency-groups]
