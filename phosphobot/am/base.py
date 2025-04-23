@@ -1,3 +1,6 @@
+import random
+import string
+from typing import Optional
 import numpy as np
 from fastapi import HTTPException
 from abc import abstractmethod, ABC
@@ -67,12 +70,18 @@ class TrainingRequest(BaseModel):
     @field_validator("model_name")
     @classmethod
     def validate_model_name(cls, model_name: str) -> str:
+        # We add random characters to the model name to avoid collisions
+        random_chars = "".join(
+            random.choices(string.ascii_lowercase + string.digits, k=10)
+        )
+        # We need to make sure that the model is called phospho-app/...
+        # So we can upload it to the phospho Hugging Face repo
         size = model_name.split("/")
         if len(size) == 1:
-            model_name = "phospho-app/" + model_name
+            model_name = "phospho-app/" + model_name + "-" + random_chars
         elif len(size) == 2:
             if size[0] != "phospho-app":
-                model_name = "phospho-app/" + model_name
+                model_name = "phospho-app/" + size[1] + "-" + random_chars
         else:
             raise HTTPException(
                 status_code=400,

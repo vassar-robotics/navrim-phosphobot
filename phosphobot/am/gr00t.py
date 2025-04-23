@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 import numpy as np
 import zmq
@@ -31,6 +31,10 @@ class Gr00tTrainingRequest(TrainingRequest):
         description="Learning rate for training, default is 0.0001",
         gt=0,
         le=1,
+    )
+    wandb_api_key: Optional[str] = Field(
+        default=None,
+        description="WandB API key for tracking training, you can find it at https://wandb.ai/authorize",
     )
 
 
