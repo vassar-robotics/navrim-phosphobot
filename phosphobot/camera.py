@@ -6,7 +6,7 @@ import threading
 import time
 import platform
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, Generator, List, Literal, Optional, Dict, cast
+from typing import AsyncGenerator, List, Literal, Optional, Dict, cast
 
 import cv2
 from fastapi import Request
