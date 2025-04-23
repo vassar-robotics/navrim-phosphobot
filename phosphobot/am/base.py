@@ -1,6 +1,5 @@
 import random
 import string
-from typing import Optional
 import numpy as np
 from fastapi import HTTPException
 from abc import abstractmethod, ABC
