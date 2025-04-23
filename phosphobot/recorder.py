@@ -168,6 +168,8 @@ class Recorder:
                 "episode_index": episode_index,
                 "created_at": self.start_ts,
                 "robot_type": ", ".join(robot.name for robot in robots),
+                "format": self.episode_format,
+                "dataset_name": self.dataset_name,
             },
         )
 
