@@ -30,6 +30,7 @@ from phosphobot.utils import (
     create_video_file,
     decode_numpy,
     get_field_min_max,
+    get_hf_token,
     get_hf_username_or_orgid,
     get_home_app_path,
     parse_hf_username_or_orgid,
@@ -909,7 +910,7 @@ class Dataset:
         self.episode_format = cast(Literal["json", "lerobot_v2"], path_parts[-2])
         self.folder_full_path = path_obj
         self.data_file_extension = "json" if path_parts[-2] == "json" else "parquet"
-        self.HF_API = HfApi()
+        self.HF_API = HfApi(token=get_hf_token())
 
         # Validate dataset name
         if not Dataset.check_dataset_name(self.dataset_name):
@@ -1057,7 +1058,7 @@ class Dataset:
                 repo_id=self.repo_id, path_in_repo="./meta", repo_type="dataset"
             )
             # Reupload the dataset folder to Hugging Face
-            upload_folder(
+            self.HF_API.upload_large_folder(
                 folder_path=self.folder_full_path,
                 repo_id=self.repo_id,
                 repo_type="dataset",
@@ -1412,11 +1413,10 @@ It's compatible with LeRobot and RLDS.
             logger.info(
                 f"Pushing the dataset to the main branch in repository {dataset_repo_name}"
             )
-            upload_folder(
+            self.HF_API.upload_large_folder(
                 folder_path=self.folder_full_path,
                 repo_id=dataset_repo_name,
                 repo_type="dataset",
-                token=True,
             )
 
             repo_refs = self.HF_API.list_repo_refs(
@@ -1445,11 +1445,10 @@ It's compatible with LeRobot and RLDS.
                     logger.info(
                         f"Pushing the dataset to the branch v2.0 in repository {dataset_repo_name}"
                     )
-                    upload_folder(
+                    self.HF_API.upload_large_folder(
                         folder_path=self.folder_full_path,
                         repo_id=dataset_repo_name,
                         repo_type="dataset",
-                        token=True,
                         revision="v2.0",
                     )
                 except Exception as e:
@@ -1474,11 +1473,10 @@ It's compatible with LeRobot and RLDS.
 
                     # Push to specified branch
                     logger.info(f"Pushing the dataset to branch {branch_path}")
-                    upload_folder(
+                    self.HF_API.upload_large_folder(
                         folder_path=self.folder_full_path,
                         repo_id=dataset_repo_name,
                         repo_type="dataset",
-                        token=True,
                         revision=branch_path,
                     )
                     logger.info(f"Dataset pushed to branch {branch_path}")
