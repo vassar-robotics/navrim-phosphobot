@@ -1,20 +1,23 @@
+import asyncio
+import pickle
+import time
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Any, Callable, Dict, List, Literal, Tuple
 
+import cv2
+import numpy as np
+import zmq
 from fastapi import HTTPException
 from huggingface_hub import HfApi
 from loguru import logger
-import numpy as np
-from phosphobot.camera import AllCameras
-from phosphobot.models.dataset import BaseRobot
 from pydantic import BaseModel, Field, model_validator
-import zmq
-import pickle
 
 from phosphobot.am.base import ActionModel
-from phosphobot.utils import get_hf_token
-
+from phosphobot.camera import AllCameras
+from phosphobot.control_signal import AIControlSignal
+from phosphobot.models.dataset import BaseRobot
+from phosphobot.utils import background_task_log_exceptions, get_hf_token
 
 # Code from: https://github.com/NVIDIA/Isaac-GR00T/blob/main/gr00t/eval/service.py#L111
 
@@ -304,10 +307,10 @@ class HuggingFaceModelConfig(BaseModel):
     We use a model validator to extract the embodiment config from the model config.
     """
 
-    embodiment: EmbodimentConfig | None = (
-        None  # This will store the found embodiment config
-    )
-    embodiment_field_name: str | None = None  # This will store the original field name
+    # This will store the found embodiment config
+    embodiment: EmbodimentConfig
+    # This will store the original field name
+    embodiment_field_name: str | None = None
 
     class Config:
         extra = "allow"
@@ -438,10 +441,6 @@ class Gr00tN1(ActionModel):
                 config_content = f.read()
             # Parse the file
             hf_model_config = HuggingFaceModelConfig.model_validate_json(config_content)
-            if hf_model_config.embodiment is None:
-                raise Exception(
-                    f"Model {model_id} embodiment config experiment_cfg/metadata.json not found."
-                )
             video_keys = [
                 "video." + key
                 for key in hf_model_config.embodiment.modalities.video.keys()
@@ -495,3 +494,145 @@ class Gr00tN1(ActionModel):
             unit=angle_unit,
             hf_model_config=hf_model_config,
         )
+
+    @background_task_log_exceptions
+    async def control_loop(
+        self,
+        control_signal: AIControlSignal,
+        robots: List[BaseRobot],
+        model_spawn_config: ModelSpawnConfig,
+        all_cameras: AllCameras,
+        prompt: str | None = None,
+        fps: int = 30,
+        speed: float = 1.0,
+    ):
+        """
+        AI control loop that runs in the background and sends actions to the robot.
+        It uses the model to get the actions based on the current state of the robot and the cameras.
+        The loop runs until the control signal is stopped or the model is not available anymore.
+        The loop runs at the specified fps and speed.
+        """
+
+        nb_iter = 0
+        config = model_spawn_config.hf_model_config
+
+        db_state_updated = False
+
+        while control_signal.is_running():
+            logger.debug(f"AI control loop iteration {nb_iter}")
+            if control_signal.status == "paused":
+                logger.debug("AI control loop paused")
+                await asyncio.sleep(0.1)
+                continue
+
+            start_time = time.perf_counter()
+
+            # Get the images from the cameras based on the config
+            # For now, just put as many cameras as the model config
+            image_inputs: Dict[str, np.ndarray] = {}
+            for i, (camera_name, video) in enumerate(
+                config.embodiment.modalities.video.items()
+            ):
+                camera_id = i
+                rgb_frame = all_cameras.get_rgb_frame(
+                    camera_id=camera_id, resize=video.resolution
+                )
+                if rgb_frame is not None:
+                    # Convert to BGR
+                    image = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
+                    # Add a batch dimension (from (240, 320, 3) to (1, 240, 320, 3))
+                    converted_array = np.expand_dims(image, axis=0)
+                    # Ensure dtype is uint8 (if it isn’t already)
+                    converted_array = converted_array.astype(np.uint8)
+                    image_inputs[f"video.{camera_name}"] = converted_array
+
+                else:
+                    logger.warning(
+                        f"Camera {camera_name} not available. Sending all black."
+                    )
+                    image_inputs[f"video.{camera_name}"] = np.zeros(
+                        (video.resolution[1], video.resolution[0], video.channels),
+                        dtype=np.uint8,
+                    )
+
+            # Number of cameras
+            if len(image_inputs) != len(config.embodiment.modalities.video.keys()):
+                logger.warning(
+                    f"Model has {len(config.embodiment.modalities.video.keys())} cameras but {len(image_inputs)} cameras are plugged."
+                )
+                control_signal.stop()
+                raise Exception(
+                    f"Model has {len(config.embodiment.modalities.video.keys())} cameras but {len(image_inputs)} cameras are plugged."
+                )
+
+            # Number of robots
+            number_of_robots = len(robots)
+            number_of_robots_in_config = (
+                config.embodiment.statistics.state.number_of_arms
+            )
+            if number_of_robots != number_of_robots_in_config:
+                logger.warning("No robot connected. Exiting AI control loop.")
+                control_signal.stop()
+                raise Exception("No robot connected. Exiting AI control loop.")
+
+            # Concatenate all robot states
+            state = robots[0].current_position(rad=True)
+            for robot in robots[1:]:
+                state = np.concatenate(
+                    (state, robot.current_position(rad=True)), axis=0
+                )
+            if model_spawn_config.unit == "degrees":
+                state = np.deg2rad(state)
+
+            inputs = {
+                **image_inputs,
+                "annotation.human.action.task_description": prompt,
+            }
+
+            state_index = 0
+            for (
+                component_name,
+                stats,
+            ) in config.embodiment.statistics.state.active_components.items():
+                num_elements = len(stats.max)
+                component_state = state[state_index : state_index + num_elements]
+                inputs[f"state.{component_name}"] = component_state.reshape(
+                    1, num_elements
+                )
+                state_index += num_elements
+
+            try:
+                actions = self(inputs)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get actions from model: {e}. Exiting AI control loop."
+                )
+                control_signal.stop()
+                break
+
+            if not db_state_updated:
+                control_signal.set_running()
+                db_state_updated = True
+                # Small delay to let the UI update
+                await asyncio.sleep(1)
+
+            # Early stop
+            if not control_signal.is_running():
+                break
+
+            for action in actions:
+                # Send the new joint position to the robot
+                action_list = action.tolist()
+                for robot_index in range(len(robots)):
+                    robots[robot_index].write_joint_positions(
+                        angles=action_list[robot_index * 6 : robot_index * 6 + 6],
+                        unit=model_spawn_config.unit,
+                    )
+
+                # Wait fps time
+                elapsed_time = time.perf_counter() - start_time
+                sleep_time = max(0, 1.0 / (fps * speed) - elapsed_time)
+                await asyncio.sleep(sleep_time)
+                start_time = time.perf_counter()
+
+            nb_iter += 1

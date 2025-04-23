@@ -146,6 +146,22 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def write_joint_positions(
+        self, angles: np.ndarray, unit: Literal["rad", "degrees"] = "rad"
+    ) -> None:
+        """
+        Write the joint positions of the robot
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def current_position(self, rad: bool = True) -> np.ndarray:
+        """
+        Get the current position of the robot
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def get_info(self) -> "BaseRobotInfo":
         """
         Get information about the robot
