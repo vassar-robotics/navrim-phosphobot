@@ -36,6 +36,12 @@ class Gr00tTrainingRequest(TrainingRequest):
         default=None,
         description="WandB API key for tracking training, you can find it at https://wandb.ai/authorize",
     )
+    train_test_split: float = Field(
+        default=1.0,
+        description="Train test split ratio, default is 1.0 (no split), should be between 0 and 1",
+        gt=0,
+        le=1,
+    )
 
 
 class TorchSerializer:
