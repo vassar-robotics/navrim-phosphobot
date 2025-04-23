@@ -1,5 +1,10 @@
-from abc import abstractmethod, ABC
+import random
+import string
+from typing import Optional
 import numpy as np
+from fastapi import HTTPException
+from abc import abstractmethod, ABC
+from pydantic import BaseModel, Field, field_validator
 
 
 class ActionModel(ABC):
@@ -48,3 +53,67 @@ class ActionModel(ABC):
             The output of the forward method.
         """
         return self.sample_actions(*args, **kwargs)
+
+
+class TrainingRequest(BaseModel):
+    """Pydantic model for training request validation"""
+
+    dataset: str = Field(
+        ...,
+        description="Dataset repository ID on Hugging Face, should be a public dataset",
+    )
+    model_name: str = Field(
+        ...,
+        description="Name of the trained model to upload to Hugging Face, should be in the format phospho-app/<model_name> or <model_name>",
+    )
+
+    @field_validator("model_name")
+    @classmethod
+    def validate_model_name(cls, model_name: str) -> str:
+        # We add random characters to the model name to avoid collisions
+        random_chars = "".join(
+            random.choices(string.ascii_lowercase + string.digits, k=10)
+        )
+        # We need to make sure that the model is called phospho-app/...
+        # So we can upload it to the phospho Hugging Face repo
+        size = model_name.split("/")
+        if len(size) == 1:
+            model_name = "phospho-app/" + model_name + "-" + random_chars
+        elif len(size) == 2:
+            if size[0] != "phospho-app":
+                model_name = "phospho-app/" + size[1] + "-" + random_chars
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Model name should be in the format phospho-app/<model_name> or <model_name>",
+            )
+        return model_name
+
+    @field_validator("dataset")
+    @classmethod
+    def validate_dataset(cls, dataset: str) -> str:
+        import requests
+
+        try:
+            url = f"https://huggingface.co/api/datasets/{dataset}/tree/main"
+            response = requests.get(url, timeout=5)
+            if response.status_code != 200:
+                raise ValueError()
+            return dataset
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Dataset {dataset} is not a valid, public Hugging Face dataset. Please check the URL and try again. Your dataset name should be in the format <username>/<dataset_name>",
+            )
+
+
+class HuggingFaceInfoModel(BaseModel):
+    """
+    Pydantic model used to check the number of episodes in a dataset
+    This only checks the number of episodes in the dataset !
+    """
+
+    total_episodes: int
+
+    class Config:
+        extra = "allow"
