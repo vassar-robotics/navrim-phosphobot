@@ -6,10 +6,32 @@ import numpy as np
 import zmq
 import pickle
 
-from phosphobot.am.base import ActionModel
+from phosphobot.am.base import ActionModel, TrainingRequest
+from pydantic import Field
 
 
 # Code from: https://github.com/NVIDIA/Isaac-GR00T/blob/main/gr00t/eval/service.py#L111
+
+
+class Gr00tTrainingRequest(TrainingRequest):
+    batch_size: int = Field(
+        default=64,
+        description="Batch size for training, default is 64, decrease it if you get an out of memory error",
+        gt=0,
+        le=80,
+    )
+    epochs: int = Field(
+        default=10,
+        description="Number of epochs to train for, default is 10",
+        gt=0,
+        le=50,
+    )
+    learning_rate: float = Field(
+        default=0.0001,
+        description="Learning rate for training, default is 0.0001",
+        gt=0,
+        le=1,
+    )
 
 
 class TorchSerializer:
