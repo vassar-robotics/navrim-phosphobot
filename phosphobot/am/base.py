@@ -1,6 +1,5 @@
 import random
 import string
-from typing import Optional
 import numpy as np
 from fastapi import HTTPException
 from abc import abstractmethod, ABC
@@ -105,15 +104,3 @@ class TrainingRequest(BaseModel):
                 status_code=400,
                 detail=f"Dataset {dataset} is not a valid, public Hugging Face dataset. Please check the URL and try again. Your dataset name should be in the format <username>/<dataset_name>",
             )
-
-
-class HuggingFaceInfoModel(BaseModel):
-    """
-    Pydantic model used to check the number of episodes in a dataset
-    This only checks the number of episodes in the dataset !
-    """
-
-    total_episodes: int
-
-    class Config:
-        extra = "allow"
