@@ -426,10 +426,7 @@ class Gr00tN1(ActionModel):
             api = HfApi(token=get_hf_token())
             model_info = api.model_info(model_id)
             if model_info is None:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Model {model_id} not found.",
-                )
+                raise Exception(f"Model {model_id} not found on Hugging Face Hub.")
             # Download file from the model repo
             config_path = api.hf_hub_download(
                 repo_id=model_id,
@@ -441,10 +438,9 @@ class Gr00tN1(ActionModel):
                 config_content = f.read()
             # Parse the file
             hf_model_config = HuggingFaceModelConfig.model_validate_json(config_content)
-            if hg_model_config.embodiment is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Model {model_id} embodiment config not found.",
+            if hf_model_config.embodiment is None:
+                raise Exception(
+                    f"Model {model_id} embodiment config experiment_cfg/metadata.json not found."
                 )
             video_keys = [
                 "video." + key
@@ -459,10 +455,8 @@ class Gr00tN1(ActionModel):
                 for key in hf_model_config.embodiment.statistics.action.component_names
             ]
         except Exception as e:
-            logger.warning(f"Failed to load model {model_id} from Hugging Face: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to load model {model_id} from Hugging Face: {e}",
+            raise Exception(
+                f"Error loading model {model_id} from Hugging Face Hub: {e}"
             )
 
         number_of_cameras = len(hf_model_config.embodiment.modalities.video.keys())
@@ -489,7 +483,7 @@ class Gr00tN1(ActionModel):
             )
 
         # Determine angle unit based on state statistics
-        max_values = config.embodiment.statistics.state.get_max_value()
+        max_values = hf_model_config.embodiment.statistics.state.get_max_value()
         use_degrees = max_values > 3.2
         angle_unit: Literal["degrees", "rad"] = "degrees" if use_degrees else "rad"
 
@@ -497,7 +491,7 @@ class Gr00tN1(ActionModel):
             video_keys=video_keys,
             state_keys=state_keys,
             action_keys=action_keys,
-            embodiment_tag=config.embodiment.embodiment_tag,
+            embodiment_tag=hf_model_config.embodiment.embodiment_tag,
             unit=angle_unit,
             hf_model_config=hf_model_config,
         )
