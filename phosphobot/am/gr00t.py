@@ -450,7 +450,7 @@ class Gr00tN1(ActionModel):
         return concatenated_actions
 
     @classmethod
-    def verify_huggingface_model(
+    def fetch_and_verify_config(
         cls, model_id: str, all_cameras: AllCameras, robots: List[BaseRobot]
     ) -> ModelSpawnConfig:
         """
