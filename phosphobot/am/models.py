@@ -355,16 +355,6 @@ class Gr00tN1(ActionModel):
                     )
 
                 action_parts.append(new_action)
-
-            elif isinstance(new_action, list) and len(new_action) in [1, 6]:
-                # List case: length 1 or 6, assume last element is the gripper
-                if new_action[-1] < 0.35:
-                    new_action[-1] = 0.0
-                # Convert to NumPy array with shape (1, len(new_action))
-                new_action = np.array(new_action).reshape(1, -1)
-                # Repeat to match batch size of 16
-                new_action = np.repeat(new_action, 16, axis=0)
-                action_parts.append(new_action)
             else:
                 raise ValueError(
                     f"Unexpected new_action format for key {key}: {type(new_action)}, "
