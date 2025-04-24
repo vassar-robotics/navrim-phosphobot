@@ -519,9 +519,12 @@ class Gr00tN1(ActionModel):
             nb_connected_cams = len(all_cameras.video_cameras)
         else:
             # Check if all keys are in the model config
-            keys_in_common = set(cameras_keys_mapping.keys()).intersection(
-                hf_model_config.embodiment.modalities.video.keys()
-            )
+            keys_in_common = set(
+                [
+                    k.replace("video.", "") if k.startswith("video.") else k
+                    for k in cameras_keys_mapping.keys()
+                ]
+            ).intersection(hf_model_config.embodiment.modalities.video.keys())
             nb_connected_cams = len(keys_in_common)
 
         number_of_robots = hf_model_config.embodiment.statistics.state.number_of_arms
@@ -530,6 +533,9 @@ class Gr00tN1(ActionModel):
         if nb_connected_cams < number_of_cameras:
             logger.warning(
                 f"Model has {len(hf_model_config.embodiment.modalities.video)} cameras but {nb_connected_cams} camera streams are detected."
+            )
+            logger.warning(
+                f"Video keys: {hf_model_config.embodiment.modalities.video.keys()}\n camera keys mapping: {cameras_keys_mapping.keys()}"
             )
             raise HTTPException(
                 status_code=400,
