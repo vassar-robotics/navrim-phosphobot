@@ -458,7 +458,11 @@ class Gr00tN1(ActionModel):
 
     @classmethod
     def fetch_and_verify_config(
-        cls, model_id: str, all_cameras: AllCameras, robots: List[BaseRobot]
+        cls,
+        model_id: str,
+        all_cameras: AllCameras,
+        robots: List[BaseRobot],
+        cameras_keys_mapping: Dict[str, int] | None = None,
     ) -> ModelSpawnConfig:
         """
         Verify if the HuggingFace model is compatible with the current setup.
@@ -479,16 +483,29 @@ class Gr00tN1(ActionModel):
         ]
 
         number_of_cameras = len(hf_model_config.embodiment.modalities.video.keys())
+
+        if cameras_keys_mapping is None:
+            nb_connected_cams = len(all_cameras.video_cameras)
+        else:
+            # Check if all keys are in the model config
+            keys_in_common = set(
+                [
+                    k.replace("video.", "") if k.startswith("video.") else k
+                    for k in cameras_keys_mapping.keys()
+                ]
+            ).intersection(hf_model_config.embodiment.modalities.video.keys())
+            nb_connected_cams = len(keys_in_common)
+
         number_of_robots = hf_model_config.embodiment.statistics.state.number_of_arms
 
         # Check if the number of cameras in the model config matches the number of cameras connected
-        if len(all_cameras.video_cameras) < number_of_cameras:
+        if nb_connected_cams < number_of_cameras:
             logger.warning(
-                f"Model has {len(hf_model_config.embodiment.modalities.video)} cameras but {len(all_cameras.video_cameras)} cameras are plugged."
+                f"Model has {len(hf_model_config.embodiment.modalities.video)} cameras but {nb_connected_cams} camera streams are detected."
             )
             raise HTTPException(
                 status_code=400,
-                detail=f"Model has {len(hf_model_config.embodiment.modalities.video)} cameras but {len(all_cameras.video_cameras)} cameras are plugged.",
+                detail=f"Model has {len(hf_model_config.embodiment.modalities.video)} cameras but {nb_connected_cams} camera streams are detected.",
             )
 
         # Check if the number of robots in the model config matches the number of robots connected
@@ -525,6 +542,7 @@ class Gr00tN1(ActionModel):
         prompt: str | None = None,
         fps: int = 30,
         speed: float = 1.0,
+        cameras_keys_mapping: Dict[str, int] | None = None,
     ):
         """
         AI control loop that runs in the background and sends actions to the robot.
@@ -553,7 +571,11 @@ class Gr00tN1(ActionModel):
             for i, (camera_name, video) in enumerate(
                 config.embodiment.modalities.video.items()
             ):
-                camera_id = i
+                if cameras_keys_mapping is None:
+                    camera_id = i
+                else:
+                    camera_id = cameras_keys_mapping.get(camera_name, i)
+
                 rgb_frame = all_cameras.get_rgb_frame(
                     camera_id=camera_id, resize=video.resolution
                 )
