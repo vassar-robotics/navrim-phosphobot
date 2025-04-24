@@ -450,11 +450,9 @@ class Gr00tN1(ActionModel):
         return concatenated_actions
 
     @classmethod
-    def fetch_and_verify_config(
-        cls, model_id: str, all_cameras: AllCameras, robots: List[BaseRobot]
-    ) -> ModelSpawnConfig:
+    def fetch_config(cls, model_id: str) -> HuggingFaceModelConfig:
         """
-        Verify if the HuggingFace model is compatible with the current setup.
+        Fetch the model config from Hugging Face Hub.
         """
         try:
             api = HfApi(token=get_hf_token())
@@ -472,22 +470,44 @@ class Gr00tN1(ActionModel):
                 config_content = f.read()
             # Parse the file
             hf_model_config = HuggingFaceModelConfig.model_validate_json(config_content)
-            video_keys = [
-                "video." + key
-                for key in hf_model_config.embodiment.modalities.video.keys()
-            ]
-            state_keys = [
-                "state." + key
-                for key in hf_model_config.embodiment.statistics.state.component_names
-            ]
-            action_keys = [
-                "action." + key
-                for key in hf_model_config.embodiment.statistics.action.component_names
-            ]
         except Exception as e:
             raise Exception(
                 f"Error loading model {model_id} from Hugging Face Hub: {e}"
             )
+        return hf_model_config
+
+    @classmethod
+    def fetch_and_get_video_keys(cls, model_id: str) -> list[str]:
+        """
+        Fetch the model config and get the video keys.
+        """
+        hf_model_config = cls.fetch_config(model_id)
+        video_keys = [
+            "video." + key for key in hf_model_config.embodiment.modalities.video.keys()
+        ]
+        return video_keys
+
+    @classmethod
+    def fetch_and_verify_config(
+        cls, model_id: str, all_cameras: AllCameras, robots: List[BaseRobot]
+    ) -> ModelSpawnConfig:
+        """
+        Verify if the HuggingFace model is compatible with the current setup.
+        """
+
+        hf_model_config = cls.fetch_config(model_id)
+
+        video_keys = [
+            "video." + key for key in hf_model_config.embodiment.modalities.video.keys()
+        ]
+        state_keys = [
+            "state." + key
+            for key in hf_model_config.embodiment.statistics.state.component_names
+        ]
+        action_keys = [
+            "action." + key
+            for key in hf_model_config.embodiment.statistics.action.component_names
+        ]
 
         number_of_cameras = len(hf_model_config.embodiment.modalities.video.keys())
         number_of_robots = hf_model_config.embodiment.statistics.state.number_of_arms
