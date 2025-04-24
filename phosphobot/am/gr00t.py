@@ -3,7 +3,7 @@ import pickle
 import time
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple
+from typing import Any, Callable, Dict, List, Literal, Tuple
 
 import cv2
 import numpy as np
@@ -13,7 +13,7 @@ from huggingface_hub import HfApi
 from loguru import logger
 from pydantic import BaseModel, Field, model_validator
 
-from phosphobot.am.base import ActionModel, TrainingRequest
+from phosphobot.am.base import ActionModel
 from phosphobot.camera import AllCameras
 from phosphobot.control_signal import AIControlSignal
 from phosphobot.models.dataset import BaseRobot
@@ -656,24 +656,3 @@ class Gr00tN1(ActionModel):
                 start_time = time.perf_counter()
 
             nb_iter += 1
-
-
-class Gr00tTrainingRequest(TrainingRequest):
-    train_test_split: float = Field(
-        default=1.0,
-        description="Train test split ratio, default is 1.0 (no split), should be between 0 and 1",
-        gt=0,
-        le=1,
-    )
-    epochs: int = Field(
-        default=10,
-        description="Number of epochs to train for, default is 10",
-        gt=0,
-        le=50,
-    )
-    learning_rate: float = Field(
-        default=0.0001,
-        description="Learning rate for training, default is 0.0001",
-        gt=0,
-        le=1,
-    )

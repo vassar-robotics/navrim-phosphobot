@@ -3,11 +3,11 @@ import random
 import string
 import requests
 import numpy as np
-from huggingface_hub import HfApi, RepoUrl
+from huggingface_hub import HfApi
 from fastapi import HTTPException
 from abc import abstractmethod, ABC
 from typing import Literal, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ActionModel(ABC):
@@ -58,11 +58,51 @@ class ActionModel(ABC):
         return self.sample_actions(*args, **kwargs)
 
 
+class TrainingParamsAct(BaseModel):
+    batch_size: int | None = Field(
+        default=100, description="Batch size for training, we run this on L40S", gt=0
+    )
+    steps: int | None = Field(
+        default=8000,
+        description="Number of training steps, default is 10000, increase it if you want to train longer",
+        gt=0,
+        le=100000,
+    )
+
+
+class TrainingParamsGr00T(BaseModel):
+    train_test_split: float = Field(
+        default=1.0,
+        description="Train test split ratio, default is 1.0 (no split), should be between 0 and 1",
+        gt=0,
+        le=1,
+    )
+    batch_size: int = Field(
+        default=64,
+        description="Batch size for training, default is 64, decrease it if you get an out of memory error",
+        gt=0,
+        le=80,
+    )
+    epochs: int = Field(
+        default=10,
+        description="Number of epochs to train for, default is 10",
+        gt=0,
+        le=50,
+    )
+    learning_rate: float = Field(
+        default=0.0001,
+        description="Learning rate for training, default is 0.0001",
+        gt=0,
+        le=1,
+    )
+
+
 class TrainingRequest(BaseModel):
     """Pydantic model for training request validation"""
 
-    model_type: Literal["gr00t", "ACT"] = Field(
-        ..., description="Type of model to train, either gr00t or ACT"
+    model_type: Literal["ACT", "gr00t"] = Field(
+        ...,
+        description="Type of model to train, either 'ACT' or 'gr00t'",
     )
     dataset_name: str = Field(
         ...,
@@ -72,15 +112,13 @@ class TrainingRequest(BaseModel):
         ...,
         description="Name of the trained model to upload to Hugging Face, should be in the format phospho-app/<model_name> or <model_name>",
     )
-    batch_size: int = Field(
-        default=64,
-        description="Batch size for training, default is 64, decrease it if you get an out of memory error",
-        gt=0,
-        le=80,
-    )
     wandb_api_key: Optional[str] = Field(
         default=None,
         description="WandB API key for tracking training, you can find it at https://wandb.ai/authorize",
+    )
+    training_params: Optional[TrainingParamsAct | TrainingParamsGr00T] = Field(
+        default=None,
+        description="Training parameters for the model, if not provided, default parameters will be used",
     )
 
     @field_validator("model_name")
@@ -119,6 +157,26 @@ class TrainingRequest(BaseModel):
                 status_code=400,
                 detail=f"Dataset {dataset_name} is not a valid, public Hugging Face dataset. Please check the URL and try again. Your dataset name should be in the format <username>/<dataset_name>",
             )
+
+    @model_validator(mode="after")
+    def validate_training_params(self) -> "TrainingRequest":
+        correspondance = {
+            "gr00t": TrainingParamsGr00T(),
+            "ACT": TrainingParamsAct(),
+        }
+
+        if self.training_params is None:
+            self.training_params = correspondance[self.model_type]  # type: ignore
+
+        else:
+            if not isinstance(
+                self.training_params, correspondance[self.model_type].__class__
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Training parameters for {self.model_type} should be of type {correspondance[self.model_type].__class__.__name__}",
+                )
+        return self
 
 
 class HuggingFaceTokenValidator:
