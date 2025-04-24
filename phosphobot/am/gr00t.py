@@ -541,9 +541,6 @@ class Gr00tN1(ActionModel):
 
         # Check if the number of robots in the model config matches the number of robots connected
         if number_of_robots != len(robots):
-            logger.warning(
-                f"Model has {number_of_robots} robots but {len(robots)} robots are connected."
-            )
             raise HTTPException(
                 status_code=400,
                 detail=f"Model has {number_of_robots} robots but {len(robots)} robots are connected.",
