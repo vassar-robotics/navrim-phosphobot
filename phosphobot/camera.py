@@ -886,9 +886,7 @@ class AllCameras:
         """
         Return True if at least one camera is active. False otherwise.
         """
-        return any(camera.is_active for camera in self.video_cameras) or (
-            self.realsensecamera is not None and self.realsensecamera.is_active
-        )
+        return any(camera.is_active for camera in self.video_cameras)
 
     def initialize_realsense_camera(self, max_retries: int = 3) -> None:
         """
@@ -926,14 +924,8 @@ class AllCameras:
         This is used to setup video in the app.
         """
 
+        # Don't show realsense (deprecated usage)
         realsense_available = False
-        # Don't show realsense
-        # if (
-        #     self.realsensecamera is not None
-        #     and self.realsensecamera.is_active
-        #     and self.realsensecamera.is_connected
-        # ):
-        #     realsense_available = True
 
         return AllCamerasStatus(
             video_cameras_ids=self.camera_ids,
@@ -991,7 +983,6 @@ class AllCameras:
     def get_rgb_frame(
         self,
         camera_id: Optional[int] = None,
-        realsense: bool = False,
         resize: Optional[tuple[int, int]] = None,
     ) -> Optional[cv2.typing.MatLike]:
         """
@@ -1001,23 +992,16 @@ class AllCameras:
 
         raise ValueError if both camera_id and realsense are specified
         """
-        if camera_id is not None and realsense is True:
-            raise ValueError("Both camera_id and realsense cannot be specified")
-
         rgb_camera: Optional[BaseCamera]
 
         if camera_id is not None:
             rgb_camera = self.get_camera_by_id(camera_id)
-        elif realsense is True:
-            rgb_camera = self.realsensecamera
         else:
             logger.warning("No camera specified, the first video camera will be used")
             rgb_camera = self.get_camera_by_id(0)
 
         if rgb_camera is None:
-            logger.warning(
-                f"No camera found for camera_id={camera_id}, realsense={realsense}"
-            )
+            logger.warning(f"No camera found for camera_id={camera_id}")
             return None
 
         frame = rgb_camera.get_rgb_frame(resize=resize)
@@ -1055,11 +1039,14 @@ class AllCameras:
 
         Note: you need to have a realsense camera connected to get the depth frame.
         """
-        if self.realsensecamera is not None and self.realsensecamera.is_connected:
-            frame = self.realsensecamera.get_depth_frame(resize=resize)
-            return frame
-        else:
-            return None
+        # Look for the VirtualRealsenseCamera with
+        for camera in self.video_cameras:
+            if isinstance(camera, RealSenseVirtualCamera):
+                if camera.frame_type == "depth":
+                    return camera.get_rgb_frame(resize=resize)
+
+        # If no realsense camera is available, return None
+        return None
 
     @property
     def cameras_ids_to_record(self) -> List[int]:
@@ -1092,13 +1079,6 @@ class AllCameras:
         """
 
         if self._main_camera is None:
-            if (
-                config.USE_REALSENSE_MAIN
-                and self.realsensecamera is not None
-                and self.realsensecamera.is_connected
-            ):
-                self._main_camera = self.get_realsense_camera()
-
             # The main camera is the one designated in the config or the first available index
             if (
                 config.MAIN_CAMERA_ID is not None
@@ -1150,11 +1130,6 @@ class AllCameras:
         """
         Get the camera ids for all the cameras selected except the main camera.
         """
-        main_camera = self.main_camera
-
-        if isinstance(main_camera, RealSenseCamera):
-            # If we use realsense camera as the main, all others are secondary
-            return [id for id in self.camera_ids if id in self.cameras_ids_to_record]
 
         return [
             camera_id
@@ -1166,37 +1141,19 @@ class AllCameras:
         """
         Get the camera objects for all the cameras except the main camera.
         """
-
-        if (
-            isinstance(self.main_camera, RealSenseCamera)
-            and self.main_camera.camera_type == "realsense"
-        ):
-            # If we use realsense camera as the main, all others are secondary
-            return cast(
-                List[BaseCamera],
-                [
-                    camera
-                    for camera in self.video_cameras
-                    if camera.camera_id in self.cameras_ids_to_record
-                ],
-            )
-        else:
-            # Otherwise, all cameras except the main are secondary.
-            cameras = cast(
-                List[BaseCamera],
-                [
-                    camera
-                    for camera in self.video_cameras
-                    if (
-                        camera != self.main_camera
-                        and camera.camera_id in self.cameras_ids_to_record
-                    )
-                ],
-            )
-            # Also add the realsense camera if it's available
-            if self.realsensecamera is not None and self.realsensecamera.is_connected:
-                cameras.append(self.realsensecamera)
-            return cameras
+        # All cameras except the main are secondary.
+        cameras = cast(
+            List[BaseCamera],
+            [
+                camera
+                for camera in self.video_cameras
+                if (
+                    camera != self.main_camera
+                    and camera.camera_id in self.cameras_ids_to_record
+                )
+            ],
+        )
+        return cameras
 
     def get_secondary_camera_frames(
         self,

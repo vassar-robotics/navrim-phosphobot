@@ -68,6 +68,9 @@ class Configuration(BaseModel):
     DEFAULT_CAMERAS_TO_DISABLE: list[int] | None = None
     DEFAULT_CAMERAS_TO_RECORD: list[int] | None = None
 
+    class Config:
+        extra = "ignore"
+
     @classmethod
     def from_yaml(cls, config_path: str | Path | None = None) -> "Configuration":
         """
