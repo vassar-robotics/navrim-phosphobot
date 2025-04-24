@@ -3,7 +3,7 @@ import pickle
 import time
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple
+from typing import Any, Callable, Dict, List, Literal, Tuple
 
 import cv2
 import numpy as np
@@ -13,44 +13,13 @@ from huggingface_hub import HfApi
 from loguru import logger
 from pydantic import BaseModel, Field, model_validator
 
-from phosphobot.am.base import ActionModel, TrainingRequest
+from phosphobot.am.base import ActionModel
 from phosphobot.camera import AllCameras
 from phosphobot.control_signal import AIControlSignal
 from phosphobot.models.dataset import BaseRobot
 from phosphobot.utils import background_task_log_exceptions, get_hf_token
 
 # Code from: https://github.com/NVIDIA/Isaac-GR00T/blob/main/gr00t/eval/service.py#L111
-
-
-class Gr00tTrainingRequest(TrainingRequest):
-    batch_size: int = Field(
-        default=64,
-        description="Batch size for training, default is 64, decrease it if you get an out of memory error",
-        gt=0,
-        le=80,
-    )
-    epochs: int = Field(
-        default=10,
-        description="Number of epochs to train for, default is 10",
-        gt=0,
-        le=50,
-    )
-    learning_rate: float = Field(
-        default=0.0001,
-        description="Learning rate for training, default is 0.0001",
-        gt=0,
-        le=1,
-    )
-    wandb_api_key: Optional[str] = Field(
-        default=None,
-        description="WandB API key for tracking training, you can find it at https://wandb.ai/authorize",
-    )
-    train_test_split: float = Field(
-        default=1.0,
-        description="Train test split ratio, default is 1.0 (no split), should be between 0 and 1",
-        gt=0,
-        le=1,
-    )
 
 
 class TorchSerializer:
