@@ -700,6 +700,8 @@ try:
             camera_id: int,
             disable: bool = False,
         ):
+            threading.Thread.__init__(self)
+
             self.width = realsense_camera.width
             self.height = realsense_camera.height
             self.fps = realsense_camera.fps
