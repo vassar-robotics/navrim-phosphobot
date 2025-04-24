@@ -534,9 +534,6 @@ class Gr00tN1(ActionModel):
             logger.warning(
                 f"Model has {len(hf_model_config.embodiment.modalities.video)} cameras but {nb_connected_cams} camera streams are detected."
             )
-            logger.warning(
-                f"Video keys: {hf_model_config.embodiment.modalities.video.keys()}\n camera keys mapping: {cameras_keys_mapping.keys()}"
-            )
             raise HTTPException(
                 status_code=400,
                 detail=f"Model has {len(hf_model_config.embodiment.modalities.video)} cameras but {nb_connected_cams} camera streams are detected.",
