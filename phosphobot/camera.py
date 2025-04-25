@@ -752,7 +752,9 @@ try:
             return f"RealSenseVirtualCamera {self.camera_type} {self.camera_id}"
 
 except ImportError:
-    logger.debug("pyrealsense2 not available, RealSenseCamera will not be available")
+    logger.debug(
+        "phosphobot: pyrealsense2 not available, RealSenseCamera will not be available"
+    )
 
     class RealSenseCamera(BaseCamera):  # type: ignore
         def __init__(self, *args, **kwargs):

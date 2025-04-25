@@ -85,10 +85,6 @@ class Configuration(BaseModel):
 
         # Ensure the file exists. If not, create it.
         if not Path(config_path).exists():
-            logger.info(
-                f"Configuration file not found. Creating a new one at {config_path}"
-            )
-
             with open(config_path, "w") as file:
                 file.write("")
             return cls()
