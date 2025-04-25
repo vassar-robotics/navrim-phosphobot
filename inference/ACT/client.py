@@ -21,7 +21,7 @@ time.sleep(1)  # Camera warmup
 model = ACT()
 
 while True:
-    # Capture multi-camera frames (adjust camera IDs as needed)
+    # Capture multi-camera frames (adjust camera IDs and size as needed)
     images = [
         allcameras.get_rgb_frame(0, resize=(240, 320)),
         allcameras.get_rgb_frame(1, resize=(240, 320)),
