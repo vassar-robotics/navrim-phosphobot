@@ -195,11 +195,11 @@ class HuggingFaceTokenValidator:
 def generate_readme(
     model_type: str,
     dataset_repo_id: str,
-    folder_path: Path,
+    folder_path: Path | None = None,
     wandb_run_url: Optional[str] = None,
-    steps: Optional[str] = None,
-    epochs: Optional[str] = None,
-    batch_size: Optional[str] = None,
+    steps: Optional[int] = None,
+    epochs: Optional[int] = None,
+    batch_size: Optional[int] = None,
     error_traceback: Optional[str] = None,
     return_readme_as_bytes: bool = False,
 ):
@@ -227,14 +227,14 @@ We faced an issue while training your model.
 """
     else:
         readme += """
-##This model was trained using **phospho**.
+## This model was trained using **phospho**.
 
 Training was successfull, try it out on your robot!
 
 """
 
     readme += f"""
-##Training parameters:
+## Training parameters:
 
 - **Dataset**: [{dataset_repo_id}](https://huggingface.co/datasets/{dataset_repo_id})
 - **Wandb run URL**: {wandb_run_url}
@@ -248,7 +248,12 @@ Training was successfull, try it out on your robot!
 """
     if return_readme_as_bytes:
         return readme.encode("utf-8")
-    readme_path = folder_path / "README.md"
-    with open(readme_path, "w") as f:
-        f.write(readme)
-    return readme_path
+    if folder_path is not None:
+        readme_path = folder_path / "README.md"
+        with open(readme_path, "w") as f:
+            f.write(readme)
+        return readme_path
+    else:
+        raise ValueError(
+            "folder path is None and return_readme_as_bytes is False. Please provide a valid folder path. If you want to return the readme as bytes, set return_readme_as_bytes to True."
+        )
