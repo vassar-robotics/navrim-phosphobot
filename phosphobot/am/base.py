@@ -1,7 +1,7 @@
 from pathlib import Path
 import random
 import string
-import requests
+import requests  # type: ignore
 import numpy as np
 from huggingface_hub import HfApi
 from fastapi import HTTPException

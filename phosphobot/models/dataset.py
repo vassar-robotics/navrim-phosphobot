@@ -494,7 +494,16 @@ class Episode(BaseModel):
         # Add metadata to the episode
         # the path is like this : dataset_name/data/chunk-000/episode_xxxxxx.parquet
         # get the path : dataset_name
-        dataset_path = episode_data_path.split("/")[-4]
+        normalized = os.path.normpath(episode_data_path)
+        parts = normalized.split(os.sep)
+        if len(parts) >= 4:
+            dataset_path = parts[-4]
+        else:
+            logger.warning(
+                f"Episode {episode_data_path} does not contain the dataset name in the path. Path should be: dataset_name/data/chunk-000/episode_xxxxxx.parquet"
+                + "Using parent folder name as dataset name."
+            )
+            dataset_path = os.path.basename(os.path.dirname(episode_data_path))
 
         metadata = {
             "dataset_name": dataset_path,
