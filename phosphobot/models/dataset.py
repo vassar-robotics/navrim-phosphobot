@@ -887,6 +887,7 @@ class LeRobotEpisodeModel(BaseModel):
         # Rename the columns to match the expected names in the Parquet file
         df.rename(columns={"observation_state": "observation.state"}, inplace=True)
         df.to_parquet(filename, index=False)
+        logger.debug(f"Wrote {df.shape[0]} rows dataset to {filename}")
 
 
 class Dataset:
