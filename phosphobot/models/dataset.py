@@ -1145,7 +1145,7 @@ class Dataset:
             old_index_to_new_index = {}
             current_new_index_max = 0
 
-            for filename in os.listdir(folder_path):
+            for filename in sorted(os.listdir(folder_path)):
                 if filename.startswith("episode_"):
                     # Check the episode files and extract the index
                     # Also extract the file extension
@@ -1158,7 +1158,7 @@ class Dataset:
         logger.debug(f"old_index_to_new_index: {old_index_to_new_index}")
 
         # Reindex the files in the folder
-        for filename in os.listdir(folder_path):
+        for filename in sorted(os.listdir(folder_path)):
             if filename.startswith("episode_"):
                 file_extension = filename.split(".")[-1]
 
