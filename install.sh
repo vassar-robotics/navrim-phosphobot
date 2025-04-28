@@ -251,7 +251,7 @@ install_linux_specific() {
     sudo apt-get update
     
     # Install Linux-specific dependencies
-    sudo apt-get install -y libgl1-mesa-glx dnsmasq v4l-utils ethtool can-utils
+    sudo apt-get install -y curl gnupg libgl1-mesa-glx dnsmasq v4l-utils ethtool can-utils 
 }
 
 setup_services() {
@@ -374,8 +374,10 @@ main() {
     # Common installation steps
     if [[ "$PLATFORM" != "darwin" ]]; then
         echo "Installing phosphobot..."
-        curl https://europe-west1-apt.pkg.dev/doc/repo-signing-key.gpg | sudo apt-key add -
-        echo "deb https://europe-west1-apt.pkg.dev/projects/portal-385519 phospho-apt main" | sudo tee /etc/apt/sources.list.d/artifact-registry.list
+        DISTRO_CODENAME="$(lsb_release -sc)"
+        curl -fsSL https://europe-west1-apt.pkg.dev/doc/repo-signing-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/phosphobot-archive-keyring.gpg
+
+        echo "deb [signed-by=/usr/share/keyrings/phosphobot-archive-keyring.gpg] https://europe-west1-apt.pkg.dev/projects/portal-385519 phospho-apt ${DISTRO_CODENAME} main" | sudo tee /etc/apt/sources.list.d/phosphobot.list > /dev/null
         sudo apt update
         sudo apt install -y phosphobot
     else
