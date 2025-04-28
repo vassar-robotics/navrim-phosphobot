@@ -126,9 +126,32 @@ def create_video_file(
 
     def open_container(path: str, size: Tuple[int, int]):
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        logger.info(f"Opening container for writing: {path}")
         container = av.open(path, mode="w")
-        stream = container.add_stream(codec_av, rate=fps)  # type: ignore
+
+        # pick encoder options based on codec
+        encoder_opts: dict[str, str] = {}
+        if codec_av in ("h264", "mpeg4", "hevc"):
+            # CRF = quality (lower = better), preset = speed/efficiency trade-off
+            encoder_opts = {"crf": "18", "preset": "slow"}
+        elif codec_av == "av1":
+            # AV1 needs slightly higher CRF to match visually (~30),
+            # and cpu-used trades speed vs. quality (0=slowest/best)
+            encoder_opts = {
+                "crf": "30",
+                "cpu-used": "4",
+                "row-mt": "1",  # multi-threading
+                "tile-columns": "2",  # parallel tile encoding
+            }
+        elif codec_av == "vp9":
+            # VP9: crf + speed (0=best, 5=fastest)
+            encoder_opts = {"crf": "30", "speed": "1"}
+        # else: leave encoder_opts empty for codecs that don’t support these flags
+
+        stream = container.add_stream(
+            codec_av,
+            rate=fps,
+            options=encoder_opts or None,  # type: ignore
+        )  # type: ignore
         stream.width, stream.height = size
         stream.pix_fmt = "yuv420p"
         return container, stream
