@@ -36,6 +36,13 @@ from phosphobot.utils import (
     parse_hf_username_or_orgid,
 )
 
+import builtins
+from functools import partial
+
+# Force all open(...) calls to default to utf-8 encoding.
+# Useful for Windows compatibility (default is cp1252)
+builtins.open = partial(builtins.open, encoding="utf-8")  # type: ignore
+
 
 class BaseRobotPIDGains(BaseModel):
     """
@@ -2692,14 +2699,15 @@ class EpisodesModel(BaseModel):
             return EpisodesModel()
 
         with open(f"{meta_folder_path}/episodes.jsonl", "r") as f:
-            episodes_model = []
+            episodes_features: Dict[int, EpisodesFeatures] = {}
             for line in f:
-                episodes_model.append(EpisodesFeatures(**json.loads(line)))
+                episodes_feature = EpisodesFeatures.model_validate_json(line)
+                episodes_features[episodes_feature.episode_index] = episodes_feature
 
-        episode = EpisodesModel(episodes=episodes_model)
+        episodes_model = EpisodesModel(episodes=list(episodes_features.values()))
         # Do it after model init, otherwise pydantic ignores the value of _original_nb_total_episodes
-        episode._original_nb_total_episodes = len(episodes_model)
-        return episode
+        episodes_model._original_nb_total_episodes = len(episodes_features.keys())
+        return episodes_model
 
     def save(
         self,
