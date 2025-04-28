@@ -121,8 +121,7 @@ class TrainingRequest(BaseModel):
         description="Training parameters for the model, if not provided, default parameters will be used",
     )
 
-    @field_validator("model_name")
-    @classmethod
+    @field_validator("model_name", mode="before")
     def validate_model_name(cls, model_name: str) -> str:
         # We add random characters to the model name to avoid collisions
         random_chars = "".join(
@@ -131,20 +130,19 @@ class TrainingRequest(BaseModel):
         # We need to make sure that the model is called phospho-app/...
         # So we can upload it to the phospho Hugging Face repo
         size = model_name.split("/")
+
         if len(size) == 1:
             model_name = "phospho-app/" + model_name + "-" + random_chars
         elif len(size) == 2:
             if size[0] != "phospho-app":
                 model_name = "phospho-app/" + size[1] + "-" + random_chars
         else:
-            raise HTTPException(
-                status_code=400,
-                detail="Model name should be in the format phospho-app/<model_name> or <model_name>",
+            raise ValueError(
+                "Model name should be in the format phospho-app/<model_name> or <model_name>",
             )
         return model_name
 
-    @field_validator("dataset_name")
-    @classmethod
+    @field_validator("dataset_name", mode="before")
     def validate_dataset(cls, dataset_name: str) -> str:
         try:
             url = f"https://huggingface.co/api/datasets/{dataset_name}/tree/main"
@@ -153,9 +151,8 @@ class TrainingRequest(BaseModel):
                 raise ValueError()
             return dataset_name
         except Exception:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Dataset {dataset_name} is not a valid, public Hugging Face dataset. Please check the URL and try again. Your dataset name should be in the format <username>/<dataset_name>",
+            raise ValueError(
+                f"Dataset {dataset_name} is not a valid, public Hugging Face dataset. Please check the URL and try again. Your dataset name should be in the format <username>/<dataset_name>",
             )
 
     @model_validator(mode="after")
@@ -172,9 +169,8 @@ class TrainingRequest(BaseModel):
             if not isinstance(
                 self.training_params, correspondance[self.model_type].__class__
             ):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Training parameters for {self.model_type} should be of type {correspondance[self.model_type].__class__.__name__}",
+                raise ValueError(
+                    f"Training parameters for {self.model_type} should be of type {correspondance[self.model_type].__class__.__name__}",
                 )
         return self
 
