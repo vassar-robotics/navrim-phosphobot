@@ -257,6 +257,7 @@ def get_home_app_path() -> Path:
 
 def compute_sum_squaresum_framecount_from_video(
     video_path: str,
+    raise_if_not_found: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray, int]:
     """
     Process a video file and calculate the sum of RGB values and sum of squares of RGB values for each frame.
@@ -267,7 +268,14 @@ def compute_sum_squaresum_framecount_from_video(
     cap = cv2.VideoCapture(video_path)
 
     if not cap.isOpened():
-        raise FileNotFoundError(f"Error: Could not open video at path: {video_path}")
+        if raise_if_not_found:
+            raise FileNotFoundError(
+                f"Error: Could not open video at path: {video_path}"
+            )
+        logger.warning(
+            f"Error: Could not open video at path: {video_path}. Returning 0."
+        )
+        return (np.zeros(3, dtype=np.float32), np.zeros(3, dtype=np.float32), 0)
 
     nb_pixel = 0
     total_sum_rgb = np.zeros(3, dtype=np.float32)  # To store sum of RGB values
