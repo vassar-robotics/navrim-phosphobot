@@ -10,6 +10,7 @@ VideoCodecs = Literal[
     "avc3",
     "av01",
     "vp09",
+    "av1",
 ]
 
 CameraTypes = Literal[
@@ -39,3 +40,4 @@ class VideoCodecsEnum(str, Enum):
     avc3 = "avc3"
     av01 = "av01"
     vp09 = "vp09"
+    av1 = "av1"
