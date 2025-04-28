@@ -36,12 +36,7 @@ from phosphobot.utils import (
     parse_hf_username_or_orgid,
 )
 
-import builtins
-from functools import partial
-
-# Force all open(...) calls to default to utf-8 encoding.
-# Useful for Windows compatibility (default is cp1252)
-builtins.open = partial(builtins.open, encoding="utf-8")  # type: ignore
+DEFAULT_FILE_ENCODING = "utf-8"
 
 
 class BaseRobotPIDGains(BaseModel):
@@ -88,7 +83,7 @@ class BaseRobotConfig(BaseModel):
         Load a configuration from a JSON file
         """
         try:
-            with open(filepath, "r") as f:
+            with open(filepath, "r", encoding=DEFAULT_FILE_ENCODING) as f:
                 data = json.load(f)
 
         except FileNotFoundError:
@@ -124,7 +119,7 @@ class BaseRobotConfig(BaseModel):
         """
         Save the configuration to a JSON file
         """
-        with open(filename, "w") as f:
+        with open(filename, "w", encoding=DEFAULT_FILE_ENCODING) as f:
             f.write(self.model_dump_json(indent=4))
 
     def save_local(self, serial_id: str) -> str:
@@ -462,7 +457,7 @@ class Episode(BaseModel):
             data_dict = self.model_dump()
 
             # Save to JSON using the custom encoder
-            with open(self.json_path, "w") as f:
+            with open(self.json_path, "w", encoding=DEFAULT_FILE_ENCODING) as f:
                 json.dump(data_dict, f, cls=NumpyEncoder)
 
     @classmethod
@@ -472,7 +467,7 @@ class Episode(BaseModel):
         if not os.path.exists(episode_data_path):
             raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
 
-        with open(episode_data_path, "r") as f:
+        with open(episode_data_path, "r", encoding=DEFAULT_FILE_ENCODING) as f:
             data_dict = json.load(f, object_hook=decode_numpy)
             logger.debug(f"Data dict keys: {data_dict.keys()}")
 
@@ -690,7 +685,11 @@ class Episode(BaseModel):
             episode_index = 0
 
         else:
-            with open(os.path.join(meta_path, "info.json"), "r") as f:
+            with open(
+                os.path.join(meta_path, "info.json"),
+                "r",
+                encoding=DEFAULT_FILE_ENCODING,
+            ) as f:
                 info_json = json.load(f)
                 episode_index = info_json["total_episodes"]
         return episode_index
@@ -1385,7 +1384,9 @@ class Dataset:
             # Create README if it doesn't exist
             readme_path = os.path.join(self.folder_full_path, "README.md")
             if not os.path.exists(readme_path):
-                with open(readme_path, "w") as readme_file:
+                with open(
+                    readme_path, "w", encoding=DEFAULT_FILE_ENCODING
+                ) as readme_file:
                     readme_file.write(f"""
 ---
 tags:
@@ -1695,7 +1696,9 @@ class StatsModel(BaseModel):
         ):
             return cls()
 
-        with open(f"{meta_folder_path}/stats.json", "r") as f:
+        with open(
+            f"{meta_folder_path}/stats.json", "r", encoding=DEFAULT_FILE_ENCODING
+        ) as f:
             stats_dict: Dict[str, Stats] = json.load(f)
 
         # Create a temporary dictionary for observation_images
@@ -1720,7 +1723,9 @@ class StatsModel(BaseModel):
             model_dict[key] = value
         model_dict.pop("observation.images")
 
-        with open(f"{meta_folder_path}/stats.json", "w") as f:
+        with open(
+            f"{meta_folder_path}/stats.json", "w", encoding=DEFAULT_FILE_ENCODING
+        ) as f:
             # Write the pydantic Basemodel as a str
             f.write(json.dumps(model_dict, indent=4))
 
@@ -1874,7 +1879,7 @@ class StatsModel(BaseModel):
         Return the total number of frames in the dataset
         """
         info_path = os.path.join(meta_folder_path, "info.json")
-        with open(info_path, "r") as f:
+        with open(info_path, "r", encoding=DEFAULT_FILE_ENCODING) as f:
             info_dict = json.load(f)
         return info_dict.get("total_frames", 0)
 
@@ -1883,7 +1888,7 @@ class StatsModel(BaseModel):
         Return the tuple (height, width, channel) of the images for a given camera key
         """
         info_path = os.path.join(meta_folder_path, "info.json")
-        with open(info_path, "r") as f:
+        with open(info_path, "r", encoding=DEFAULT_FILE_ENCODING) as f:
             info_dict = json.load(f)
         return info_dict["features"][camera_key]["shape"]
 
@@ -2352,7 +2357,9 @@ class InfoModel(BaseModel):
 
             return info_model
 
-        with open(f"{meta_folder_path}/info.json", "r") as f:
+        with open(
+            f"{meta_folder_path}/info.json", "r", encoding=DEFAULT_FILE_ENCODING
+        ) as f:
             info_model_dict = json.load(f)
 
         info_model_dict["features"]["observation_state"] = info_model_dict[
@@ -2462,7 +2469,9 @@ class InfoModel(BaseModel):
         """
         Write the info.json file in the meta folder path.
         """
-        with open(f"{meta_folder_path}/info.json", "w") as f:
+        with open(
+            f"{meta_folder_path}/info.json", "w", encoding=DEFAULT_FILE_ENCODING
+        ) as f:
             f.write(json.dumps(self.to_dict(), indent=4))
 
     def update(self, episode: Episode) -> None:
@@ -2549,7 +2558,9 @@ class TasksModel(BaseModel):
         if not os.path.exists(f"{meta_folder_path}/tasks.jsonl"):
             return cls(tasks=[])
 
-        with open(f"{meta_folder_path}/tasks.jsonl", "r") as f:
+        with open(
+            f"{meta_folder_path}/tasks.jsonl", "r", encoding=DEFAULT_FILE_ENCODING
+        ) as f:
             tasks = []
             for line in f:
                 tasks.append(TasksFeatures(**json.loads(line)))
@@ -2574,7 +2585,9 @@ class TasksModel(BaseModel):
         Write the tasks.jsonl file in the meta folder path.
         """
 
-        with open(f"{meta_folder_path}/tasks.jsonl", "a") as f:
+        with open(
+            f"{meta_folder_path}/tasks.jsonl", "a", encoding=DEFAULT_FILE_ENCODING
+        ) as f:
             # Only append the new tasks to the file
             for task in self.tasks[self._initial_nb_total_tasks :]:
                 f.write(task.model_dump_json() + "\n")
@@ -2698,7 +2711,9 @@ class EpisodesModel(BaseModel):
         if not os.path.exists(f"{meta_folder_path}/episodes.jsonl"):
             return EpisodesModel()
 
-        with open(f"{meta_folder_path}/episodes.jsonl", "r") as f:
+        with open(
+            f"{meta_folder_path}/episodes.jsonl", "r", encoding=DEFAULT_FILE_ENCODING
+        ) as f:
             episodes_features: Dict[int, EpisodesFeatures] = {}
             for line in f:
                 episodes_feature = EpisodesFeatures.model_validate_json(line)
