@@ -337,8 +337,8 @@ def resize_dataset(
                             output_container.mux(packet)
 
                         # Flush encoder
-                        for packet in output_stream.encode(None):
-                            output_container.mux(packet)
+                        for value in output_stream.encode(None):
+                            output_container.mux(value)
 
                         input_container.close()
                         output_container.close()
