@@ -810,7 +810,13 @@ class Episode(BaseModel):
         """
         if self.metadata.get("format") == "lerobot_v2":
             # Delete the parquet file
-            os.remove(self.parquet_path)
+            try:
+                os.remove(self.parquet_path)
+            except FileNotFoundError:
+                logger.warning(
+                    f"Parquet file {self.parquet_path} not found. Skipping deletion."
+                )
+
             if update_hub and repo_id is not None:
                 # In the huggingface dataset, we need to pass the relative path.
                 relative_episode_path = (
@@ -825,7 +831,12 @@ class Episode(BaseModel):
             # Remove the video files from the HF repository
             all_camera_folders = os.listdir(self.cameras_folder_path)
             for camera_key in all_camera_folders:
-                os.remove(self.get_video_path(camera_key))
+                try:
+                    os.remove(self.get_video_path(camera_key))
+                except FileNotFoundError:
+                    logger.warning(
+                        f"Video file {self.get_video_path(camera_key)} not found. Skipping deletion."
+                    )
                 if update_hub and repo_id is not None:
                     delete_file(
                         repo_id=repo_id,
@@ -1101,9 +1112,9 @@ class Dataset:
     def reindex_episodes(
         self,
         folder_path: str,
-        episode_to_remove_id: int,
         nb_steps_deleted_episode: int = 0,
-    ):
+        old_index_to_new_index: Optional[Dict[int, int]] = None,
+    ) -> Dict[int, int]:
         """
         Reindex the episode after removing one.
         This is used for videos or for parquet file
@@ -1113,46 +1124,77 @@ class Dataset:
         folder_path: str
             The path to the folder where the episodes data or videos are stored. May be users/Downloads/dataset_name/data/chunk-000/
             or  users/Downloads/dataset_name/videos/chunk-000/observation.main_image.right
-        episode_to_remove_id: int
-            The id of the episode to remove
         nb_steps_deleted_episode: int
             The number of steps deleted in the episode
+        old_index_to_new_index: Optional[Dict[int, int]]
+            A dictionary mapping old indices to new indices. If None, the function will create a new mapping.
+
+        Returns:
+        --------
+        Dict[int, int]
+            A dictionary mapping old indices to new indices.
 
         Example:
         --------
         episodes in data are [episode_000000.parquet, episode_000001.parquet, episode_000003.parquet] after we removed episode_000002.parquet
         the result will be [episode_000000.parquet, episode_000001.parquet, episode_000002.parquet]
         """
+
+        # Create a mapping of old index to new index
+        if old_index_to_new_index is None:
+            old_index_to_new_index = {}
+            current_new_index_max = 0
+
+            for filename in os.listdir(folder_path):
+                if filename.startswith("episode_"):
+                    # Check the episode files and extract the index
+                    # Also extract the file extension
+                    file_extension = filename.split(".")[-1]
+                    old_index = int(filename.split("_")[-1].split(".")[0])
+                    old_index_to_new_index[old_index] = current_new_index_max
+                    current_new_index_max += 1
+        current_new_index_max = max(old_index_to_new_index.values()) + 1
+
+        logger.debug(f"old_index_to_new_index: {old_index_to_new_index}")
+
+        # Reindex the files in the folder
         for filename in os.listdir(folder_path):
             if filename.startswith("episode_"):
-                # Check the episode files and extract the index
-                # Also extract the file extension
                 file_extension = filename.split(".")[-1]
-                episode_index = int(filename.split("_")[-1].split(".")[0])
-                if episode_index > episode_to_remove_id:
-                    new_filename = f"episode_{episode_index - 1:06d}.{file_extension}"
-                    os.rename(
-                        os.path.join(folder_path, filename),
-                        os.path.join(folder_path, new_filename),
-                    )
 
-                    # Update the episode index inside the parquet file
-                    if file_extension == "parquet":
-                        assert nb_steps_deleted_episode > 0, "Received 0 step deleted"
-                        # Read the parquet file
-                        df = pd.read_parquet(os.path.join(folder_path, new_filename))
-                        # I want to decrement episode index by 1 for indexes superior to the removed episode
-                        df["episode_index"] = df["episode_index"] - 1
-                        # I want to decrement the global index by the number of steps deleted in the episode
-                        df["index"] = df["index"] - nb_steps_deleted_episode
-                        # Save the updated parquet file
-                        df.to_parquet(os.path.join(folder_path, new_filename))
+                old_index = int(filename.split("_")[-1].split(".")[0])
+                if old_index in old_index_to_new_index.keys():
+                    new_index = old_index_to_new_index[old_index]
+                else:
+                    # If the file is not in the mapping, we need to create a new index
+                    new_index = current_new_index_max
+                    current_new_index_max += 1
 
-                    if file_extension == "json":
-                        # Update the episode index inside the json file with pandas
-                        df = pd.read_json(os.path.join(folder_path, new_filename))
-                        df["episode_index"] = df["episode_index"] - 1
-                        df.to_json(os.path.join(folder_path, new_filename))
+                new_filename = f"episode_{new_index:06d}.{file_extension}"
+                os.rename(
+                    os.path.join(folder_path, filename),
+                    os.path.join(folder_path, new_filename),
+                )
+
+                # Update the episode index inside the parquet file
+                if file_extension == "parquet":
+                    assert nb_steps_deleted_episode > 0, "Received 0 step deleted"
+                    # Read the parquet file
+                    df = pd.read_parquet(os.path.join(folder_path, new_filename))
+                    # I want to decrement episode index by 1 for indexes superior to the removed episode
+                    df["episode_index"] = df["episode_index"] - 1
+                    # I want to decrement the global index by the number of steps deleted in the episode
+                    df["index"] = df["index"] - nb_steps_deleted_episode
+                    # Save the updated parquet file
+                    df.to_parquet(os.path.join(folder_path, new_filename))
+
+                if file_extension == "json":
+                    # Update the episode index inside the json file with pandas
+                    df = pd.read_json(os.path.join(folder_path, new_filename))
+                    df["episode_index"] = df["episode_index"] - 1
+                    df.to_json(os.path.join(folder_path, new_filename))
+
+        return old_index_to_new_index
 
     def delete_episode(self, episode_id: int, update_hub: bool = True) -> None:
         """
@@ -1172,6 +1214,10 @@ class Dataset:
                 f"Repository {self.repo_id} does not exist on Hugging Face. Skipping deletion on Hugging Face"
             )
             update_hub = False
+
+        logger.info(
+            f"Deleting episode {episode_id} from dataset {self.dataset_name} with episode format {self.episode_format}"
+        )
 
         if self.episode_format == "lerobot_v2":
             # Start loading current meta data
@@ -1196,8 +1242,13 @@ class Dataset:
             )
 
             # Update meta data before episode removal
+            try:
+                episode_parquet = episode_to_delete.parquet()
+            except FileNotFoundError as e:
+                logger.warning(f"Episode {episode_id} not found: {e}")
+                episode_parquet = pd.DataFrame()
             tasks_model.update_for_episode_removal(
-                df_episode_to_delete=episode_to_delete.parquet(),
+                df_episode_to_delete=episode_parquet,
                 data_folder_full_path=self.data_folder_full_path,
             )
             tasks_model.save(meta_folder_path=self.meta_folder_full_path)
@@ -1212,13 +1263,29 @@ class Dataset:
             logger.info("Episodes model updated")
 
             info_model.update_for_episode_removal(
-                df_episode_to_delete=episode_to_delete.parquet(),
+                df_episode_to_delete=episode_parquet,
             )
             info_model.save(meta_folder_path=self.meta_folder_full_path)
             logger.info("Info model updated")
 
+            # Delete the actual episode files (parquet and mp4 video)
+            episode_to_delete.delete(update_hub=update_hub)
+
+            # Rename the remaining episodes to keep the numbering consistent
+            # be sure to reindex AFTER deleting the episode data
+            old_index_to_new_index = self.reindex_episodes(
+                nb_steps_deleted_episode=len(episode_to_delete.steps),
+                folder_path=self.data_folder_full_path,
+            )
+            # Reindex the episode videos
+            for camera_folder_full_path in self.get_camera_folders_full_paths():
+                self.reindex_episodes(
+                    folder_path=camera_folder_full_path,
+                    old_index_to_new_index=old_index_to_new_index,
+                )
+
             stats_model._update_for_episode_removal_mean_std_count(
-                df_episode_to_delete=episode_to_delete.parquet(),
+                df_episode_to_delete=episode_parquet,
             )
             stats_model._update_for_episode_removal_min_max(
                 data_folder_path=self.data_folder_full_path,
@@ -1227,23 +1294,6 @@ class Dataset:
             )
             stats_model.save(meta_folder_path=self.meta_folder_full_path)
             logger.info("Stats model updated")
-
-            # Delete the actual episode files (parquet and mp4 video)
-            episode_to_delete.delete(update_hub=update_hub)
-
-            # Rename the remaining episodes to keep the numbering consistent
-            # be sure to reindex AFTER deleting the episode data
-            self.reindex_episodes(
-                episode_to_remove_id=episode_to_delete.index,
-                nb_steps_deleted_episode=len(episode_to_delete.steps),
-                folder_path=self.data_folder_full_path,
-            )
-            # Reindex the episode videos
-            for camera_folder_full_path in self.get_camera_folders_full_paths():
-                self.reindex_episodes(
-                    folder_path=camera_folder_full_path,
-                    episode_to_remove_id=episode_id,
-                )
 
             if update_hub:
                 upload_folder(
@@ -1803,6 +1853,9 @@ class StatsModel(BaseModel):
         We prefer to do it after the episode removal to directly access new indexes and episodes indexes.
         This only updates mean, std, sum, square_sum, and count.
         """
+        if df_episode_to_delete.empty:
+            return
+
         # Load the parquet file
         nb_steps_deleted_episode = len(df_episode_to_delete)
 
@@ -2524,7 +2577,10 @@ class InfoModel(BaseModel):
         """
         Update the info before removing an episode from the dataset.
         """
+        if df_episode_to_delete.empty:
+            return
 
+        # Read from the data folder
         self.total_episodes -= 1
         self.total_frames -= len(df_episode_to_delete)
         self.total_videos -= len(self.features.observation_images.keys())
@@ -2618,6 +2674,9 @@ class TasksModel(BaseModel):
         We count the number of occurences of task_index in the dataset.
         If the episode is the only one with this task_index, we remove it from the tasks.jsonl file.
         """
+        if df_episode_to_delete.empty:
+            return
+
         # For each file in the data folder get the task indexes (unique)
         task_indexes: List[int] = []
         for file in os.listdir(data_folder_full_path):
