@@ -145,6 +145,10 @@ def create_video_file(
         elif codec_av == "vp9":
             # VP9: crf + speed (0=best, 5=fastest)
             encoder_opts = {"crf": "30", "speed": "1"}
+        elif codec_av == "mpeg4":
+            # old MPEG-4 Part 2: no CRF, use qscale OR fixed bitrate
+            # Lower qscale = better quality. 2–5 is a good range.
+            encoder_opts = {"qscale": "2"}
         # else: leave encoder_opts empty for codecs that don’t support these flags
 
         stream = container.add_stream(
@@ -152,6 +156,10 @@ def create_video_file(
             rate=fps,
             options=encoder_opts or None,  # type: ignore
         )  # type: ignore
+        # Force a minimum bitrate for mpeg4 to avoid artifacts
+        if codec_av == "mpeg4":
+            stream.bit_rate = 5_000_000  # ~5 Mb/s
+
         stream.width, stream.height = size
         stream.pix_fmt = "yuv420p"
         return container, stream
