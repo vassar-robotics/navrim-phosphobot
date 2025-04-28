@@ -1,12 +1,15 @@
-from pathlib import Path
+import av
 import random
 import string
 import requests  # type: ignore
 import numpy as np
+from pathlib import Path
+from loguru import logger
 from huggingface_hub import HfApi
 from fastapi import HTTPException
 from abc import abstractmethod, ABC
 from typing import Literal, Optional
+from phosphobot.models import InfoModel
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
@@ -253,3 +256,108 @@ Training was successfull, try it out on your robot!
         raise ValueError(
             "folder path is None and return_readme_as_bytes is False. Please provide a valid folder path. If you want to return the readme as bytes, set return_readme_as_bytes to True."
         )
+
+
+def resize_dataset(
+    dataset_root_path: Path,
+    resize_to: tuple = (320, 240),
+) -> tuple[bool, bool]:
+    """
+    Resize the dataset to a smaller size for faster training.
+
+    Args:
+        dataset_root_path (Path): Path to the dataset root directory.
+
+    Returns:
+        1st bool: True if the processing was successful, False otherwise.
+        2nd bool: True if we need to recompute the stats, False otherwise.
+    """
+    # Start by opening the InfoModel and checking the video sizes
+    logger.info(
+        f"Resizing videos in {dataset_root_path} to {resize_to[0]}x{resize_to[1]}"
+    )
+    try:
+        meta_path = dataset_root_path / "meta"
+        video_information = {}
+        validated_info_model = InfoModel.from_json(
+            meta_folder_path=str(meta_path.resolve())
+        )
+        for feature in validated_info_model.features.observation_images:
+            shape = validated_info_model.features.observation_images[feature].shape
+            if shape != [resize_to[1], resize_to[0], 3]:
+                video_information[feature] = {
+                    "need_to_resize": True,
+                    "shape": shape,
+                }
+                validated_info_model.features.observation_images[feature].shape = [
+                    resize_to[1],
+                    resize_to[0],
+                    3,
+                ]
+            else:
+                logger.info(f"Video {feature} is already in the correct size {shape}")
+
+        if video_information == {}:
+            logger.info("No videos need to be resized.")
+            return True, False
+
+        for video_folder in video_information:
+            if video_information[video_folder]["need_to_resize"]:
+                video_path = dataset_root_path / "videos" / "chunk-000" / video_folder
+                for episode in video_path.iterdir():
+                    if episode.suffix == ".mp4" and not episode.name.startswith(
+                        "edited_"
+                    ):
+                        out_path = episode.parent / f"edited_{episode.name}"
+
+                        # Open input video
+                        input_container = av.open(str(episode))
+                        input_stream = input_container.streams.video[0]
+
+                        # Open output video
+                        output_container = av.open(str(out_path), mode="w")
+                        output_stream = output_container.add_stream(
+                            codec_name="h264",
+                            rate=input_stream.base_rate,
+                        )
+                        output_stream.width = resize_to[0]
+                        output_stream.height = resize_to[1]
+                        output_stream.pix_fmt = input_stream.pix_fmt
+
+                        # Process frames
+                        for frame in input_container.decode(video=0):
+                            # Resize frame
+                            frame = frame.reformat(
+                                width=resize_to[0],
+                                height=resize_to[1],
+                            )
+
+                            # Encode frame
+                            packet = output_stream.encode(frame)
+                            output_container.mux(packet)
+
+                        # Flush encoder
+                        for value in output_stream.encode(None):
+                            output_container.mux(value)
+
+                        input_container.close()
+                        output_container.close()
+
+                # Remove original videos and rename edited ones
+                for episode in video_path.iterdir():
+                    if episode.suffix == ".mp4" and episode.name.startswith("edited_"):
+                        new_name = episode.name.replace("edited_", "")
+                        new_path = episode.parent / new_name
+                        new_path.unlink(missing_ok=True)
+                        episode.rename(new_path)
+
+        # Save updated info.json
+        validated_info_model.to_json(meta_folder_path=str(meta_path.resolve()))
+
+        logger.info("Resizing completed.")
+        logger.warning("You now need to recompute the stats for the dataset.")
+        return True, True
+
+    except Exception as e:
+        logger.error(f"Error resizing videos: {e}")
+        return False, False
