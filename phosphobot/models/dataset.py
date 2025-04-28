@@ -1254,14 +1254,6 @@ class Dataset:
             tasks_model.save(meta_folder_path=self.meta_folder_full_path)
             logger.info("Tasks model updated")
 
-            episodes_model.update_for_episode_removal(
-                episode_to_delete_index=episode_id
-            )
-            episodes_model.save(
-                meta_folder_path=self.meta_folder_full_path, save_mode="overwrite"
-            )
-            logger.info("Episodes model updated")
-
             info_model.update_for_episode_removal(
                 df_episode_to_delete=episode_parquet,
             )
@@ -1283,6 +1275,15 @@ class Dataset:
                     folder_path=camera_folder_full_path,
                     old_index_to_new_index=old_index_to_new_index,
                 )
+
+            episodes_model.update_for_episode_removal(
+                episode_to_delete_index=episode_id,
+                old_index_to_new_index=old_index_to_new_index,
+            )
+            episodes_model.save(
+                meta_folder_path=self.meta_folder_full_path, save_mode="overwrite"
+            )
+            logger.info("Episodes model updated")
 
             stats_model._update_for_episode_removal_mean_std_count(
                 df_episode_to_delete=episode_parquet,
@@ -2793,18 +2794,37 @@ class EpisodesModel(BaseModel):
         """
         self.to_jsonl(meta_folder_path=meta_folder_path, save_mode=save_mode)
 
-    def update_for_episode_removal(self, episode_to_delete_index: int):
+    def update_for_episode_removal(
+        self, episode_to_delete_index: int, old_index_to_new_index: Dict[int, int]
+    ) -> None:
         """
         Update the episodes model before removing an episode from the dataset.
         We just remove the line corresponding to the episode_index of the parquet file.
         """
-        self.episodes = [
-            episode
-            for episode in self.episodes
-            if episode.episode_index != episode_to_delete_index
-        ]
+        if not old_index_to_new_index:
+            self.episodes = [
+                episode
+                for episode in self.episodes
+                if episode.episode_index != episode_to_delete_index
+            ]
 
-        # Reindex the episodes
-        for episode in self.episodes:
-            if episode.episode_index > episode_to_delete_index:
-                episode.episode_index -= 1
+            # Reindex the episodes
+            for episode in self.episodes:
+                if episode.episode_index > episode_to_delete_index:
+                    episode.episode_index -= 1
+        else:
+            # Use the old_index_to_new_index to update the episode index
+            current_max_index = max(old_index_to_new_index.keys()) + 1
+            for episode in self.episodes:
+                if episode.episode_index == episode_to_delete_index:
+                    # Remove the episode
+                    self.episodes.remove(episode)
+                elif episode.episode_index in old_index_to_new_index.keys():
+                    # Update the episode index
+                    episode.episode_index = old_index_to_new_index[
+                        episode.episode_index
+                    ]
+                else:
+                    # Update the episode index to the new one
+                    episode.episode_index = current_max_index
+                    current_max_index += 1
