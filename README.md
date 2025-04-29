@@ -1,6 +1,6 @@
 # phosphobot
 
-A community-driven platform for robotics enthusiasts to share and explore creative projects built with the phospho starter pack.
+**phosphobot** is a community-driven platform for robotics enthusiasts to share and explore creative projects built with the phospho starter pack.
 
 <div align="center">
 
