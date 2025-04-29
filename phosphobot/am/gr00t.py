@@ -621,7 +621,9 @@ class Gr00tN1(ActionModel):
                 if cameras_keys_mapping is None:
                     camera_id = i
                 else:
-                    camera_id = cameras_keys_mapping.get(camera_name, i)
+                    camera_id = cameras_keys_mapping.get(
+                        f"video.{camera_name}", cameras_keys_mapping.get(camera_name, i)
+                    )
 
                 rgb_frame = all_cameras.get_rgb_frame(
                     camera_id=camera_id, resize=video.resolution
