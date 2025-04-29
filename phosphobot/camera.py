@@ -895,6 +895,10 @@ class AllCameras:
         Initialize RealSense camera with automatic retries on failure.
         Returns the camera instance if successful, None otherwise.
         """
+        if not config.ENABLE_REALSENSE:
+            logger.debug("Realsense camera is disabled")
+            return
+
         for attempt in range(max_retries):
             try:
                 self.realsensecamera = RealSenseCamera(
