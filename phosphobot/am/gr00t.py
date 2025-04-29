@@ -3,7 +3,7 @@ import pickle
 import time
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Callable, Dict, List, Literal, Tuple
+from typing import Any, Callable, Dict, Literal, Tuple
 
 import cv2
 import numpy as np
@@ -350,7 +350,7 @@ class HuggingFaceModelConfig(BaseModel):
         return data
 
 
-class ModelSpawnConfig(BaseModel):
+class Gr00tSpawnConfig(BaseModel):
     video_keys: list[str]
     state_keys: list[str]
     action_keys: list[str]
@@ -461,9 +461,9 @@ class Gr00tN1(ActionModel):
         cls,
         model_id: str,
         all_cameras: AllCameras,
-        robots: List[BaseRobot],
+        robots: list[BaseRobot],
         cameras_keys_mapping: Dict[str, int] | None = None,
-    ) -> ModelSpawnConfig:
+    ) -> Gr00tSpawnConfig:
         """
         Verify if the HuggingFace model is compatible with the current setup.
         """
@@ -520,7 +520,7 @@ class Gr00tN1(ActionModel):
         use_degrees = max_values > 3.2
         angle_unit: Literal["degrees", "rad"] = "degrees" if use_degrees else "rad"
 
-        return ModelSpawnConfig(
+        return Gr00tSpawnConfig(
             video_keys=video_keys,
             state_keys=state_keys,
             action_keys=action_keys,
@@ -533,8 +533,8 @@ class Gr00tN1(ActionModel):
     async def control_loop(
         self,
         control_signal: AIControlSignal,
-        robots: List[BaseRobot],
-        model_spawn_config: ModelSpawnConfig,
+        robots: list[BaseRobot],
+        model_spawn_config: Gr00tSpawnConfig,
         all_cameras: AllCameras,
         prompt: str | None = None,
         fps: int = 30,

@@ -6,7 +6,6 @@ import numpy as np
 from pathlib import Path
 from loguru import logger
 from huggingface_hub import HfApi
-from fastapi import HTTPException
 from abc import abstractmethod, ABC
 from typing import Literal, Optional
 from phosphobot.models import InfoModel

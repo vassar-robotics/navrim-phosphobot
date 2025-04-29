@@ -49,8 +49,8 @@ while True:
         converted_array = converted_array.astype(np.uint8)
         images[i] = converted_array
 
-    # Create the model
-    model = Gr00tN1(server_url=host, server_port=port)
+    # Create the model, you might need to change the action keys based on your model
+    model = Gr00tN1(server_url=host, server_port=port, action_keys=["action.arm"])
 
     state = np.array(client.control.read_joints().angles_rad)
     # Take a look at the experiment_cfg/metadata.json file in your Gr00t model and check the names of the images, states, and observations
