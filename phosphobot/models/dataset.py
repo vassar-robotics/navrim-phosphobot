@@ -1075,7 +1075,6 @@ class Dataset:
         # else, Delete the folders and reupload the dataset.
         else:
             # Delete the dataset folders from Hugging Face
-            delete_folder(
             try:
                 delete_folder(
                     repo_id=self.repo_id, path_in_repo="./data", repo_type="dataset"
