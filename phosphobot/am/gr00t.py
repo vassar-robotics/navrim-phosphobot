@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import asyncio
 import pickle
 import time
@@ -115,6 +116,55 @@ class BaseInferenceServer:
 
                 print(traceback.format_exc())
                 self.socket.send(b"ERROR")
+
+
+class ModalityConfig(BaseModel):
+    """Configuration for a modality."""
+
+    delta_indices: list[int]
+    """Delta indices to sample relative to the current index. The returned data will correspond to the original data at a sampled base index + delta indices."""
+    modality_keys: list[str]
+    """The keys to load for the modality in the dataset."""
+
+
+class BasePolicy(ABC):
+    @abstractmethod
+    def get_action(self, observations: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Abstract method to get the action for a given state.
+
+        Args:
+            observations: The observations from the environment.
+
+        Returns:
+            The action to take in the environment in dictionary format.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_modality_config(self) -> Dict[str, ModalityConfig]:
+        """
+        Return the modality config of the policy.
+        """
+        raise NotImplementedError
+
+
+class RobotInferenceServer(BaseInferenceServer):
+    """
+    Server with three endpoints for real robot policies
+    """
+
+    def __init__(self, model: BasePolicy, host: str = "*", port: int = 5555):
+        super().__init__(host, port)
+        self.register_endpoint("get_action", model.get_action)
+        self.register_endpoint(
+            "get_modality_config", model.get_modality_config, requires_input=False
+        )
+
+    @staticmethod
+    def start_server(policy: BasePolicy, port: int):
+        server = RobotInferenceServer(policy, port=port)
+        server.run()
 
 
 class BaseInferenceClient:
