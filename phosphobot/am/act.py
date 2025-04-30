@@ -8,7 +8,7 @@ import numpy as np
 from loguru import logger
 from typing import Literal
 from typing import Dict, List
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from huggingface_hub import HfApi
 from phosphobot.camera import AllCameras
 from phosphobot.utils import background_task_log_exceptions, get_hf_token
@@ -142,7 +142,6 @@ class ACT(ActionModel):
         **kwargs,
     ):
         super().__init__(server_url, server_port)
-        self.required_input_keys: List[str] = ["images", "state"]
         self.state_key = state_key
         self.state_size = state_size
         self.video_keys = video_keys
@@ -151,7 +150,7 @@ class ACT(ActionModel):
     def sample_actions(self, inputs: dict) -> np.ndarray:
         # Build the payload
         payload = {
-            self.state_key: inputs[self.state_key].reshape(1, -1),
+            self.state_key: inputs[self.state_key],
         }
         for i in range(0, len(self.video_keys)):
             payload[self.video_keys[i]] = inputs[self.video_keys[i]]
@@ -160,13 +159,12 @@ class ACT(ActionModel):
         encoded_payload = {"encoded": json_numpy.dumps(payload)}
 
         response = requests.post(
-            f"http://{self.server_url}:{self.server_port}/act",
+            f"{self.server_url}/act",
             json=encoded_payload,
             timeout=10,
-        ).json()
-
-        action = json_numpy.loads(response)
-
+        )
+        response.raise_for_status()  # Raise an error for bad responses
+        action = json_numpy.loads(response.json())
         return np.array([action])
 
     @classmethod
@@ -270,6 +268,10 @@ class ACT(ActionModel):
         """
 
         nb_iter = 0
+        # We don't have any information about the unit of the model
+        # So we assume it's in radians, if we receive actions greater than 2pi
+        # we switch to using degrees
+        unit: Literal["rad", "degrees"] = "rad"
         config = model_spawn_config.hf_model_config
 
         db_state_updated = False
@@ -300,10 +302,8 @@ class ACT(ActionModel):
                 if rgb_frame is not None:
                     # Convert to BGR
                     image = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
-                    # Add a batch dimension (from (240, 320, 3) to (1, 240, 320, 3))
-                    converted_array = np.expand_dims(image, axis=0)
                     # Ensure dtype is uint8 (if it isn’t already)
-                    converted_array = converted_array.astype(np.uint8)
+                    converted_array = image.astype(np.uint8)
                     image_inputs[camera_name] = converted_array
 
                 else:
@@ -341,11 +341,9 @@ class ACT(ActionModel):
                 )
 
             inputs = {
-                config.input_features.state_key: state.reshape(1, -1),
+                config.input_features.state_key: state,
                 **image_inputs,
             }
-
-            logger.debug(f"Inputs: {inputs.keys()}")
 
             try:
                 actions = self(inputs)
@@ -367,11 +365,17 @@ class ACT(ActionModel):
                 break
 
             for action in actions:
+                if unit == "rad":
+                    if action.max() > 2 * np.pi:
+                        logger.warning("Actions are in degrees. Converting to radians.")
+                        unit = "degrees"
+
                 # Send the new joint position to the robot
                 action_list = action.tolist()
                 for robot_index in range(len(robots)):
                     robots[robot_index].write_joint_positions(
                         angles=action_list[robot_index * 6 : robot_index * 6 + 6],
+                        unit=unit,
                     )
 
                 # Wait fps time
