@@ -1075,17 +1075,26 @@ class Dataset:
         # else, Delete the folders and reupload the dataset.
         else:
             # Delete the dataset folders from Hugging Face
-            delete_folder(
-                repo_id=self.repo_id, path_in_repo="./data", repo_type="dataset"
-            )
-            delete_folder(
-                repo_id=self.repo_id, path_in_repo="./videos", repo_type="dataset"
-            )
-            delete_folder(
-                repo_id=self.repo_id, path_in_repo="./meta", repo_type="dataset"
-            )
+            try:
+                delete_folder(
+                    repo_id=self.repo_id, path_in_repo="./data", repo_type="dataset"
+                )
+            except Exception:
+                logger.debug("No data folder to delete")
+            try:
+                delete_folder(
+                    repo_id=self.repo_id, path_in_repo="./videos", repo_type="dataset"
+                )
+            except Exception:
+                logger.debug("No videos folder to delete")
+            try:
+                delete_folder(
+                    repo_id=self.repo_id, path_in_repo="./meta", repo_type="dataset"
+                )
+            except Exception:
+                logger.debug("No meta folder to delete")
             # Reupload the dataset folder to Hugging Face
-            self.HF_API.upload_large_folder(
+            self.HF_API.upload_folder(
                 folder_path=self.folder_full_path,
                 repo_id=self.repo_id,
                 repo_type="dataset",
@@ -1404,7 +1413,7 @@ class Dataset:
 
         return np.mean(episode_fps)
 
-    def push_dataset_to_hub(self, branch_path: str | None = "2.0"):
+    def push_dataset_to_hub(self, branch_path: str | None = None):
         """
         Push the dataset to the Hugging Face Hub.
 
@@ -1465,7 +1474,7 @@ It's compatible with LeRobot and RLDS.
             try:
                 self.HF_API.repo_info(repo_id=dataset_repo_name, repo_type="dataset")
                 logger.info(f"Repository {dataset_repo_name} already exists.")
-            except Exception as e:
+            except Exception:
                 logger.info(
                     f"Repository {dataset_repo_name} does not exist. Creating it..."
                 )
@@ -1482,7 +1491,7 @@ It's compatible with LeRobot and RLDS.
             logger.info(
                 f"Pushing the dataset to the main branch in repository {dataset_repo_name}"
             )
-            self.HF_API.upload_large_folder(
+            self.HF_API.upload_folder(
                 folder_path=self.folder_full_path,
                 repo_id=dataset_repo_name,
                 repo_type="dataset",
@@ -1514,7 +1523,7 @@ It's compatible with LeRobot and RLDS.
                     logger.info(
                         f"Pushing the dataset to the branch v2.0 in repository {dataset_repo_name}"
                     )
-                    self.HF_API.upload_large_folder(
+                    self.HF_API.upload_folder(
                         folder_path=self.folder_full_path,
                         repo_id=dataset_repo_name,
                         repo_type="dataset",
@@ -1542,7 +1551,7 @@ It's compatible with LeRobot and RLDS.
 
                     # Push to specified branch
                     logger.info(f"Pushing the dataset to branch {branch_path}")
-                    self.HF_API.upload_large_folder(
+                    self.HF_API.upload_folder(
                         folder_path=self.folder_full_path,
                         repo_id=dataset_repo_name,
                         repo_type="dataset",

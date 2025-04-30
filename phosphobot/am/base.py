@@ -62,11 +62,13 @@ class ActionModel(ABC):
 
 class TrainingParamsAct(BaseModel):
     batch_size: int | None = Field(
-        default=100, description="Batch size for training, we run this on L40S", gt=0
+        default=None,
+        description="Batch size for training, we run this on A10G",
+        gt=0,
     )
     steps: int | None = Field(
         default=8000,
-        description="Number of training steps, default is 10000, increase it if you want to train longer",
+        description="Number of training steps, default is 8000, increase it if you want to train longer",
         gt=0,
         le=100000,
     )

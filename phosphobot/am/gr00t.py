@@ -1,18 +1,18 @@
+from abc import ABC, abstractmethod
 import asyncio
 import pickle
 import time
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Any, Callable, Dict, Literal, Tuple
-
 import cv2
 import numpy as np
 import zmq
+import traceback
 from fastapi import HTTPException
 from huggingface_hub import HfApi
 from loguru import logger
 from pydantic import BaseModel, Field, model_validator
-
 from phosphobot.am.base import ActionModel
 from phosphobot.camera import AllCameras
 from phosphobot.control_signal import AIControlSignal
@@ -90,31 +90,98 @@ class BaseInferenceServer:
         """
         self._endpoints[name] = EndpointHandler(handler, requires_input)
 
-    def run(self):
+    def run(self) -> None:
         addr = self.socket.getsockopt_string(zmq.LAST_ENDPOINT)
-        print(f"Server is ready and listening on {addr}")
+        logger.info(f"Server is ready and listening on {addr}")
         while self.running:
+            raw = self.socket.recv()
             try:
-                message = self.socket.recv()
-                request = TorchSerializer.from_bytes(message)
-                endpoint = request.get("endpoint", "get_action")
+                request = TorchSerializer.from_bytes(raw)
+                version = request.get("version", 1)
+                use_envelope = version >= 2
 
+                endpoint = request.get("endpoint", "get_action")
                 if endpoint not in self._endpoints:
-                    raise ValueError(f"Unknown endpoint: {endpoint}")
+                    raise ValueError(f"Unknown endpoint: {endpoint!r}")
 
                 handler = self._endpoints[endpoint]
-                result = (
-                    handler.handler(request.get("data", {}))
-                    if handler.requires_input
-                    else handler.handler()
-                )
-                self.socket.send(TorchSerializer.to_bytes(result))
-            except Exception as e:
-                print(f"Error in server: {e}")
-                import traceback
+                if handler.requires_input:
+                    result = handler.handler(request.get("data", {}))
+                else:
+                    result = handler.handler()
 
-                print(traceback.format_exc())
-                self.socket.send(b"ERROR")
+                if use_envelope:
+                    resp: Dict[str, Any] = {"status": "ok", "result": result}
+                    self.socket.send(TorchSerializer.to_bytes(resp))
+                else:
+                    # legacy: send the bare result dict
+                    self.socket.send(TorchSerializer.to_bytes(result))
+
+            except Exception as e:
+                tb = traceback.format_exc()
+                print(f"[ERROR] {e}\n{tb}")
+
+                if "request" in locals() and request.get("version", 1) >= 2:
+                    error_resp: Dict[str, Any] = {
+                        "status": "error",
+                        "error_type": type(e).__name__,
+                        "message": str(e),
+                        # omit traceback if you don’t want to expose internals
+                        "traceback": tb,
+                    }
+                    self.socket.send(TorchSerializer.to_bytes(error_resp))
+                else:
+                    # legacy client: single-byte ERROR token
+                    self.socket.send(b"ERROR")
+
+
+class ModalityConfig(BaseModel):
+    """Configuration for a modality."""
+
+    delta_indices: list[int]
+    """Delta indices to sample relative to the current index. The returned data will correspond to the original data at a sampled base index + delta indices."""
+    modality_keys: list[str]
+    """The keys to load for the modality in the dataset."""
+
+
+class BasePolicy(ABC):
+    @abstractmethod
+    def get_action(self, observations: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Abstract method to get the action for a given state.
+
+        Args:
+            observations: The observations from the environment.
+
+        Returns:
+            The action to take in the environment in dictionary format.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_modality_config(self) -> Dict[str, ModalityConfig]:
+        """
+        Return the modality config of the policy.
+        """
+        raise NotImplementedError
+
+
+class RobotInferenceServer(BaseInferenceServer):
+    """
+    Server with three endpoints for real robot policies
+    """
+
+    def __init__(self, model: BasePolicy, host: str = "*", port: int = 5555):
+        super().__init__(host, port)
+        self.register_endpoint("get_action", model.get_action)
+        self.register_endpoint(
+            "get_modality_config", model.get_modality_config, requires_input=False
+        )
+
+    @staticmethod
+    def start_server(policy: BasePolicy, port: int):
+        server = RobotInferenceServer(policy, port=port)
+        server.run()
 
 
 class BaseInferenceClient:
@@ -125,6 +192,7 @@ class BaseInferenceClient:
         self.host = host
         self.port = port
         self.timeout_ms = timeout_ms
+        self.version = 2
         self._init_socket()
 
     def _init_socket(self):
@@ -157,15 +225,28 @@ class BaseInferenceClient:
             data: The input data for the endpoint.
             requires_input: Whether the endpoint requires input data.
         """
-        request: dict = {"endpoint": endpoint}
+        request = {"endpoint": endpoint, "version": self.version}
         if requires_input:
-            request["data"] = data
+            request["data"] = data or {}
 
         self.socket.send(TorchSerializer.to_bytes(request))
-        message = self.socket.recv()
-        if message == b"ERROR":
-            raise RuntimeError("Server error")
-        return TorchSerializer.from_bytes(message)
+        raw = self.socket.recv()
+
+        # legacy error token
+        if raw == b"ERROR":
+            raise RuntimeError("Server error (legacy)")
+
+        # decode envelope or raw result
+        resp = TorchSerializer.from_bytes(raw)
+        if "status" in resp:
+            if resp["status"] == "error":
+                et, msg = resp.get("error_type", "Error"), resp.get("message", "")
+                tb = resp.get("traceback", "")
+                raise RuntimeError(f"{et}: {msg}\n\n{tb}")
+            return resp.get("result", {})
+        else:
+            # legacy: the handler’s own dict
+            return resp
 
     def __del__(self):
         """Cleanup resources on destruction"""
@@ -571,7 +652,9 @@ class Gr00tN1(ActionModel):
                 if cameras_keys_mapping is None:
                     camera_id = i
                 else:
-                    camera_id = cameras_keys_mapping.get(camera_name, i)
+                    camera_id = cameras_keys_mapping.get(
+                        f"video.{camera_name}", cameras_keys_mapping.get(camera_name, i)
+                    )
 
                 rgb_frame = all_cameras.get_rgb_frame(
                     camera_id=camera_id, resize=video.resolution
@@ -590,7 +673,7 @@ class Gr00tN1(ActionModel):
                         f"Camera {camera_name} not available. Sending all black."
                     )
                     image_inputs[f"video.{camera_name}"] = np.zeros(
-                        (video.resolution[1], video.resolution[0], video.channels),
+                        (1, video.resolution[1], video.resolution[0], video.channels),
                         dtype=np.uint8,
                     )
 

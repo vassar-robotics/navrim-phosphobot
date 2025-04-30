@@ -45,8 +45,8 @@ class Configuration(BaseModel):
     # Recording
     MAIN_CAMERA_ID: int | None = None  # defaults to min(detected cameras)
 
-    # If Set to True, the main camera will be the realsense camera and we ignore MAIN_CAMERA_ID
-    USE_REALSENSE_MAIN: bool = True
+    # Whether to initialize the RealSense camera
+    ENABLE_REALSENSE: bool = True
 
     # How simulation should be run
     SIM_MODE: SimulationMode = SimulationMode.headless
