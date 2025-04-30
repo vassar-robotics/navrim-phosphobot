@@ -4,17 +4,15 @@ import pickle
 import time
 from dataclasses import dataclass
 from io import BytesIO
-import traceback
-from typing import Any, Callable, Dict, List, Literal, Tuple
-
+from typing import Any, Callable, Dict, Literal, Tuple
 import cv2
 import numpy as np
 import zmq
+import traceback
 from fastapi import HTTPException
 from huggingface_hub import HfApi
 from loguru import logger
 from pydantic import BaseModel, Field, model_validator
-
 from phosphobot.am.base import ActionModel
 from phosphobot.camera import AllCameras
 from phosphobot.control_signal import AIControlSignal
@@ -433,7 +431,7 @@ class HuggingFaceModelConfig(BaseModel):
         return data
 
 
-class ModelSpawnConfig(BaseModel):
+class Gr00tSpawnConfig(BaseModel):
     video_keys: list[str]
     state_keys: list[str]
     action_keys: list[str]
@@ -445,20 +443,22 @@ class ModelSpawnConfig(BaseModel):
 class Gr00tN1(ActionModel):
     def __init__(
         self,
-        action_keys: list[str],
+        state_keys: list[str] = [
+            "state.arm_0"
+        ],  # These values are read from the values in experiment_cfg/metadata.json
         server_url: str = "localhost",
         server_port: int = 5555,
         **kwargs,
     ):
         super().__init__(server_url, server_port)
         self.client = ExternalRobotInferenceClient(server_url, server_port)
-        self.action_keys = action_keys
+        self.state_keys = state_keys
 
     def sample_actions(self, inputs: dict) -> np.ndarray:
         # Get the dict from the server
         response = self.client.get_action(inputs)
         action_parts = []
-        for key in self.action_keys:
+        for key in self.state_keys:
             new_action = response[key]
 
             if isinstance(new_action, np.ndarray):
@@ -544,9 +544,9 @@ class Gr00tN1(ActionModel):
         cls,
         model_id: str,
         all_cameras: AllCameras,
-        robots: List[BaseRobot],
+        robots: list[BaseRobot],
         cameras_keys_mapping: Dict[str, int] | None = None,
-    ) -> ModelSpawnConfig:
+    ) -> Gr00tSpawnConfig:
         """
         Verify if the HuggingFace model is compatible with the current setup.
         """
@@ -603,7 +603,7 @@ class Gr00tN1(ActionModel):
         use_degrees = max_values > 3.2
         angle_unit: Literal["degrees", "rad"] = "degrees" if use_degrees else "rad"
 
-        return ModelSpawnConfig(
+        return Gr00tSpawnConfig(
             video_keys=video_keys,
             state_keys=state_keys,
             action_keys=action_keys,
@@ -616,8 +616,8 @@ class Gr00tN1(ActionModel):
     async def control_loop(
         self,
         control_signal: AIControlSignal,
-        robots: List[BaseRobot],
-        model_spawn_config: ModelSpawnConfig,
+        robots: list[BaseRobot],
+        model_spawn_config: Gr00tSpawnConfig,
         all_cameras: AllCameras,
         prompt: str | None = None,
         fps: int = 30,
