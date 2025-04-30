@@ -133,30 +133,15 @@ class ACTSpawnConfig(BaseModel):
 class ACT(ActionModel):
     def __init__(
         self,
-        state_key: str,
-        state_size: list[int],
-        video_keys: list[str],
-        video_size: list[int],
         server_url: str = "http://localhost",
         server_port: int = 8080,
         **kwargs,
     ):
         super().__init__(server_url, server_port)
-        self.state_key = state_key
-        self.state_size = state_size
-        self.video_keys = video_keys
-        self.video_size = video_size
 
     def sample_actions(self, inputs: dict) -> np.ndarray:
-        # Build the payload
-        payload = {
-            self.state_key: inputs[self.state_key],
-        }
-        for i in range(0, len(self.video_keys)):
-            payload[self.video_keys[i]] = inputs[self.video_keys[i]]
-
         # Double-encoded version (to send numpy arrays as JSON)
-        encoded_payload = {"encoded": json_numpy.dumps(payload)}
+        encoded_payload = {"encoded": json_numpy.dumps(inputs)}
 
         response = requests.post(
             f"{self.server_url}/act",
