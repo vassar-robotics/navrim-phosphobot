@@ -8,7 +8,7 @@ import numpy as np
 from loguru import logger
 from typing import Literal
 from typing import Dict, List
-from fastapi import HTTPException, Response
+from fastapi import HTTPException
 from huggingface_hub import HfApi
 from phosphobot.camera import AllCameras
 from phosphobot.utils import background_task_log_exceptions, get_hf_token
