@@ -443,20 +443,22 @@ class Gr00tSpawnConfig(BaseModel):
 class Gr00tN1(ActionModel):
     def __init__(
         self,
-        action_keys: list[str],
+        state_keys: list[str] = [
+            "state.arm_0"
+        ],  # These values are read from the values in experiment_cfg/metadata.json
         server_url: str = "localhost",
         server_port: int = 5555,
         **kwargs,
     ):
         super().__init__(server_url, server_port)
         self.client = ExternalRobotInferenceClient(server_url, server_port)
-        self.action_keys = action_keys
+        self.state_keys = state_keys
 
     def sample_actions(self, inputs: dict) -> np.ndarray:
         # Get the dict from the server
         response = self.client.get_action(inputs)
         action_parts = []
-        for key in self.action_keys:
+        for key in self.state_keys:
             new_action = response[key]
 
             if isinstance(new_action, np.ndarray):
