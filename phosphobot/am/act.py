@@ -143,13 +143,21 @@ class ACT(ActionModel):
         # Double-encoded version (to send numpy arrays as JSON)
         encoded_payload = {"encoded": json_numpy.dumps(inputs)}
 
-        response = requests.post(
-            f"{self.server_url}/act",
-            json=encoded_payload,
-            timeout=10,
-        )
-        response.raise_for_status()  # Raise an error for bad responses
-        action = json_numpy.loads(response.json())
+        try:
+            response = requests.post(
+                f"{self.server_url}/act",
+                json=encoded_payload,
+                timeout=10,
+            )
+            if response.status_code != 200:
+                raise RuntimeError(response.text)
+            action = json_numpy.loads(response.json())
+        except Exception as e:
+            logger.error(f"Error in sampling actions: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error in sampling actions: {e}",
+            )
         return np.array([action])
 
     @classmethod
