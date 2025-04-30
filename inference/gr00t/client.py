@@ -49,7 +49,7 @@ while True:
         converted_array = converted_array.astype(np.uint8)
         images[i] = converted_array
 
-    # Create the model, you might need to change the state keys based on your model, these can be found in the experiment_cfg/metadata.json file of your Gr00tN1 model
+    # Create the model, you might need to change the action keys based on your model, these can be found in the experiment_cfg/metadata.json file of your Gr00tN1 model
     model = Gr00tN1(server_url=host, server_port=port)
 
     state = np.array(client.control.read_joints().angles_rad)
