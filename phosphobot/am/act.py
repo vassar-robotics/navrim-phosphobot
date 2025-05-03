@@ -185,6 +185,25 @@ class ACT(ActionModel):
         return hf_model_config
 
     @classmethod
+    def fetch_spwan_config(cls, model_id: str) -> ACTSpawnConfig:
+        hf_model_config = cls.fetch_config(model_id=model_id)
+
+        state_key: str = hf_model_config.input_features.state_key
+        state_size: list[int] = hf_model_config.input_features.features[state_key].shape
+        video_keys: list[str] = hf_model_config.input_features.video_keys
+        video_size: list[int] = hf_model_config.input_features.features[
+            video_keys[0]
+        ].shape
+
+        return ACTSpawnConfig(
+            state_key=state_key,
+            state_size=state_size,
+            video_keys=video_keys,
+            video_size=video_size,
+            hf_model_config=hf_model_config,
+        )
+
+    @classmethod
     def fetch_and_verify_config(
         cls,
         model_id: str,
