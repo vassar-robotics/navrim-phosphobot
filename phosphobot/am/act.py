@@ -185,7 +185,7 @@ class ACT(ActionModel):
         return hf_model_config
 
     @classmethod
-    def fetch_spwan_config(cls, model_id: str) -> ACTSpawnConfig:
+    def fetch_spawn_config(cls, model_id: str) -> ACTSpawnConfig:
         hf_model_config = cls.fetch_config(model_id=model_id)
 
         state_key: str = hf_model_config.input_features.state_key
