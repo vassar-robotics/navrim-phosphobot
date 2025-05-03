@@ -529,6 +529,36 @@ class Gr00tN1(ActionModel):
         return hf_model_config
 
     @classmethod
+    def fetch_spwan_config(cls, model_id: str) -> Gr00tSpawnConfig:
+        hf_model_config = cls.fetch_config(model_id=model_id)
+
+        video_keys = [
+            "video." + key for key in hf_model_config.embodiment.modalities.video.keys()
+        ]
+        state_keys = [
+            "state." + key
+            for key in hf_model_config.embodiment.statistics.state.component_names
+        ]
+        action_keys = [
+            "action." + key
+            for key in hf_model_config.embodiment.statistics.action.component_names
+        ]
+
+        # Determine angle unit based on state statistics
+        max_values = hf_model_config.embodiment.statistics.state.get_max_value()
+        use_degrees = max_values > 3.2
+        angle_unit: Literal["degrees", "rad"] = "degrees" if use_degrees else "rad"
+
+        return Gr00tSpawnConfig(
+            video_keys=video_keys,
+            state_keys=state_keys,
+            action_keys=action_keys,
+            embodiment_tag=hf_model_config.embodiment.embodiment_tag,
+            unit=angle_unit,
+            hf_model_config=hf_model_config,
+        )
+
+    @classmethod
     def fetch_and_get_video_keys(cls, model_id: str) -> list[str]:
         """
         Fetch the model config and get the video keys.
