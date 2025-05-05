@@ -6,7 +6,7 @@ import threading
 import time
 import platform
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, List, Literal, Optional, Dict, cast
+from typing import AsyncGenerator, List, Literal, Optional, Dict, Tuple, cast
 
 import cv2
 from fastapi import Request
@@ -68,17 +68,48 @@ def get_camera_names() -> List[str]:
         # Use v4l2-ctl to list cameras on Linux
         try:
             result = subprocess.run(
-                ["v4l2-ctl", "--list-devices"], stdout=subprocess.PIPE, text=True
+                ["v4l2-ctl", "--list-devices"],
+                stdout=subprocess.PIPE,
+                text=True,
+                check=True,
             )
-            lines = result.stdout.split("\n")
-            for line in lines:
-                if ":" not in line and line.strip() != "":
-                    camera_names.append(line.strip())
+            lines = result.stdout.splitlines()
+
+            # collect (device_path, camera_name)
+            dev_name_pairs: List[Tuple[str, str]] = []
+            i = 0
+            while i < len(lines):
+                line = lines[i]
+                if line and not line.startswith("\t") and line.strip().endswith(":"):
+                    header = line.strip().rstrip(":")
+                    # Simplify the camera name
+                    if "RealSense" in header:
+                        name = "Realsense"
+                    else:
+                        name = header.split("(")[0].split(":")[0].strip()
+                    # gather subsequent /dev/video* entries
+                    i += 1
+                    while i < len(lines) and lines[i].startswith("\t"):
+                        dev = lines[i].strip()
+                        if dev.startswith("/dev/video"):
+                            dev_name_pairs.append((dev, name))
+                        i += 1
+                    continue
+                i += 1
+
+            # sort by the numeric index of /dev/videoN
+            def video_index(dev_path: str) -> int:
+                return int(dev_path.replace("/dev/video", ""))
+
+            dev_name_pairs.sort(key=lambda dn: video_index(dn[0]))
+            camera_names = [name for _, name in dev_name_pairs]
+
         except FileNotFoundError:
-            # v4l2-ctl is likely not installed
             logger.warning(
                 "v4l2-ctl is not installed. Please install it to list cameras."
             )
+        except subprocess.CalledProcessError as e:
+            logger.error(f"v4l2-ctl failed: {e}")
 
     elif system_name == "Windows":
         # Use PowerShell to list cameras on Windows
@@ -127,7 +158,7 @@ def detect_camera_type(
     # Check if the realsense device can be matched with the current index
     if index < len(camera_names):
         camera_name = camera_names[index]
-        if "RealSense" in camera_name or "realsense" in camera_name:
+        if "realsense" in camera_name.lower():
             return "realsense"
     if config.SIMULATE_CAMERAS and possible_camera_ids is not None:
         # The last two cameras indexes are simulated cameras
