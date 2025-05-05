@@ -91,6 +91,8 @@ def get_camera_names() -> List[str]:
                 ],
                 stdout=subprocess.PIPE,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             lines = result.stdout.split("\n")
             for line in lines:
