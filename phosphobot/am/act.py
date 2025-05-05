@@ -288,8 +288,10 @@ class ACT(ActionModel):
 
         db_state_updated = False
 
-        while control_signal.is_running():
-            logger.debug(f"AI control loop iteration {nb_iter}")
+        while control_signal.is_in_loop():
+            logger.debug(
+                f"AI control loop iteration {nb_iter}, status: {control_signal.status}, with id {control_signal.id}"
+            )
             if control_signal.status == "paused":
                 logger.debug("AI control loop paused")
                 await asyncio.sleep(0.1)
@@ -373,7 +375,7 @@ class ACT(ActionModel):
                 await asyncio.sleep(1)
 
             # Early stop
-            if not control_signal.is_running():
+            if not control_signal.is_in_loop():
                 break
 
             for action in actions:

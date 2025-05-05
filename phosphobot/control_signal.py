@@ -20,7 +20,7 @@ class ControlSignal:
         with self._lock:
             self._running = False
 
-    def is_running(self):
+    def is_in_loop(self):
         with self._lock:
             return self._running
 
@@ -30,28 +30,29 @@ class AIControlSignal(ControlSignal):
         super().__init__()
         self._status = "stopped"
         self.id = str(uuid4())
+        self._is_in_loop = False
 
     def new_id(self):
         self.id = str(uuid4())
 
     def start(self):
         with self._lock:
-            self._running = True
+            self._is_in_loop = True
             self._status = "waiting"
 
     def set_running(self):
         with self._lock:
-            self._running = True
+            self._is_in_loop = True
             self._status = "running"
 
     def stop(self):
         with self._lock:
-            self._running = False
+            self._is_in_loop = False
             self._status = "stopped"
 
-    def is_running(self):
+    def is_in_loop(self):
         with self._lock:
-            return self._running
+            return self._is_in_loop
 
     @property
     def status(self) -> Literal["stopped", "running", "paused", "waiting"]:
@@ -62,11 +63,12 @@ class AIControlSignal(ControlSignal):
         if value == "stopped":
             self.stop()
         elif value == "running":
-            if not self.is_running():
-                self.start()
-            else:
-                self._status = value
+            self._status = value
+            with self._lock:
+                self._is_in_loop = True
         elif value == "paused":
             self._status = value
         elif value == "waiting":
             self._status = value
+            with self._lock:
+                self._is_in_loop = True
