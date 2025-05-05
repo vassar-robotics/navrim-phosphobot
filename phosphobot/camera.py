@@ -883,7 +883,11 @@ class AllCameras:
             else:
                 logger.debug(f"Ignoring camera {index}: {camera_type}")
 
-        if self.realsensecamera and self.realsensecamera.is_connected:
+        if (
+            self.realsensecamera
+            and self.realsensecamera.is_connected
+            and config.ENABLE_REALSENSE
+        ):
             # Generate unique camera IDs for virtual cameras
             max_id = max(self.camera_ids) if self.camera_ids else 0
             virtual_rgb_id = max_id + 1
@@ -931,6 +935,8 @@ class AllCameras:
         Initialize RealSense camera with automatic retries on failure.
         Returns the camera instance if successful, None otherwise.
         """
+        self.realsensecamera = None
+
         if not config.ENABLE_REALSENSE:
             logger.debug("Realsense camera is disabled")
             return
@@ -957,7 +963,6 @@ class AllCameras:
                     time.sleep(1)
 
         logger.info("No RealSense camera detected after all attempts")
-        self.realsensecamera = None
 
     def status(self) -> AllCamerasStatus:
         """
