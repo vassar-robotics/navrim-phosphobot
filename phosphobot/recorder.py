@@ -267,74 +267,83 @@ class Recorder:
 
         self.is_saving = True
 
-        # If not steps, we don't save the episode
-        if self.episode and len(self.episode.steps) == 0:
-            logger.warning("No steps in the episode. Not saving the episode.")
-            return None
+        try:
+            # If not steps, we don't save the episode
+            if self.episode and len(self.episode.steps) == 0:
+                logger.warning("No steps in the episode. Not saving the episode.")
+                return None
 
-        if self.episode_format not in ["json", "lerobot_v2"]:
-            raise ValueError(f"Unknown episode format: {self.episode_format}")
+            if self.episode_format not in ["json", "lerobot_v2"]:
+                raise ValueError(f"Unknown episode format: {self.episode_format}")
 
-        if not hasattr(self, "episode") or self.episode is None:
-            logger.error("No episode to save")
-            return None
+            if not hasattr(self, "episode") or self.episode is None:
+                logger.error("No episode to save")
+                return None
 
-        if self.episode_format == "lerobot_v2" and not hasattr(self, "global_index"):
-            logger.error("No global index to save")
-            return None
-
-        episode_to_save = self.episode
-
-        episode_to_save.save(
-            folder_name=self.episode_recording_folder,
-            format_to_save=self.episode_format,
-            dataset_name=self.dataset_name,
-            fps=self.freq,
-            info_model=self.info_model,
-            last_frame_index=None
-            if not hasattr(self, "global_index")
-            else self.global_index,
-        )
-
-        # Update the meta files if recording in lerobot_v2 format
-        if self.episode_format == "lerobot_v2":
-            # Start by incrementing the recorder global index
-            self.global_index += len(self.episode.steps)
-
-            if self.stats_model is not None:
-                self.stats_model.save(meta_folder_path=self.meta_folder_path)
-            else:
-                logger.error("Stats model is not initialized. Call start() first")
-
-            if self.tasks_model is not None:
-                self.tasks_model.save(meta_folder_path=self.meta_folder_path)
-            else:
-                logger.error("Tasks model is not initialized. Call start() first")
-
-            if self.episodes_model is not None:
-                self.episodes_model.save(meta_folder_path=self.meta_folder_path)
-            else:
-                logger.error("Episodes model is not initialized. Call start() first")
-
-            if (
-                self.info_model is not None
-                and self.tasks_model is not None
-                and self.episodes_model is not None
+            if self.episode_format == "lerobot_v2" and not hasattr(
+                self, "global_index"
             ):
-                self.info_model.update(episode=self.episode)
-                self.info_model.save(meta_folder_path=self.meta_folder_path)
-            else:
-                logger.error(
-                    "Info model, tasks model or episodes model is not initialized. Call start() first"
-                )
+                logger.error("No global index to save")
+                return None
 
-        logger.success(
-            f"Episode saved to {self.episode_recording_folder}/{self.episode_format}"
-        )
-        self.is_saving = False
+            episode_to_save = self.episode
+
+            episode_to_save.save(
+                folder_name=self.episode_recording_folder,
+                format_to_save=self.episode_format,
+                dataset_name=self.dataset_name,
+                fps=self.freq,
+                info_model=self.info_model,
+                last_frame_index=None
+                if not hasattr(self, "global_index")
+                else self.global_index,
+            )
+
+            # Update the meta files if recording in lerobot_v2 format
+            if self.episode_format == "lerobot_v2":
+                # Start by incrementing the recorder global index
+                self.global_index += len(self.episode.steps)
+
+                if self.stats_model is not None:
+                    self.stats_model.save(meta_folder_path=self.meta_folder_path)
+                else:
+                    logger.error("Stats model is not initialized. Call start() first")
+
+                if self.tasks_model is not None:
+                    self.tasks_model.save(meta_folder_path=self.meta_folder_path)
+                else:
+                    logger.error("Tasks model is not initialized. Call start() first")
+
+                if self.episodes_model is not None:
+                    self.episodes_model.save(meta_folder_path=self.meta_folder_path)
+                else:
+                    logger.error(
+                        "Episodes model is not initialized. Call start() first"
+                    )
+
+                if (
+                    self.info_model is not None
+                    and self.tasks_model is not None
+                    and self.episodes_model is not None
+                ):
+                    self.info_model.update(episode=self.episode)
+                    self.info_model.save(meta_folder_path=self.meta_folder_path)
+                else:
+                    logger.error(
+                        "Info model, tasks model or episodes model is not initialized. Call start() first"
+                    )
+            logger.success(
+                f"Episode saved to {self.episode_recording_folder}/{self.episode_format}"
+            )
+
+        except Exception as e:
+            raise e
+        finally:
+            self.is_saving = False
 
         if self.use_push_to_hub:
             self.push_to_hub(branch_path=self.branch_path)
+
         return None
 
     def push_to_hub(self, branch_path: str | None = None) -> None:
