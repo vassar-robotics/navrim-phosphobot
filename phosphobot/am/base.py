@@ -73,6 +73,9 @@ class TrainingParamsAct(BaseModel):
         le=100000,
     )
 
+    class Config:
+        extra = "forbid"
+
 
 class TrainingParamsGr00T(BaseModel):
     train_test_split: float = Field(
@@ -99,6 +102,9 @@ class TrainingParamsGr00T(BaseModel):
         gt=0,
         le=1,
     )
+
+    class Config:
+        extra = "forbid"
 
 
 class TrainingRequest(BaseModel):
@@ -159,24 +165,39 @@ class TrainingRequest(BaseModel):
                 f"Dataset {dataset_name} is not a valid, public Hugging Face dataset. Please check the URL and try again. Your dataset name should be in the format <username>/<dataset_name>",
             )
 
-    @model_validator(mode="after")
-    def validate_training_params(self) -> "TrainingRequest":
-        correspondance = {
-            "gr00t": TrainingParamsGr00T(),
-            "ACT": TrainingParamsAct(),
+    @model_validator(mode="before")
+    @classmethod
+    def validate_training_params(cls, data: dict) -> dict:
+        model_type_to_class: dict[str, type[BaseModel]] = {
+            "ACT": TrainingParamsAct,
+            "gr00t": TrainingParamsGr00T,
         }
 
-        if self.training_params is None:
-            self.training_params = correspondance[self.model_type]  # type: ignore
+        model_type = data.get("model_type")
+        training_params = data.get("training_params")
 
-        else:
-            if not isinstance(
-                self.training_params, correspondance[self.model_type].__class__
-            ):
-                raise ValueError(
-                    f"Training parameters for {self.model_type} should be of type {correspondance[self.model_type].__class__.__name__}",
-                )
-        return self
+        if model_type is None:
+            raise ValueError(
+                "Model type is required. Please provide a valid model type: 'ACT' or 'gr00t'."
+            )
+        if model_type not in model_type_to_class:
+            raise ValueError(
+                f"Unsupported model type: {model_type}. Valid options are: {list(model_type_to_class.keys())}"
+            )
+
+        params_class = model_type_to_class[model_type]
+
+        if training_params:
+            logger.debug(
+                f"Training parameters provided: {training_params}, validating them with {params_class.__name__}"
+            )
+            data["training_params"] = params_class.model_validate(training_params)
+
+        if training_params is None:
+            # If no training params are provided, we set the default ones
+            data["training_params"] = params_class()
+
+        return data
 
 
 class HuggingFaceTokenValidator:
