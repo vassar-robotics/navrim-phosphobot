@@ -484,12 +484,35 @@ class Episode(BaseModel):
             raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
 
         episode_df = pd.read_parquet(episode_data_path)
+        # Try to load the tasks.jsonl
+        dataset_path = str(Path(episode_data_path).parent.parent.parent)
+
+        tasks_path = os.path.join(dataset_path, "meta", "tasks.jsonl")
+        if os.path.exists(tasks_path):
+            # Load the tasks.jsonl file
+            tasks_df = pd.read_json(tasks_path, lines=True)
+            # Get the task index from the task index column
+            episode_df["task_index"] = tasks_df["task_index"].iloc[0]
+            # Merge the task index with the episode_df
+            episode_df = pd.merge(
+                episode_df,
+                tasks_df[["task_index", "task"]],
+                on="task_index",
+                how="left",
+            )
+
         # Rename the columns to match the expected names in the instance
         episode_df.rename(
-            columns={"observation.state": "joints_position"}, inplace=True
+            columns={
+                "observation.state": "joints_position",
+                "task": "language_instruction",
+            },
+            inplace=True,
         )
         # agregate the columns in joints_position, timestamp, main_image, state to a column observation.
         cols = ["joints_position", "timestamp"]
+        if "language_instruction" in episode_df.columns:
+            cols.append("language_instruction")
         # Create a new column "observation" that is a dict of the selected columns for each row
         episode_df["observation"] = episode_df[cols].to_dict(orient="records")
 
@@ -1167,6 +1190,7 @@ class Dataset:
         logger.debug(f"old_index_to_new_index: {old_index_to_new_index}")
 
         # Reindex the files in the folder
+        total_nb_steps = 0
         for filename in sorted(os.listdir(folder_path)):
             if filename.startswith("episode_"):
                 file_extension = filename.split(".")[-1]
@@ -1190,17 +1214,26 @@ class Dataset:
                     assert nb_steps_deleted_episode > 0, "Received 0 step deleted"
                     # Read the parquet file
                     df = pd.read_parquet(os.path.join(folder_path, new_filename))
-                    # I want to decrement episode index by 1 for indexes superior to the removed episode
-                    df["episode_index"] = df["episode_index"] - 1
-                    # I want to decrement the global index by the number of steps deleted in the episode
-                    df["index"] = df["index"] - nb_steps_deleted_episode
+                    # Use the mapping to update the episode index
+                    df["episode_index"] = df["episode_index"].replace(
+                        old_index_to_new_index
+                    )
+                    # Replace the global index (total number of steps in the dataset)
+                    # First, make it from zero to the total number of rows
+                    df["index"] = np.arange(len(df))
+                    # Then, add the total number of steps in the dataset to the index
+                    df["index"] = df["index"] + total_nb_steps
+                    # Update the total number of steps
+                    total_nb_steps += len(df)
                     # Save the updated parquet file
                     df.to_parquet(os.path.join(folder_path, new_filename))
 
                 if file_extension == "json":
                     # Update the episode index inside the json file with pandas
                     df = pd.read_json(os.path.join(folder_path, new_filename))
-                    df["episode_index"] = df["episode_index"] - 1
+                    df["episode_index"] = df["episode_index"].replace(
+                        old_index_to_new_index
+                    )
                     df.to_json(os.path.join(folder_path, new_filename))
 
         return old_index_to_new_index
@@ -2734,6 +2767,7 @@ class EpisodesModel(BaseModel):
     """
 
     episodes: List[EpisodesFeatures] = Field(default_factory=list)
+    _episodes_features: Dict[int, EpisodesFeatures] | None = None
     _original_nb_total_episodes: int = 0
 
     def update(self, step: Step, episode_index: int) -> None:
@@ -2742,27 +2776,29 @@ class EpisodesModel(BaseModel):
         episode_index is the index of the episode of the current step.
         """
         # If episode_index is not in the episodes, add it
-        if episode_index not in [
-            episode.episode_index for episode in self.episodes
-        ] or episode_index >= len(self.episodes):
-            self.episodes.append(
-                EpisodesFeatures(
-                    episode_index=episode_index,
-                    tasks=[str(step.observation.language_instruction)],
-                    length=1,
-                )
-            )
-        else:
+
+        if self._episodes_features is None:
+            self._episodes_features = {
+                episode.episode_index: episode for episode in self.episodes
+            }
+
+        episode = self._episodes_features.get(episode_index)
+
+        if episode is not None:
             # Increase the nb frames counter
-            self.episodes[episode_index].length += 1
+            episode.length += 1
             # Add the language instruction if it's a new one
-            if (
-                str(step.observation.language_instruction)
-                not in self.episodes[episode_index].tasks
-            ):
-                self.episodes[episode_index].tasks.append(
-                    str(step.observation.language_instruction)
-                )
+            if str(step.observation.language_instruction) not in episode.tasks:
+                episode.tasks.append(str(step.observation.language_instruction))
+        else:
+            # Create a new episode
+            new_episode = EpisodesFeatures(
+                episode_index=episode_index,
+                tasks=[str(step.observation.language_instruction)],
+                length=1,
+            )
+            self.episodes.append(new_episode)
+            self._episodes_features[episode_index] = new_episode
 
     def to_jsonl(
         self, meta_folder_path: str, save_mode: Literal["append", "overwrite"]
@@ -2775,12 +2811,13 @@ class EpisodesModel(BaseModel):
                 for episode in self.episodes[self._original_nb_total_episodes :]:
                     f.write(episode.model_dump_json() + "\n")
         elif save_mode == "overwrite":
-            episodes_features: Dict[int, EpisodesFeatures] = {}
-            for episode in self.episodes:
-                episodes_features[episode.episode_index] = episode
+            if self._episodes_features is None:
+                self._episodes_features = {
+                    episode.episode_index: episode for episode in self.episodes
+                }
 
             with open(f"{meta_folder_path}/episodes.jsonl", "w") as f:
-                for episode in episodes_features.values():
+                for episode in self._episodes_features.values():
                     f.write(episode.model_dump_json() + "\n")
         else:
             raise ValueError("save_mode must be 'append' or 'overwrite'")
@@ -2796,20 +2833,72 @@ class EpisodesModel(BaseModel):
         with open(
             f"{meta_folder_path}/episodes.jsonl", "r", encoding=DEFAULT_FILE_ENCODING
         ) as f:
-            episodes_features: Dict[int, EpisodesFeatures] = {}
+            _episodes_features: dict[int, EpisodesFeatures] = {}
+            last_index = 0
+            missing_episodes = []
             for line in f:
                 episodes_feature = EpisodesFeatures.model_validate_json(line)
-                episodes_features[episodes_feature.episode_index] = episodes_feature
+                _episodes_features[episodes_feature.episode_index] = episodes_feature
+                # If we skipped an index, check if the parquet file exists and if so recreate the episode
+                if episodes_feature.episode_index != last_index + 1:
+                    missing_indexes = [
+                        i
+                        for i in range(last_index + 1, episodes_feature.episode_index)
+                        if i not in _episodes_features
+                    ]
+                    logger.debug(f"Missing indexes: {missing_indexes}")
+                    # Dataset path is the parent folder of the meta folder
+                    data_folder_path = os.path.dirname(meta_folder_path)
+                    for i in missing_indexes:
+                        episode_path = os.path.join(
+                            data_folder_path,
+                            "data",
+                            "chunk-000",
+                            f"episode_{i:06d}.parquet",
+                        )
+                        if os.path.exists(episode_path):
+                            episode = Episode.from_parquet(episode_path)
+                            _episodes_features[i] = EpisodesFeatures(
+                                episode_index=i,
+                                tasks=[
+                                    str(
+                                        episode.steps[
+                                            0
+                                        ].observation.language_instruction
+                                    )
+                                ],
+                                length=len(episode.steps),
+                            )
+                            missing_episodes.append(i)
+                last_index = episodes_feature.episode_index
 
-        episodes_model = EpisodesModel(episodes=list(episodes_features.values()))
+        # Sort the _episodes_features by increasing episode_index
+        _episodes_features = dict(
+            sorted(_episodes_features.items(), key=lambda x: x[0])
+        )
+
+        # If we found missing episodes and added them to the list, we need to update the file
+        if missing_episodes:
+            with open(
+                f"{meta_folder_path}/episodes.jsonl",
+                "w",
+                encoding=DEFAULT_FILE_ENCODING,
+            ) as f:
+                for episode_feature in _episodes_features.values():
+                    f.write(episode_feature.model_dump_json() + "\n")
+
+        episodes_model = EpisodesModel(
+            episodes=list(_episodes_features.values()),
+        )
         # Do it after model init, otherwise pydantic ignores the value of _original_nb_total_episodes
-        episodes_model._original_nb_total_episodes = len(episodes_features.keys())
+        episodes_model._original_nb_total_episodes = len(_episodes_features.keys())
+        episodes_model._episodes_features = _episodes_features
         return episodes_model
 
     def save(
         self,
         meta_folder_path: str,
-        save_mode: Literal["append", "overwrite"] = "append",
+        save_mode: Literal["append", "overwrite"] = "overwrite",
     ) -> None:
         """
         Save the episodes to the meta folder path.
@@ -2823,25 +2912,27 @@ class EpisodesModel(BaseModel):
         Update the episodes model before removing an episode from the dataset.
         We just remove the line corresponding to the episode_index of the parquet file.
         """
-        if not old_index_to_new_index:
-            self.episodes = [
-                episode
-                for episode in self.episodes
-                if episode.episode_index != episode_to_delete_index
-            ]
+        # Remove the episode from the list
+        self.episodes = [
+            episode
+            for episode in self.episodes
+            if episode.episode_index != episode_to_delete_index
+        ]
 
+        # Reindex the episodes
+        if not old_index_to_new_index:
             # Reindex the episodes
             for episode in self.episodes:
                 if episode.episode_index > episode_to_delete_index:
                     episode.episode_index -= 1
+
         else:
             # Use the old_index_to_new_index to update the episode index
             current_max_index = max(old_index_to_new_index.keys()) + 1
             for episode in self.episodes:
                 if episode.episode_index == episode_to_delete_index:
-                    # Remove the episode
-                    self.episodes.remove(episode)
-                elif episode.episode_index in old_index_to_new_index.keys():
+                    pass
+                if episode.episode_index in old_index_to_new_index.keys():
                     # Update the episode index
                     episode.episode_index = old_index_to_new_index[
                         episode.episode_index
@@ -2850,3 +2941,10 @@ class EpisodesModel(BaseModel):
                     # Update the episode index to the new one
                     episode.episode_index = current_max_index
                     current_max_index += 1
+                    # Update mapping
+                    old_index_to_new_index[episode.episode_index] = current_max_index
+
+        # Recreate the _episodes_features dict
+        self._episodes_features = {
+            episode.episode_index: episode for episode in self.episodes
+        }
