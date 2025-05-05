@@ -816,20 +816,21 @@ class AllCameras:
         else:
             self.disabled_cameras = []
 
+        self.video_cameras = []
+        self.camera_ids = []
+        self.camera_names: List[str] = []
+        self._cameras_ids_to_record = []
+
         if not config.ENABLE_CAMERAS:
             logger.warning("Cameras are disabled")
             self.disabled_cameras = list(range(MAX_OPENCV_INDEX))
             return
 
-        self.video_cameras = []
-        self.camera_ids = []
-
-        camera_names: List[str] = get_camera_names()
+        camera_names = get_camera_names()
         self.initialize_realsense_camera()
 
         # Get the available video indexes from a range of 0 to MAX_OPENCV_INDEX
         possible_camera_ids = detect_video_indexes()
-        self.camera_ids = []
 
         # For every of these index we will try to detect the camera type
         # If it corresponds to a classic or stereo camera, we initialize the camera accordingly
