@@ -159,7 +159,7 @@ class BaseRobot(ABC):
 
     @abstractmethod
     def current_position(
-        self, unit: Literal["rad", "motor_units", "degrees"] = "motor_units"
+        self, unit: Literal["rad", "motor_units", "degrees"] = "rad"
     ) -> np.ndarray:
         """
         Get the current position of the robot
