@@ -315,7 +315,9 @@ class Recorder:
                     logger.error("Tasks model is not initialized. Call start() first")
 
                 if self.episodes_model is not None:
-                    self.episodes_model.save(meta_folder_path=self.meta_folder_path)
+                    self.episodes_model.save(
+                        meta_folder_path=self.meta_folder_path, save_mode="overwrite"
+                    )
                 else:
                     logger.error(
                         "Episodes model is not initialized. Call start() first"
