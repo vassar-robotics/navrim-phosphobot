@@ -730,10 +730,10 @@ class Gr00tN1(ActionModel):
                 raise Exception("No robot connected. Exiting AI control loop.")
 
             # Concatenate all robot states
-            state = robots[0].current_position(rad=True)
+            state = robots[0].current_position(unit="rad")
             for robot in robots[1:]:
                 state = np.concatenate(
-                    (state, robot.current_position(rad=True)), axis=0
+                    (state, robot.current_position(unit="rad")), axis=0
                 )
             if model_spawn_config.unit == "degrees":
                 state = np.deg2rad(state)

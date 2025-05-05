@@ -150,7 +150,7 @@ class BaseRobot(ABC):
 
     @abstractmethod
     def write_joint_positions(
-        self, angles: np.ndarray, unit: Literal["rad", "degrees"] = "rad"
+        self, angles: np.ndarray, unit: Literal["rad", "motor_units", "degrees"] = "rad"
     ) -> None:
         """
         Write the joint positions of the robot
@@ -158,7 +158,9 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def current_position(self, rad: bool = True) -> np.ndarray:
+    def current_position(
+        self, unit: Literal["rad", "motor_units", "degrees"] = "motor_units"
+    ) -> np.ndarray:
         """
         Get the current position of the robot
         """
