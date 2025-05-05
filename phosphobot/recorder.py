@@ -29,6 +29,7 @@ class Recorder:
     episode_format: Literal["json", "lerobot_v2"] = "json"
     filename: str
 
+    is_saving: bool = False
     is_recording: bool = False
     episode: Episode | None
     start_ts: float | None
@@ -264,6 +265,8 @@ class Recorder:
         self.branch_path: If provided, push the dataset to the specified branch additionally to the main branch
         """
 
+        self.is_saving = True
+
         # If not steps, we don't save the episode
         if self.episode and len(self.episode.steps) == 0:
             logger.warning("No steps in the episode. Not saving the episode.")
@@ -328,6 +331,7 @@ class Recorder:
         logger.success(
             f"Episode saved to {self.episode_recording_folder}/{self.episode_format}"
         )
+        self.is_saving = False
 
         if self.use_push_to_hub:
             self.push_to_hub(branch_path=self.branch_path)
