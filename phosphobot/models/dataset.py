@@ -752,9 +752,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -2646,17 +2646,26 @@ class TasksModel(BaseModel):
         ]
         return cls(tasks=tasks, _initial_nb_total_tasks=len(tasks))
 
-    def to_jsonl(self, meta_folder_path: str) -> None:
+    def to_jsonl(
+        self,
+        meta_folder_path: str,
+        save_mode: Literal["append", "overwrite"] = "overwrite",
+    ) -> None:
         """
         Write the tasks.jsonl file in the meta folder path.
         """
 
-        with open(
-            f"{meta_folder_path}/tasks.jsonl", "a", encoding=DEFAULT_FILE_ENCODING
-        ) as f:
-            # Only append the new tasks to the file
-            for task in self.tasks[self._initial_nb_total_tasks :]:
-                f.write(task.model_dump_json() + "\n")
+        if save_mode == "overwrite":
+            with open(f"{meta_folder_path}/tasks.jsonl", "w") as f:
+                for task in self.tasks:
+                    f.write(task.model_dump_json() + "\n")
+        elif save_mode == "append":
+            with open(
+                f"{meta_folder_path}/tasks.jsonl", "a", encoding=DEFAULT_FILE_ENCODING
+            ) as f:
+                # Only append the new tasks to the file
+                for task in self.tasks[self._initial_nb_total_tasks :]:
+                    f.write(task.model_dump_json() + "\n")
 
     def update(self, step: Step) -> None:
         """
@@ -2766,8 +2775,12 @@ class EpisodesModel(BaseModel):
                 for episode in self.episodes[self._original_nb_total_episodes :]:
                     f.write(episode.model_dump_json() + "\n")
         elif save_mode == "overwrite":
+            episodes_features: Dict[int, EpisodesFeatures] = {}
+            for episode in self.episodes:
+                episodes_features[episode.episode_index] = episode
+
             with open(f"{meta_folder_path}/episodes.jsonl", "w") as f:
-                for episode in self.episodes:
+                for episode in episodes_features.values():
                     f.write(episode.model_dump_json() + "\n")
         else:
             raise ValueError("save_mode must be 'append' or 'overwrite'")
