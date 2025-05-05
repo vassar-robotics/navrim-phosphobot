@@ -816,6 +816,11 @@ class AllCameras:
         else:
             self.disabled_cameras = []
 
+        if not config.ENABLE_CAMERAS:
+            logger.warning("Cameras are disabled")
+            self.disabled_cameras = list(range(MAX_OPENCV_INDEX))
+            return
+
         self.video_cameras = []
         self.camera_ids = []
 
