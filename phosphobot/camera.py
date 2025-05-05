@@ -68,10 +68,7 @@ def get_camera_names() -> List[str]:
         # Use v4l2-ctl to list cameras on Linux
         try:
             result = subprocess.run(
-                ["v4l2-ctl", "--list-devices"],
-                stdout=subprocess.PIPE,
-                text=True,
-                check=True,
+                ["v4l2-ctl", "--list-devices"], stdout=subprocess.PIPE, text=True
             )
             lines = result.stdout.splitlines()
 
