@@ -61,16 +61,21 @@ class ActionModel(ABC):
 
 
 class TrainingParamsAct(BaseModel):
+    """
+    Training paramters are left to None by default and are set depending on the dataset in the training pipeline.
+    """
+
     batch_size: int | None = Field(
         default=None,
-        description="Batch size for training, we run this on A10G",
+        description="Batch size for training, we run this on an A10G, leave it to None to auto-detect based on your dataset",
         gt=0,
+        le=150,
     )
     steps: int | None = Field(
-        default=8000,
-        description="Number of training steps, default is 8000, increase it if you want to train longer",
+        default=None,
+        description="Number of training steps, leave it to None to auto-detect based on your dataset",
         gt=0,
-        le=100000,
+        le=10000,
     )
 
     class Config:
