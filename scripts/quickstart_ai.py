@@ -1,12 +1,12 @@
 from phosphobot.camera import AllCameras
-from phosphobot.api.client import PhosphoApi
+import httpx
 from phosphobot.am import ACT
 
 import time
 import numpy as np
 
 # Connect to the phosphobot server
-client = PhosphoApi(base_url="http://localhost:80")
+PHOSPHOBOT_API_URL = "http://localhost:80"
 
 # Get a camera frame
 allcameras = AllCameras()
@@ -30,15 +30,17 @@ while True:
     ]
 
     # Get the robot state
-    state = client.control.read_joints()
+    state = httpx.post(f"{PHOSPHOBOT_API_URL}/joints/read").json()
 
-    inputs = {"state": np.array(state.angles_rad), "images": np.array(images)}
+    inputs = {"state": np.array(state["angles_rad"]), "images": np.array(images)}
 
     # Go through the model
     actions = model(inputs)
 
     for action in actions:
         # Send the new joint postion to the robot
-        client.control.write_joints(angles=action.tolist())
+        httpx.post(
+            f"{PHOSPHOBOT_API_URL}/joints/write", json={"angles": action.tolist()}
+        )
         # Wait to respect frequency control (30 Hz)
         time.sleep(1 / 30)

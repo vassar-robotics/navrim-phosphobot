@@ -29,7 +29,3 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # On Windows.
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
-
-## Generate the client code
-
-Use [Fern](https://github.com/fern-api/fern) to create the client code from the `openapi.json` specs.

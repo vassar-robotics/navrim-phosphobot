@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 
 from phosphobot.am import Gr00tN1
-from phosphobot.api.client import PhosphoApi
+import httpx
 from phosphobot.camera import AllCameras
 
 host = "YOUR_SERVER_IP"  # Change this to your server IP (this is the IP of the machine running the Gr00tN1 server using a GPU)
@@ -25,7 +25,7 @@ TASK_DESCRIPTION = (
 )
 
 # Connect to the phosphobot server, this is different from the server IP above
-client = PhosphoApi(base_url="http://localhost:80")
+PHOSPHOBOT_API_URL = "http://localhost:80"
 
 allcameras = AllCameras()
 time.sleep(1)  # Wait for the cameras to initialize
@@ -52,7 +52,8 @@ while True:
     # Create the model, you might need to change the action keys based on your model, these can be found in the experiment_cfg/metadata.json file of your Gr00tN1 model
     model = Gr00tN1(server_url=host, server_port=port)
 
-    state = np.array(client.control.read_joints().angles_rad)
+    response = httpx.post(f"{PHOSPHOBOT_API_URL}/joints/read").json()
+    state = response["angles_rad"]
     # Take a look at the experiment_cfg/metadata.json file in your Gr00t model and check the names of the images, states, and observations
     # You may need to adapt the obs JSON to match these names
     # The following JSON should work for one arm and 2 video cameras
@@ -78,6 +79,8 @@ while True:
     action = model.sample_actions(obs)
 
     for i in range(0, action.shape[0]):
-        client.control.write_joints(angles=action[i])
+        httpx.post(
+            f"{PHOSPHOBOT_API_URL}/joints/write", json={"angles": action[i].tolist()}
+        )
         # Wait to respect frequency control (30 Hz)
         time.sleep(1 / 30)

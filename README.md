@@ -30,13 +30,12 @@ phosphobot run
 # brew update && brew upgrade phosphobot
 ```
 
-3. Use the **phosphobot python client** to interact with the phosphobot server API.
+3. Use the HTTP API to interact with the phosphobot server.
 
-```
-pip install --upgrade phosphobot
-```
+Go to the interactive docs of the API to use it interactively and learn more about it.
+It is available at `YOUR_SERVER_ADDRESS:YOUR_SERVER_PORT/docs`. By default, it is available at `localhost:80/docs`.
 
-We release new versions very often.
+We release new versions very often, so make sure to check the API docs for the latest features and changes.
 
 ## How to train ACT with LeRobot?
 
@@ -113,14 +112,14 @@ phosphobot run
 # ]
 # ///
 from phosphobot.camera import AllCameras
-from phosphobot.api.client import PhosphoApi
+import httpx
 from phosphobot.am import ACT
 
 import time
 import numpy as np
 
 # Connect to the phosphobot server
-client = PhosphoApi(base_url="http://localhost:80")
+PHOSPHOBOT_API_URL = "http://localhost:80"
 
 # Get a camera frame
 allcameras = AllCameras()
@@ -139,7 +138,7 @@ while True:
     ]
 
     # Get the robot state
-    state = client.control.read_joints()
+    state = httpx.post(f"{PHOSPHOBOT_API_URL}/joints/read").json()
 
     inputs = {"state": np.array(state.angles_rad), "images": np.array(images)}
 
@@ -148,7 +147,7 @@ while True:
 
     for action in actions:
         # Send the new joint postion to the robot
-        client.control.write_joints(angles=action.tolist())
+        httpx.post(f"{PHOSPHOBOT_API_URL}/joints/write", json={"angles": action.tolist()})
         # Wait to respect frequency control (30 Hz)
         time.sleep(1 / 30)
 ```
