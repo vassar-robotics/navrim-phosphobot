@@ -777,9 +777,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -2089,6 +2089,12 @@ class StatsModel(BaseModel):
         )
 
         cameras_folders = os.listdir(folder_videos_path)
+        # Only keep directories
+        cameras_folders = [
+            camera_name
+            for camera_name in cameras_folders
+            if os.path.isdir(os.path.join(folder_videos_path, camera_name))
+        ]
         for camera_name in cameras_folders:
             if "image" not in camera_name:
                 continue
