@@ -36,7 +36,7 @@ This will load your model and create an `/act` endpoint that expects the robot's
 
 If using a local model, you can pass the path of a local model instead of a HF model with the "--model_id=..." flag.
 
-3. Make sure the phosphobot server is runniing
+3. Make sure the phosphobot server is running
 
 ```bash
 # Install it this way
@@ -70,4 +70,8 @@ If running the inference script on a different machine than what you use to cont
 
 You can also change the port of the inference server by passing "--port=..."
 
+If running everything on the same machine, to avoid conflicts, you may need to disable camera access of the phosphobot server with the "--no-cameras" flag. 
+
 If using a local model, you can pass the path of a local model instead of a HF model with the "--model_id=..." flag.
+
+
