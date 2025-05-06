@@ -777,9 +777,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert (
-                step.action is not None
-            ), "The action must be set for each step before saving"
+            assert step.action is not None, (
+                "The action must be set for each step before saving"
+            )
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -856,6 +856,8 @@ class Episode(BaseModel):
             # Remove the video files from the HF repository
             all_camera_folders = os.listdir(self.cameras_folder_path)
             for camera_key in all_camera_folders:
+                if "image" not in camera_key:
+                    continue
                 try:
                     os.remove(self.get_video_path(camera_key))
                 except FileNotFoundError:
@@ -2088,6 +2090,8 @@ class StatsModel(BaseModel):
 
         cameras_folders = os.listdir(folder_videos_path)
         for camera_name in cameras_folders:
+            if "image" not in camera_name:
+                continue
             # Create the path of the video episode_{episode_index:06d}.mp4
             video_path = os.path.join(
                 folder_videos_path,
@@ -2594,7 +2598,7 @@ class InfoModel(BaseModel):
         total_videos = 0
         for camera_name in os.listdir(video_path):
             # Count the number of videos in the subfolder
-            if camera_name == ".DS_Store":
+            if "image" not in camera_name:
                 continue
             total_videos += len(
                 [
