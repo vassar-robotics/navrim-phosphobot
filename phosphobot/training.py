@@ -61,10 +61,10 @@ def add_to_training_config(new_model: ModelTrainingConfig) -> TrainingConfig:
     return config
 
 
-def delete_model_from_training_config(model_name: str) -> TrainingConfig:
+def delete_model_from_training_config(model_url: str) -> TrainingConfig:
     """Delete a model from the training configuration."""
     config = get_training_config()
-    config.models = [model for model in config.models if model.model_name != model_name]
+    config.models = [model for model in config.models if model.url != model_url]
 
     with open(phosphobot_training_json, "w") as f:
         json.dump(config.model_dump(), f, indent=4)
