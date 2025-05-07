@@ -37,6 +37,11 @@ It is available at `YOUR_SERVER_ADDRESS:YOUR_SERVER_PORT/docs`. By default, it i
 
 We release new versions very often, so make sure to check the API docs for the latest features and changes.
 
+## Official Examples
+
+The `examples/` directory is the quickest way to see the toolkit in action. Check it out!
+Proud of what you build? Share it with the community by opening a PR to add it to the `examples/` directory.
+
 ## How to train ACT with LeRobot?
 
 1. **Record a Dataset with phosphobot**: Record a dataset using the app. Do the same gesture 30-50 times (depending on the task complexity) to create a dataset. [Learn more](https://docs.phospho.ai/basic-usage/dataset-recording)
