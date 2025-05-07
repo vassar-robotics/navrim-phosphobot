@@ -185,6 +185,15 @@ class ACT(ActionModel):
         return hf_model_config
 
     @classmethod
+    def fetch_and_get_video_keys(cls, model_id: str) -> list[str]:
+        """
+        Fetch the model configuration from HuggingFace and return the video keys.
+        """
+        hf_model_config = cls.fetch_config(model_id=model_id)
+        video_keys = hf_model_config.input_features.video_keys
+        return video_keys
+
+    @classmethod
     def fetch_spawn_config(cls, model_id: str) -> ACTSpawnConfig:
         hf_model_config = cls.fetch_config(model_id=model_id)
 

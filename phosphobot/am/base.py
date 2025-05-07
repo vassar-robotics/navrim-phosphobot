@@ -29,6 +29,19 @@ class ActionModel(ABC):
         self.server_url = server_url
         self.server_port = server_port
 
+    @classmethod
+    def fetch_and_get_video_keys(cls, model_id: str) -> list[str]:
+        """
+        Fetch the model from Hugging Face and get the video keys.
+        Args:
+            model_id (str): Model ID on Hugging Face.
+        Returns:
+            list[str]: List of video keys.
+        """
+        raise NotImplementedError(
+            f"This method is not implemented in {cls.__name__}. You need to implement it in your subclass."
+        )
+
     @abstractmethod
     def sample_actions(self, inputs: dict) -> np.ndarray:
         """
@@ -268,9 +281,9 @@ Training was successfull, try it out on your robot!
 - **Batch size**: {batch_size}
 - **Training steps**: {steps}
 
-📖 **Get Started**: [docs.phospho.ai](https://docs.phospho.ai?utm_source=replicate_groot_training_pipeline)
+📖 **Get Started**: [docs.phospho.ai](https://docs.phospho.ai?utm_source=huggingface_readme)
 
-🤖 **Get your robot**: [robots.phospho.ai](https://robots.phospho.ai?utm_source=replicate_groot_training_pipeline)
+🤖 **Get your robot**: [robots.phospho.ai](https://robots.phospho.ai?utm_source=huggingface_readme)
 """
     if return_readme_as_bytes:
         return readme.encode("utf-8")
