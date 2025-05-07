@@ -156,8 +156,15 @@ class ACT(ActionModel):
         )
 
     def sample_actions(self, inputs: dict) -> np.ndarray:
+        # Clean up the input to avoid JSON serialization issues
+        cleaned_inputs = {
+            k: np.nan_to_num(v, nan=0.0, posinf=1e6, neginf=-1e6)
+            if isinstance(v, np.ndarray)
+            else v
+            for k, v in inputs.items()
+        }
         # Double-encoded version (to send numpy arrays as JSON)
-        encoded_payload = {"encoded": json_numpy.dumps(inputs)}
+        encoded_payload = {"encoded": json_numpy.dumps(cleaned_inputs)}
 
         try:
             response = self.sync_client.post("/act", json=encoded_payload)
@@ -173,7 +180,14 @@ class ACT(ActionModel):
         return np.array([action])
 
     async def async_sample_actions(self, inputs: dict) -> np.ndarray:
-        encoded_payload = {"encoded": json_numpy.dumps(inputs)}
+        # Clean up the input to avoid JSON serialization issues
+        cleaned_inputs = {
+            k: np.nan_to_num(v, nan=0.0, posinf=1e6, neginf=-1e6)
+            if isinstance(v, np.ndarray)
+            else v
+            for k, v in inputs.items()
+        }
+        encoded_payload = {"encoded": json_numpy.dumps(cleaned_inputs)}
 
         try:
             response = await self.async_client.post(
