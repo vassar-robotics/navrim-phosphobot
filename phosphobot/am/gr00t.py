@@ -12,7 +12,7 @@ import traceback
 from fastapi import HTTPException
 from huggingface_hub import HfApi
 from loguru import logger
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_serializer, model_validator
 from phosphobot.am.base import ActionModel
 from phosphobot.camera import AllCameras
 from phosphobot.control_signal import AIControlSignal
@@ -438,6 +438,14 @@ class Gr00tSpawnConfig(BaseModel):
     embodiment_tag: str
     unit: Literal["degrees", "rad"]
     hf_model_config: HuggingFaceModelConfig
+
+    # not good enough
+    # class Config:
+    #     ser_json_inf_nan = "null"
+    #     json_encoders = {
+    #         float: lambda v: 0.0 if np.isnan(v) or np.isinf(v) else v,
+    #         list: lambda v: [0.0 if np.isnan(i) or np.isinf(i) else i for i in v],
+    #     }
 
 
 class Gr00tN1(ActionModel):
