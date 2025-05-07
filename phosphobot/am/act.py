@@ -1,20 +1,22 @@
-import cv2
-import time
 import asyncio
-from phosphobot.control_signal import AIControlSignal
-import requests
+import time
+from typing import Dict, List, Literal
+
+import cv2
+import httpx
 import json_numpy  # type: ignore
 import numpy as np
-from loguru import logger
-from typing import Literal
-from typing import Dict, List
+import requests
 from fastapi import HTTPException
 from huggingface_hub import HfApi
-from phosphobot.camera import AllCameras
-from phosphobot.utils import background_task_log_exceptions, get_hf_token
+from loguru import logger
+from pydantic import BaseModel, field_validator, model_validator
+
 from phosphobot.am.base import ActionModel
+from phosphobot.camera import AllCameras
+from phosphobot.control_signal import AIControlSignal
 from phosphobot.models.dataset import BaseRobot
-from pydantic import BaseModel, model_validator, field_validator
+from phosphobot.utils import background_task_log_exceptions, get_hf_token
 
 
 class InputFeature(BaseModel):
@@ -138,17 +140,46 @@ class ACT(ActionModel):
         **kwargs,
     ):
         super().__init__(server_url, server_port)
+        self.async_client = httpx.AsyncClient(
+            base_url=server_url,
+            timeout=10,
+            headers={"Content-Type": "application/json"},
+            limits=httpx.Limits(max_keepalive_connections=10, max_connections=100),
+            http2=True,  # Enables HTTP/2 for better performance if supported
+        )
+        self.sync_client = httpx.Client(
+            base_url=server_url,
+            timeout=10,
+            headers={"Content-Type": "application/json"},
+            limits=httpx.Limits(max_keepalive_connections=10, max_connections=100),
+            http2=True,  # Enables HTTP/2 if supported by the server
+        )
 
     def sample_actions(self, inputs: dict) -> np.ndarray:
         # Double-encoded version (to send numpy arrays as JSON)
         encoded_payload = {"encoded": json_numpy.dumps(inputs)}
 
         try:
-            response = requests.post(
-                f"{self.server_url}/act",
-                json=encoded_payload,
-                timeout=10,
+            response = self.sync_client.post("/act", json=encoded_payload)
+            if response.status_code != 200:
+                raise RuntimeError(response.text)
+            action = json_numpy.loads(response.json())
+        except Exception as e:
+            logger.error(f"Error in sampling actions: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error in sampling actions: {e}",
             )
+        return np.array([action])
+
+    async def async_sample_actions(self, inputs: dict) -> np.ndarray:
+        encoded_payload = {"encoded": json_numpy.dumps(inputs)}
+
+        try:
+            response = await self.async_client.post(
+                f"{self.server_url}/act", json=encoded_payload
+            )
+
             if response.status_code != 200:
                 raise RuntimeError(response.text)
             action = json_numpy.loads(response.json())
@@ -369,7 +400,7 @@ class ACT(ActionModel):
             }
 
             try:
-                actions = self(inputs)
+                actions = await self.async_sample_actions(inputs)
             except Exception as e:
                 logger.warning(
                     f"Failed to get actions from model: {e}. Exiting AI control loop."
