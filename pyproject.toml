@@ -1,6 +1,6 @@
 [project]
 name = "phosphobot"
-version = "0.0.20"
+version = "0.0.21"
 description = "The AI-ready robotics dev kit, with built-in remote control and action models support."
 authors = [{ name = "phospho", email = "contact@phospho.ai" }]
 license = "MIT"
@@ -20,7 +20,7 @@ dependencies = [
     "json-numpy>=2.1.0",
     "fastapi>=0.115.11",
     "zmq>=0.0.0",
-    "pyav>=14.2.1",
+    "av>=14.3.0",
 ]
 
 [dependency-groups]
