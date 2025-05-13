@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install submodules
-        run: git submodule update --init --recursive ../phosphobot ../lerobot
+        run: git submodule update --init --recursive ../lerobot
 
       - name: Display submodule status
         run: git submodule status
@@ -55,7 +55,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install submodules
-        run: git submodule update --init --recursive phosphobot lerobot
+        run: git submodule update --init --recursive lerobot
 
       - name: Install node
         uses: actions/setup-node@v2
