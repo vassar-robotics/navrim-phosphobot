@@ -1,0 +1,685 @@
+name: "Publish phosphobot server"
+on:
+  workflow_dispatch:
+    inputs:
+      clean_cache:
+        description: 'Set to "true" to run `uv cache clean` before building'
+        required: false
+        default: "false"
+  release:
+    types: [published]
+
+# To configure your package manager with this repository:
+# Configure your VM to access Artifact Registry packages using the following
+
+#  curl https://europe-west1-apt.pkg.dev/doc/repo-signing-key.gpg | sudo apt-key add -
+#  echo "deb https://europe-west1-apt.pkg.dev/projects/portal-385519 phospho-apt main" | sudo tee -a /etc/apt/sources.list.d/artifact-registry.list
+#  sudo apt update
+#  sudo apt install phosphobot
+
+permissions:
+  pull-requests: write
+  contents: write
+
+env:
+  # Used for the Debian package
+  PACKAGE_NAME: phosphobot
+  MAINTAINER: Phospho <contact@phospho.ai>
+  REPO_NAME_APT: phospho-apt
+  PROJECT_ID: portal-385519
+  REGION: europe-west1
+  FORMULA_NAME: phosphobot
+  HOMEBREW_TAP: phospho-app/homebrew-phosphobot
+  BRANCH_NAME: ${{ github.ref_name}}
+  COMMIT_ID: ${{ github.sha }}
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            create_deb: true
+            architecture: amd64
+          - os: linux-arm64
+            create_deb: true
+            architecture: arm64
+          - os: macos-latest
+            create_deb: false
+            architecture: arm64
+          - os: macos-13
+            create_deb: false
+            architecture: x86_64
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache
+
+    runs-on: ${{ matrix.os }}
+    outputs:
+      version: ${{ env.VERSION }}
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v4
+
+      # Log the current date and time
+      - name: Log current date and time
+        run: date
+
+      - name: Extract project version
+        id: version
+        run: |
+          VERSION=$(grep '^version =' teleop/pyproject.toml | cut -d '"' -f2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get release tag
+        id: tag
+        run: |
+          TAG_NAME=$(echo ${{ github.ref }} | sed 's/^refs\/tags\///; s/^v//')
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Compare versions
+        run: |
+          if [ "${{ steps.version.outputs.version }}" != "${{ steps.tag.outputs.tag }}" ]; then
+            echo "::error::Version mismatch! pyproject.toml version (${{ steps.version.outputs.version }}) ≠ release tag (${{ steps.tag.outputs.tag }})"
+            exit 1
+          else
+            echo "Version matches (${{ steps.version.outputs.version}})"
+          fi
+
+      - name: Install node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "23.5"
+
+      - name: Install dependencies
+        uses: bahmutov/npm-install@v1
+        with:
+          working-directory: teleop/dashboard
+
+      - name: Build dashboard frontend
+        run: make build_frontend
+
+      - name: Check that the frontend build was successful (dist folder not empty)
+        run: |
+          if [ ! -d "teleop/dashboard/dist" ]; then
+            echo "Dashboard frontend build failed: dist folder not found"
+            exit 1
+          fi
+          if [ ! "$(ls -A teleop/dashboard/dist)" ]; then
+            echo "Dashboard frontend build failed: dist folder is empty"
+            exit 1
+          fi
+
+      - name: Create lerobot folder
+        run: |
+          if [ ! -d "lerobot" ]; then
+            mkdir lerobot
+          fi
+
+      - name: Create pyproject.toml file in lerobot folder
+        run: |
+          if [ ! -f "lerobot/pyproject.toml" ]; then
+            cat > lerobot/pyproject.toml << EOF
+          [build-system]
+          requires = ["hatchling"]
+          build-backend = "hatchling.build"
+
+          [project]
+          name = "lerobot"
+          version = "0.1.0"
+          description = "Lerobot package"
+          requires-python = ">=3.10"
+
+          [tool.hatch.build.targets.wheel]
+          packages = ["lerobot"]
+          EOF
+            touch lerobot/__init__.py
+          fi
+
+      - name: Restore shared uv cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.uv-cache
+          key: uv-${{ runner.os }}-${{ matrix.architecture }}-${{ hashFiles('teleop/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ matrix.architecture }}-${{ hashFiles('teleop/pyproject.toml') }}
+            uv-${{ runner.os }}-${{ matrix.architecture }}-
+            uv-${{ runner.os }}-
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-local-path: /tmp/.uv-cache
+
+      - name: Clean uv cache
+        if: ${{ github.event.inputs.clean_cache == 'true' }}
+        run: uv cache clean
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - id: "auth"
+        uses: "google-github-actions/auth@v2"
+        env:
+          GCP_JSON_CREDENTIALS: ${{ secrets.GCP_JSON_CREDENTIALS }}
+        with:
+          credentials_json: ${{ secrets.GCP_JSON_CREDENTIALS }}
+
+      - name: Set up GCP Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Install x86_64 cross-compiler
+        if: matrix.os == 'linux-arm64'
+        run: |
+          # Show if g++ is installed and its version
+          g++ --version || true
+
+      - name: Set up Python and install the project
+        run: |
+          cd teleop
+          uv python pin 3.10
+          uv python install
+          CXX=g++ uv sync --dev
+
+      - name: Print version
+        run: |
+          cd teleop
+          uv run teleop --version
+
+      - name: Check release tag version
+        if: github.event_name == 'release'
+        run: |
+          cd teleop
+          RELEASE_TAG=${{ github.event.release.tag_name }}
+          VERSION=${RELEASE_TAG#v}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      # With nuitka, this takes 1h10 on ubuntu-latest on Github Actions
+      # - name: Build artifact with Nuitka
+      #   run: make build OUTPUT_FILENAME=${{ matrix.output_filename }}
+
+      - name: Create tokens.toml
+        run: |
+          mkdir -p teleop/resources
+          cat > teleop/resources/tokens.toml << EOF
+          ENV = "prod"
+          SENTRY_DSN = "${{ secrets.SENTRY_DSN }}"
+          POSTHOG_API_KEY = "${{ secrets.POSTHOG_API_KEY }}"
+          POSTHOG_HOST = "${{ vars.POSTHOG_HOST }}"
+          SUPABASE_URL = "${{ vars.SUPABASE_URL }}"
+          SUPABASE_KEY = "${{ secrets.SUPABASE_KEY }}"
+          MODAL_API_URL = "${{ vars.MODAL_API_URL }}"
+          EOF
+
+      - name: Build artifact with PyInstaller
+        run: |
+          make clean_build
+          OUTPUT_FILENAME="phosphobot-${{ env.VERSION }}-${{ matrix.architecture }}.bin"
+          make build_pyinstaller OUTPUT_FILENAME="$OUTPUT_FILENAME"
+          cp "teleop/dist/$OUTPUT_FILENAME" "teleop/$OUTPUT_FILENAME"
+          echo "OUTPUT_FILENAME=$OUTPUT_FILENAME" >> $GITHUB_ENV
+
+      - name: Show full directory structure inside /teleop/dist
+        run: tree -L 3 teleop/dist || find teleop/dist -type f
+
+      - name: Check artifact
+        run: |
+          file teleop/${{ env.OUTPUT_FILENAME }}
+
+      # BEGIN NOTARIZATION STEPS FOR macOS
+      # - name: Import Code-Signing Certificate
+      #   if: runner.os == 'macOS'
+      #   env:
+      #     CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+      #     CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+      #   run: |
+      #     echo $CERTIFICATE_P12_BASE64 | base64 --decode > certificate.p12
+      #     security create-keychain -p "${{ github.run_id }}" build.keychain
+      #     security default-keychain -s build.keychain
+      #     security unlock-keychain -p "${{ github.run_id }}" build.keychain
+      #     security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+      #     security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ github.run_id }}" build.keychain
+      # - name: Sign the Application
+      #   if: runner.os == 'macOS'
+      #   env:
+      #     TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      #   run: |
+      #     codesign --force --options runtime --sign "Developer ID Application: phospho (VX45VP8953)" teleop/${{ env.OUTPUT_FILENAME }}
+      #     codesign --verify --verbose teleop/${{ env.OUTPUT_FILENAME }}
+      # # We need to zip the file to be able to submit it to Apple
+      # - name: Create Zip for Notarization
+      #   if: runner.os == 'macOS'
+      #   run: |
+      #     zip -r teleop/${{ env.OUTPUT_FILENAME }}.zip teleop/${{ env.OUTPUT_FILENAME }}
+      # - name: Notarize App
+      #   if: runner.os == 'macOS'
+      #   env:
+      #     APPLE_ID: ${{ secrets.APPLE_ID }}
+      #     APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      #     APPLE_APP_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      #   run: |
+      #     xcrun notarytool submit teleop/${{ env.OUTPUT_FILENAME }}.zip \
+      #       --apple-id "$APPLE_ID" \
+      #       --team-id "$APPLE_TEAM_ID" \
+      #       --password "$APPLE_APP_PASSWORD" \
+      #       --wait --verbose
+      # # END NOTARIZATION STEPS.
+      - name: Run the built application
+        run: ./teleop/${{ env.OUTPUT_FILENAME }} run --simulation=headless --simulate-cameras --port=8080 --host=127.0.0.1 --only-simulation &
+
+      - name: Wait for server
+        run: |
+          for i in {1..45}; do
+            if curl -s http://localhost:8080/status; then
+              echo "Server ready! in $i seconds" >> server.log
+              echo "Server ready! in $i seconds"
+              break
+            else
+              echo "Waiting for server..." >> server.log
+              echo "Waiting for server..."
+              sleep 1
+            fi
+          done
+
+      - name: Create phosphobot directory at /home/runner
+        if: runner.os != 'macOS'
+        run: |
+          cd /home/runner
+          rm -rf phosphobot
+          mkdir phosphobot
+
+      - name: Create phosphobot directory for macOS
+        if: runner.os == 'macOS'
+        run: |
+          sudo mkdir -p ~/phosphobot
+          sudo chmod 777 ~/phosphobot
+
+      - name: Write HF_TOKEN to /home/runner/phosphobot/huggingface.token
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            echo $HF_TOKEN > ~/phosphobot/huggingface.token
+          else
+            echo $HF_TOKEN > /home/runner/phosphobot/huggingface.token
+          fi
+
+      - name: Run integration tests
+        run: cd teleop && uv run pytest tests/api/
+        continue-on-error: false
+
+      - name: Create Debian package structure
+        if: matrix.create_deb
+        run: |
+          mkdir -p debian-package/DEBIAN
+          mkdir -p debian-package/usr/local/bin
+          cat > debian-package/DEBIAN/control << EOF
+          Package: ${PACKAGE_NAME}
+          Version: ${VERSION}
+          Architecture: ${{ matrix.architecture }}
+          Maintainer: ${MAINTAINER}
+          Description: Phosphobot teleop application
+           This package contains the Phosphobot teleop binary for robot control.
+          EOF
+          cp teleop/${{ env.OUTPUT_FILENAME }} debian-package/usr/local/bin/${PACKAGE_NAME}
+          chmod +x debian-package/usr/local/bin/${PACKAGE_NAME}
+          dpkg-deb --build debian-package
+          mv debian-package.deb ${PACKAGE_NAME}_${VERSION}_${{matrix.architecture}}.deb
+
+      - name: Upload Debian package
+        if: matrix.create_deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ env.PACKAGE_NAME }}_${{ env.VERSION }}_${{ matrix.architecture }}.deb"
+          path: "${{ env.PACKAGE_NAME }}_${{ env.VERSION }}_${{ matrix.architecture }}.deb"
+          retention-days: 1
+
+      # Calculate SHA256 for all files
+      - name: Calculate SHA256
+        if: ${{ !matrix.create_deb }}
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            SHA=$(shasum -a 256 "teleop/${{ env.OUTPUT_FILENAME }}" | awk '{print $1}')
+          else
+            SHA=$(sha256sum "teleop/${{ env.OUTPUT_FILENAME }}" | awk '{print $1}')
+          fi
+          echo "${SHA}" > "sha256-${OUTPUT_FILENAME}.txt"
+          echo "OUTPUT_FILENAME_SHA=${SHA}" >> $GITHUB_ENV
+
+      - name: Upload SHA256 info
+        if: ${{ !matrix.create_deb }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sha256-${{ env.OUTPUT_FILENAME }}.txt
+          path: sha256-${{ env.OUTPUT_FILENAME }}.txt
+          retention-days: 1
+
+      - name: Upload binaries
+        if: ${{ !matrix.create_deb }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ env.PACKAGE_NAME }}-${{ env.VERSION }}-${{ matrix.architecture }}.bin"
+          path: "teleop/${{ env.OUTPUT_FILENAME }}"
+          retention-days: 1
+
+      - name: Minimize uv cache
+        if: ${{ github.event.inputs.clean_cache == 'true' }}
+        run: uv cache prune --ci
+
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+
+    env:
+      # Configure a constant location for the uv cache
+      UV_CACHE_DIR: /tmp/.uv-cache
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract project version
+        id: version
+        run: |
+          $versionLine = Get-Content teleop/pyproject.toml | Select-String '^version ='
+          $version = $versionLine -replace 'version = "(.*)"', '$1'
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Create lerobot folder
+        run: |
+          if (-not (Test-Path "lerobot")) {
+            New-Item -Path "lerobot" -ItemType Directory
+          }
+
+      - name: Create pyproject.toml file in lerobot folder
+        run: |
+          if (-not (Test-Path "lerobot/pyproject.toml")) {
+            $pyprojectContent = @"
+          [build-system]
+          requires = ["hatchling"]
+          build-backend = "hatchling.build"
+
+          [project]
+          name = "lerobot"
+          version = "0.1.0"
+          description = "Lerobot package"
+          requires-python = ">=3.10"
+
+          [tool.hatch.build.targets.wheel]
+          packages = ["lerobot"]
+          "@
+            Set-Content -Path "lerobot/pyproject.toml" -Value $pyprojectContent
+            
+            # Create empty __init__.py file
+            New-Item -Path "lerobot/__init__.py" -ItemType File -Force
+          }
+
+      - name: Restore shared uv cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.uv-cache
+          key: uv-${{ runner.os }}-${{ hashFiles('teleop/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ hashFiles('teleop/pyproject.toml') }}
+            uv-${{ runner.os }}-
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-local-path: /tmp/.uv-cache
+
+      - name: Clean uv cache
+        if: ${{ github.event.inputs.clean_cache == 'true' }}
+        run: uv cache clean
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 23.5
+
+      - name: Check directory structure
+        run: |
+          Write-Host "Current directory: $(Get-Location)"
+          Get-ChildItem -Recurse -Depth 3 | Where-Object { $_.Name -eq "dashboard" }
+
+      - name: Install frontend dependencies
+        working-directory: teleop/dashboard # Modified path
+        run: |
+          Write-Host "Current directory: $(Get-Location)"
+          Get-ChildItem
+          npm install
+
+      - name: Build dashboard frontend
+        working-directory: teleop/dashboard # Modified path
+        run: npm run build
+
+      # Rest of your steps with corrected paths
+      - name: Verify frontend build
+        run: |
+          $dashboardPath = Join-Path -Path "teleop/dashboard" -ChildPath "dist"
+          if (-not (Test-Path $dashboardPath)) {
+              Write-Error "Frontend build failed - dist directory missing"
+              exit 1
+          }
+
+      - name: Install Python dependencies with uv
+        working-directory: teleop # Modified path
+        run: |
+          uv python pin 3.10
+          uv sync --dev
+
+      - name: Create tokens.toml
+        run: |
+          $tokensToml = @"
+          ENV = "prod"
+          SENTRY_DSN = "${{ secrets.SENTRY_DSN }}"
+          POSTHOG_API_KEY = "${{ secrets.POSTHOG_API_KEY }}"
+          POSTHOG_HOST = "${{ vars.POSTHOG_HOST }}"
+          SUPABASE_URL = "${{ vars.SUPABASE_URL }}"
+          SUPABASE_KEY = "${{ secrets.SUPABASE_KEY }}"
+          MODAL_API_URL = "${{ vars.MODAL_API_URL }}"
+          "@
+          New-Item -Path "teleop/resources" -ItemType Directory -Force
+          Set-Content -Path "teleop/resources/tokens.toml" -Value $tokensToml
+
+      - name: Build with PyInstaller
+        working-directory: teleop
+        env:
+          OUTPUT_FILENAME: phosphobot-${{ steps.version.outputs.version }}-amd64.exe
+        run: |
+          # Execute PyInstaller with specified parameters
+          uv run pyinstaller `
+            --name "$env:OUTPUT_FILENAME" `
+            --onefile `
+            --add-data "resources:resources" `
+            --add-data "../phosphobot-python/phosphobot/urdf:phosphobot/urdf" `
+            --add-data "dashboard/dist:dashboard/dist" `
+            --hidden-import teleop `
+            --collect-all teleop `
+            --collect-all phosphobot `
+            --clean -c `
+            teleop/main.py
+
+      - name: Verify Windows executable
+        run: |
+          $exePath = Join-Path -Path "teleop/dist" -ChildPath "phosphobot-${{ steps.version.outputs.version }}-amd64.exe"
+          if (-not (Test-Path $exePath)) {
+              Write-Error "Executable not found at $exePath"
+              exit 1
+          }
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: phosphobot-${{ steps.version.outputs.version }}-amd64.exe
+          path: teleop/dist/phosphobot-${{ steps.version.outputs.version }}-amd64.exe
+          retention-days: 1
+
+      - name: Generate SHA256
+        run: |
+          $exePath = Join-Path -Path "teleop/dist" -ChildPath "phosphobot-${{ steps.version.outputs.version }}-amd64.exe"
+          $hash = (Get-FileHash $exePath -Algorithm SHA256).Hash
+          Set-Content -Path "sha256-phosphobot-${{ steps.version.outputs.version }}-amd64.exe.txt" -Value $hash
+
+      - name: Upload SHA256
+        uses: actions/upload-artifact@v4
+        with:
+          name: sha256-phosphobot-${{ steps.version.outputs.version }}-amd64.exe.txt
+          path: sha256-phosphobot-${{ steps.version.outputs.version }}-amd64.exe.txt
+          retention-days: 1
+
+      - name: Minimize uv cache
+        if: ${{ github.event.inputs.clean_cache == 'true' }}
+        run: uv cache prune --ci
+
+  upload-deb:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v4
+
+      - id: "auth"
+        uses: "google-github-actions/auth@v2"
+        env:
+          GCP_JSON_CREDENTIALS: ${{ secrets.GCP_JSON_CREDENTIALS }}
+        with:
+          credentials_json: ${{ secrets.GCP_JSON_CREDENTIALS }}
+
+      - name: Set up GCP Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Set VERSION
+        run: echo "VERSION=$(echo ${{ github.event.release.tag_name }} | sed 's/^v//')" >> $GITHUB_ENV
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Upload Debian packages to Artifact Registry
+        run: |
+          for DEB_FILE in $(find . -name "*.deb"); do
+            echo "📦 Uploading $DEB_FILE..."
+            gcloud artifacts apt upload ${{ env.REPO_NAME_APT }} \
+              --location=${{ env.REGION }} \
+              --source="$DEB_FILE"
+          done
+
+  upload-homebrew:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set VERSION
+        run: echo "VERSION=$(echo ${{ github.event.release.tag_name }} | sed 's/^v//')" >> $GITHUB_ENV
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          cp phosphobot-${{ env.VERSION }}*.bin release-assets/
+          cp sha256-*.txt release-assets/
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          repository: ${{ env.HOMEBREW_TAP }}
+          tag_name: "v${{ env.VERSION }}"
+          files: release-assets/*
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Gather SHA256 values
+        id: shas
+        run: |
+          ARM64_SHA=$(cat release-assets/sha256-phosphobot-${{ env.VERSION }}-arm64.bin.txt)
+          X86_64_SHA=$(cat release-assets/sha256-phosphobot-${{ env.VERSION }}-x86_64.bin.txt)
+          echo "ARM64_SHA=$ARM64_SHA" >> $GITHUB_ENV
+          echo "X86_64_SHA=$X86_64_SHA" >> $GITHUB_ENV
+
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.HOMEBREW_TAP }}
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update Homebrew formula
+        run: |
+          cat > homebrew-tap/Formula/${{ env.FORMULA_NAME }}.rb << EOF
+          class Phosphobot < Formula
+            desc "Phosphobot teleop application for robot control"
+            homepage "https://github.com/phospho-app/phosphobot"
+            license "MIT"
+            version "${{ env.VERSION }}"
+            
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/${{ env.HOMEBREW_TAP }}/releases/download/v${{ env.VERSION }}/phosphobot-${{ env.VERSION }}-arm64.bin"
+                sha256 "${{ env.ARM64_SHA }}"
+              else
+                url "https://github.com/${{ env.HOMEBREW_TAP }}/releases/download/v${{ env.VERSION }}/phosphobot-${{ env.VERSION }}-x86_64.bin"
+                sha256 "${{ env.X86_64_SHA }}"
+              end
+            end
+            
+            def install
+              arch = Hardware::CPU.arm? ? "arm64" : "x86_64"
+              bin_name = "phosphobot-${{ env.VERSION }}-#{arch}.bin"
+              chmod "+x", bin_name
+              bin.install bin_name => "phosphobot"
+            end
+            
+            test do
+              system "#{bin}/phosphobot", "--version"
+            end
+          end
+          EOF
+
+      - name: Commit and push formula
+        run: |
+          cd homebrew-tap
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Formula/${{ env.FORMULA_NAME }}.rb
+          git commit -m "Update ${{ env.FORMULA_NAME }} to ${{ env.VERSION }}"
+          git push
+
+  upload-windows:
+    needs: [build-windows, upload-homebrew]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set VERSION
+        run: echo "VERSION=$(echo ${{ github.event.release.tag_name }} | sed 's/^v//')" >> $GITHUB_ENV
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: phosphobot-*.exe
+          merge-multiple: true
+
+      - name: Upload Windows EXE to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          repository: ${{ env.HOMEBREW_TAP }}
+          tag_name: "v${{ env.VERSION }}"
+          files: phosphobot-${{ env.VERSION }}-amd64.exe
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
