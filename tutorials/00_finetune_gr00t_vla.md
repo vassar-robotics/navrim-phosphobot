@@ -68,6 +68,8 @@ TODO
 
 ## Test the finetuned model on your robot
 
+### Start the inference server
+
 Make sure the setup of your robot matches the dataset setup (number of cameras, order of cameras, etc...).
 
 Run the inference server on the machine where the model is (the one with the GPU):
@@ -76,10 +78,40 @@ Run the inference server on the machine where the model is (the one with the GPU
 python scripts/gr00t/serve.py --model-path /outputs
 ```
 
-If you are using a remote machine, make sure the port (555 by default) is open.
+### Make your local robot move
 
-Then, on the machine where the robot is, run:
+If you are using a remote machine, make sure the port (5555 by default) is open.
 
+To control your local robot, we will use `phosphobot`. 
+If you haven't already, install it with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/phospho-app/phosphobot/main/install.sh | sudo bash
+```
+
+Then, on your local machine, run:
+
+```bash
+phosphobot run
+```
+
+More information on how to use phosphobot [here](https://docs.phospho.ai/).
+
+Now, in another terminal, you need to install the `torch` and `zmq` libraries on your local machine:
+
+```bash
+pip install torch zmq
+```
+
+Adapt the script `scripts/quickstart_ai_gr00t.py` to your specific setup (robot, cameras, phosphobot server and inference server).
+
+Then run it:
+
+```bash
+python scripts/quickstart_ai_gr00t.py
+```
+
+Your robot is now controled by the finetuned model!
 
 ## Troubleshooting common issues
 
