@@ -707,7 +707,7 @@ def save_lerobot_recording(format: Literal["lerobot_v2", "lerobot_v2.1"]):
 
     # Set up paths using pathlib
     recordings_path = get_home_app_path() / "recordings"
-    dataset_path = recordings_path / "lerobot_v2" / f"{hf_dataset_name}"
+    dataset_path = recordings_path / format / f"{hf_dataset_name}"
     meta_folder = dataset_path / "meta"
     data_folder = dataset_path / "data" / "chunk-000"
     main_videos_folder = (
