@@ -76,7 +76,7 @@ jobs:
 
       - name: Install the project
         run: |
-          uv sync --dev --frozen
+          uv sync --dev
 
       # - name: Get changed Python files
       #   id: changed-files
