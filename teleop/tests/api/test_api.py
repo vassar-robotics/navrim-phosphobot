@@ -302,6 +302,57 @@ def check_if_dataset_is_available_on_hf(
     logger.info("[TEST_SUCCESS] Dataset is available on the Hugging Face Hub")
 
 
+def check_episodes_stats_file(path: Path):
+    # Open file
+    with open(path, "r") as f:
+        line = f.readline()
+
+    # Check the episodes stats file is not empty
+    assert line != "", "[TEST_FAILURE] Episodes stats file is empty"
+
+    # Check the episodes stats file is a valid JSON
+    try:
+        episodes_stats_parsed: dict = json.loads(line)
+    except json.JSONDecodeError:
+        raise AssertionError("[TEST_FAILURE] Episodes stats file is not a valid JSON")
+
+    stats: dict = episodes_stats_parsed["stats"]
+
+    logger.debug(f"Stats keys: {stats.keys()}")
+
+    # Check the episodes stats file has the expected keys
+    required_keys = [
+        "action",
+        "timestamp",
+        "frame_index",
+        "episode_index",
+        "index",
+        "task_index",
+        "observation.state",
+        "observation.images.main",
+        "observation.images.secondary_0",
+    ]
+    for key in required_keys:
+        assert key in stats, (
+            f"[TEST_FAILURE] Key not found in episodes stats file: {key}"
+        )
+
+    # Check that each of the required keys has min, max, mean, std values
+    for key in required_keys:
+        assert "min" in stats[key], (
+            f"[TEST_FAILURE] Key not found in episodes stats file: {key}"
+        )
+        assert "max" in stats[key], (
+            f"[TEST_FAILURE] Key not found in episodes stats file: {key}"
+        )
+        assert "mean" in stats[key], (
+            f"[TEST_FAILURE] Key not found in episodes stats file: {key}"
+        )
+        assert "std" in stats[key], (
+            f"[TEST_FAILURE] Key not found in episodes stats file: {key}"
+        )
+
+
 def check_stats_file(path: Path):
     # Open file
     with open(path, "r") as f:
@@ -569,7 +620,7 @@ def check_parquet_file(path: Path):
     )
 
 
-def test_save_lerobot_recording():
+def save_lerobot_recording(format: Literal["lerobot_v2", "lerobot_v2.1"]):
     """
     Make a call to start recording for 1 with one classic camera during 1 second and then stop it.
     We save the data in lerobot-format and check that the files are created.
@@ -596,7 +647,17 @@ def test_save_lerobot_recording():
     if gh_branch_path is None or gh_commit_id is None:
         logger.warning("Branch name or commit id is not set in the environment.")
 
-    username_or_org_id, hf_dataset_name, hf_branch_path = login_to_hf()
+    login_result = login_to_hf()
+    if login_result is None:
+        raise AssertionError(
+            "[TEST_FAILURE] Failed to login to Hugging Face. Check your token."
+        )
+
+    username_or_org_id, hf_dataset_name, hf_branch_path = login_result
+    if hf_branch_path is None:
+        raise AssertionError(
+            "[TEST_FAILURE] Failed to create branch path. Check your branch name and commit id."
+        )
     # Delete branch if it already exists
     try:
         api = HfApi()
@@ -613,7 +674,7 @@ def test_save_lerobot_recording():
             f"{BASE_URL}/recording/start",
             json={
                 "dataset_name": hf_dataset_name,
-                "episode_format": "lerobot_v2",
+                "episode_format": format,
                 "branch_path": hf_branch_path,
             },
         )
@@ -634,7 +695,7 @@ def test_save_lerobot_recording():
         make_request_with_retry(
             "POST",
             f"{BASE_URL}/recording/stop",
-            json={"save": True, "episode_format": "lerobot_v2"},
+            json={"save": True},
         )
 
         # Wait for files to be created
@@ -686,18 +747,12 @@ def test_save_lerobot_recording():
         raise AssertionError("Data file not created in time")
 
     # Check that the positions of the robot is not all zeros
-    # df = pd.read_parquet(path=data_file)
-    # The observation.state is a list of floats.
-    # Make sure not all values are zero
-    # assert (
-    #     df["observation.state"].apply(lambda x: len([i for i in x if i != 0])) > 0
-    # ).all(), f"[TEST_FAILURE] All observation.state arrays are [0,0,0,0,0,0]. Row 1: {df.iloc[0]}"
-    # # Make sure that at least 4 values are not zero
-    # assert (
-    #     df["observation.state"]
-    #     .apply(lambda x: len([i for i in x if i != 0]) >= 4)
-    #     .all()
-    # ), f"[TEST_FAILURE] More than 4 observation.state arrays are 0. Row 1: {df.iloc[0]}"
+    df = pd.read_parquet(path=data_file)
+
+    # Check that the column "observation.state" is not all lists of zeros
+    assert not df["observation.state"].apply(lambda x: all(np.array(x) == 0)).all(), (
+        "[TEST_FAILURE] All observation.state arrays are [0,0,0,0,0,0]"
+    )
 
     # Check video file
     main_video_file = main_videos_folder / "episode_000000.mp4"
@@ -716,7 +771,11 @@ def test_save_lerobot_recording():
         raise AssertionError("Secondary Video file not created in time")
 
     # Check meta files
-    required_meta_files = ["stats.json", "info.json", "episodes.jsonl", "tasks.jsonl"]
+    required_meta_files = ["info.json", "episodes.jsonl", "tasks.jsonl"]
+    if format == "lerobot_v2.1":
+        required_meta_files.append("episodes_stats.jsonl")
+    elif format == "lerobot_v2":
+        required_meta_files.append("stats.json")
     for filename in required_meta_files:
         meta_file = meta_folder / filename
         if wait_for_file(meta_file) is not True:
@@ -725,7 +784,10 @@ def test_save_lerobot_recording():
             )
             raise AssertionError(f"Meta file not created in time: {filename}")
 
-    check_stats_file(path=meta_folder / "stats.json")
+    if format == "lerobot_v2.1":
+        check_episodes_stats_file(path=meta_folder / "episodes_stats.jsonl")
+    elif format == "lerobot_v2":
+        check_stats_file(path=meta_folder / "stats.json")
     check_episodes_file(path=meta_folder / "episodes.jsonl")
     check_info_file(path=meta_folder / "info.json")
     check_tasks_file(path=meta_folder / "tasks.jsonl")
@@ -738,3 +800,13 @@ def test_save_lerobot_recording():
     logger.success(
         "[TEST_SUCCESS] Recorded dataset is saved and available on the Hugging Face Hub"
     )
+
+
+def test_save_lerobot_recording_lerobot_v2():
+    """Test saving lerobot recording in lerobot_v2 format."""
+    save_lerobot_recording("lerobot_v2")
+
+
+def test_save_lerobot_recording_lerobot_v2_1():
+    """Test saving lerobot recording in lerobot_v2.1 format."""
+    save_lerobot_recording("lerobot_v2.1")
