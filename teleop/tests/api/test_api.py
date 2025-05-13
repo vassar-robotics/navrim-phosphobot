@@ -55,18 +55,18 @@ def get_initial_end_effector_state():
     """Fixture to get the initial end-effector state.
     The robot must return to its initial position with a tolerance of 1 centimeter."""
     status_response = requests.get(f"{BASE_URL}/status")
-    assert (
-        status_response.status_code == 200
-    ), f"[TEST_FAILURE] Failed to ping server: {status_response.text}"
-    assert (
-        status_response.json()["status"] == "ok"
-    ), "[TEST_FAILURE] Server status is not OK"
+    assert status_response.status_code == 200, (
+        f"[TEST_FAILURE] Failed to ping server: {status_response.text}"
+    )
+    assert status_response.json()["status"] == "ok", (
+        "[TEST_FAILURE] Server status is not OK"
+    )
     logger.info(f"[TEST] Status response: {status_response.json()}")
 
     initial_position_response = requests.post(f"{BASE_URL}/end-effector/read")
-    assert (
-        initial_position_response.status_code == 200
-    ), f"[TEST_FAILURE] Failed to get end-effector state: {initial_position_response.text}"
+    assert initial_position_response.status_code == 200, (
+        f"[TEST_FAILURE] Failed to get end-effector state: {initial_position_response.text}"
+    )
 
     initial_state = initial_position_response.json()
     logger.info(f"Initial End-Effector Position: {initial_state['x']}")
@@ -76,9 +76,9 @@ def get_initial_end_effector_state():
 def test_status_endpoint():
     """Test the status endpoint."""
     response = requests.get(f"{BASE_URL}/status")
-    assert (
-        response.status_code == 200
-    ), f"[TEST_FAILURE] Failed to ping server: {response.text}"
+    assert response.status_code == 200, (
+        f"[TEST_FAILURE] Failed to ping server: {response.text}"
+    )
     assert response.json()["status"] == "ok", "[TEST_FAILURE] Server status is not OK"
     logger.info(f"Status response: {response.json()}")
     logger.success("[TEST_SUCCESS] Status endpoint is working")
@@ -90,9 +90,9 @@ def test_move_relative(get_initial_end_effector_state):
         f"{BASE_URL}/move/relative",
         json={"x": 0.02, "y": 0, "z": 0, "rx": 0, "ry": 0, "rz": 0, "open": 0},
     )
-    assert (
-        move_response.status_code == 200
-    ), f"Failed to move robot: {move_response.text}"
+    assert move_response.status_code == 200, (
+        f"Failed to move robot: {move_response.text}"
+    )
     logger.success("[TEST_SUCCESS] Robot moved successfully")
 
     # Check the end-effector state
@@ -113,14 +113,14 @@ def test_move_relative(get_initial_end_effector_state):
     # Check the final end-effector state
     end_position_response = requests.post(f"{BASE_URL}/end-effector/read")
     logger.info(f"Server response: {end_position_response.text}")
-    assert (
-        end_position_response.status_code == 200
-    ), f"[TEST_FAILURE] Failed to get end-effector state: {end_position_response.text}"
+    assert end_position_response.status_code == 200, (
+        f"[TEST_FAILURE] Failed to get end-effector state: {end_position_response.text}"
+    )
 
     data = end_position_response.json()
-    assert isinstance(
-        data, dict
-    ), f"[TEST_FAILURE] Unexpected response format: {type(data)}\n{data}"
+    assert isinstance(data, dict), (
+        f"[TEST_FAILURE] Unexpected response format: {type(data)}\n{data}"
+    )
     assert "x" in data, f"[TEST_FAILURE] Unexpected response format: {data}"
     logger.info(f"Received EndPosition: {data['x']}")
 
@@ -157,9 +157,9 @@ def start_and_stop_recording(episode_format: Literal["lerobot_v2", "json"]):
         json={"save": False, "episode_format": episode_format},
     )
     logger.info(f"Recording stop response: {stop_response.json()}")
-    assert (
-        stop_response.status_code == 200
-    ), f"[TEST_FAILURE] Failed to stop recording: {stop_response.text}"
+    assert stop_response.status_code == 200, (
+        f"[TEST_FAILURE] Failed to stop recording: {stop_response.text}"
+    )
     logger.info(f"Recording stop response: {stop_response.json()}")
     logger.success("[TEST_SUCCESS] Recording start and stop endpoint is working")
     time.sleep(10)
@@ -220,9 +220,9 @@ def login_to_hf() -> tuple[str, str, str | None] | None:
     # Set up dataset name
     gh_branch_path = os.environ.get("BRANCH_NAME")
     gh_commit_id = os.environ.get("COMMIT_ID")
-    assert (
-        gh_branch_path is not None and gh_commit_id is not None
-    ), "[TEST_FAILURE] Branch name or commit id is not set in the environment"
+    assert gh_branch_path is not None and gh_commit_id is not None, (
+        "[TEST_FAILURE] Branch name or commit id is not set in the environment"
+    )
 
     # Write the hugging face token to a file so we can login.
     token_path = get_home_app_path() / "huggingface.token"
@@ -333,28 +333,28 @@ def check_stats_file(path: Path):
 
     # Check that each of the required keys has min, max, mean, std values
     for key in required_keys:
-        assert (
-            "min" in stats_parsed[key]
-        ), f"[TEST_FAILURE] Key not found in stats file: {key}"
-        assert (
-            "max" in stats_parsed[key]
-        ), f"[TEST_FAILURE] Key not found in stats file: {key}"
-        assert (
-            "mean" in stats_parsed[key]
-        ), f"[TEST_FAILURE] Key not found in stats file: {key}"
-        assert (
-            "std" in stats_parsed[key]
-        ), f"[TEST_FAILURE] Key not found in stats file: {key}"
+        assert "min" in stats_parsed[key], (
+            f"[TEST_FAILURE] Key not found in stats file: {key}"
+        )
+        assert "max" in stats_parsed[key], (
+            f"[TEST_FAILURE] Key not found in stats file: {key}"
+        )
+        assert "mean" in stats_parsed[key], (
+            f"[TEST_FAILURE] Key not found in stats file: {key}"
+        )
+        assert "std" in stats_parsed[key], (
+            f"[TEST_FAILURE] Key not found in stats file: {key}"
+        )
 
     # Check that max of frame_index is different from max index
-    assert (
-        stats_parsed["frame_index"]["max"] != stats_parsed["index"]["max"]
-    ), "[TEST_FAILURE] Frame index max is equal to index max"
+    assert stats_parsed["frame_index"]["max"] != stats_parsed["index"]["max"], (
+        "[TEST_FAILURE] Frame index max is equal to index max"
+    )
 
     # Check that max of episode_index is 1
-    assert stats_parsed["episode_index"]["max"] == [
-        1
-    ], "[TEST_FAILURE] Episode index max is not 1"
+    assert stats_parsed["episode_index"]["max"] == [1], (
+        "[TEST_FAILURE] Episode index max is not 1"
+    )
 
     # Check that action and observation.state are not null arrays
     assert stats_parsed["action"]["mean"] != [
@@ -365,17 +365,16 @@ def check_stats_file(path: Path):
         0.0,
         0.0,
     ], f"[TEST_FAILURE] Action mean is {stats_parsed['action']['mean']}"
-    assert (
-        stats_parsed["observation.state"]["mean"]
-        != [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-        ]
-    ), f"[TEST_FAILURE] Observation state mean is {stats_parsed['observation.state']['mean']}"
+    assert stats_parsed["observation.state"]["mean"] != [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    ], (
+        f"[TEST_FAILURE] Observation state mean is {stats_parsed['observation.state']['mean']}"
+    )
 
     # Check that observation.images.main max is 1
     assert stats_parsed["observation.images.main"]["max"] == [
@@ -407,26 +406,26 @@ def check_episodes_file(path: Path):
     ]
 
     for key in required_keys:
-        assert (
-            key in episodes_parsed
-        ), f"[TEST_FAILURE] Key not found in episodes file: {key}"
+        assert key in episodes_parsed, (
+            f"[TEST_FAILURE] Key not found in episodes file: {key}"
+        )
 
     # Check the episodes file has the expected values
-    assert (
-        episodes_parsed["episode_index"] == 0
-    ), "[TEST_FAILURE] Episode index is not 0"
+    assert episodes_parsed["episode_index"] == 0, (
+        "[TEST_FAILURE] Episode index is not 0"
+    )
 
-    assert (
-        episodes_parsed["length"] >= 10
-    ), "[TEST_FAILURE] Episode length is smaller than 10"
+    assert episodes_parsed["length"] >= 10, (
+        "[TEST_FAILURE] Episode length is smaller than 10"
+    )
 
     # Check the tasks key is a list of a string
-    assert isinstance(
-        episodes_parsed["tasks"], list
-    ), "[TEST_FAILURE] Tasks key is not a list"
-    assert all(
-        isinstance(task, str) for task in episodes_parsed["tasks"]
-    ), "[TEST_FAILURE] Tasks key is not a list of strings"
+    assert isinstance(episodes_parsed["tasks"], list), (
+        "[TEST_FAILURE] Tasks key is not a list"
+    )
+    assert all(isinstance(task, str) for task in episodes_parsed["tasks"]), (
+        "[TEST_FAILURE] Tasks key is not a list of strings"
+    )
 
 
 def check_info_file(path: Path):
@@ -463,9 +462,9 @@ def check_info_file(path: Path):
         assert key in info_parsed, f"[TEST_FAILURE] Key not found in info file: {key}"
 
     assert info_parsed["total_episodes"] == 2, "[TEST_FAILURE] Total episodes is not 2"
-    assert (
-        info_parsed["total_frames"] >= 30
-    ), "[TEST_FAILURE] Total frames is lower than 30"
+    assert info_parsed["total_frames"] >= 30, (
+        "[TEST_FAILURE] Total frames is lower than 30"
+    )
     # assert key["total_videos"] == 4, "[TEST_FAILURE] Total videos is not 4"
     assert info_parsed["total_tasks"] == 1, "[TEST_FAILURE] Total tasks is not 1"
 
@@ -484,9 +483,9 @@ def check_info_file(path: Path):
 
     features_dict: dict = info_parsed["features"]
     for key in required_features_keys:
-        assert (
-            key in features_dict
-        ), f"[TEST_FAILURE] Key: {key} not found in features dict: {features_dict}"
+        assert key in features_dict, (
+            f"[TEST_FAILURE] Key: {key} not found in features dict: {features_dict}"
+        )
 
 
 def check_tasks_file(path: Path):
@@ -529,9 +528,9 @@ def check_parquet_file(path: Path):
     ]
 
     for column in required_columns:
-        assert (
-            column in parquet_parsed.columns
-        ), f"[TEST_FAILURE] Column not found in parquet file: {column}"
+        assert column in parquet_parsed.columns, (
+            f"[TEST_FAILURE] Column not found in parquet file: {column}"
+        )
 
     # Check that action and observation.state are not all zerors arrays
     has_non_zero_action = not (
@@ -543,9 +542,9 @@ def check_parquet_file(path: Path):
     has_non_zero_state = not (
         parquet_parsed["observation.state"].apply(lambda x: all(x == 0))
     ).all()
-    assert (
-        has_non_zero_state
-    ), "[TEST_FAILURE] All observation.state arrays are [0,0,0,0,0,0]"
+    assert has_non_zero_state, (
+        "[TEST_FAILURE] All observation.state arrays are [0,0,0,0,0,0]"
+    )
 
     # Check that observation.state is action with a lag of 1
     def compare_arrays(arr1, arr2):
@@ -560,14 +559,14 @@ def check_parquet_file(path: Path):
         )
     ), "[TEST_FAILURE] Action is not equal to observation.state with a lag of 1"
     # Check that all values of episode_index are 1
-    assert (
-        parquet_parsed["episode_index"] == 1
-    ).all(), "[TEST_FAILURE] Episode index is not 1"
+    assert (parquet_parsed["episode_index"] == 1).all(), (
+        "[TEST_FAILURE] Episode index is not 1"
+    )
 
     # Check that max value of index is different from max value of frame_index
-    assert (
-        parquet_parsed["index"].max() != parquet_parsed["frame_index"].max()
-    ), "[TEST_FAILURE] Index max is equal to frame_index max"
+    assert parquet_parsed["index"].max() != parquet_parsed["frame_index"].max(), (
+        "[TEST_FAILURE] Index max is equal to frame_index max"
+    )
 
 
 def test_save_lerobot_recording():
@@ -627,12 +626,8 @@ def test_save_lerobot_recording():
             f"{BASE_URL}/move/absolute",
             json={
                 "x": 5,
-                "y": 10,
+                "y": 5,
                 "z": 5,
-                "rx": 0,
-                "ry": 0,
-                "rz": 0,
-                "open": 0,
             },
         )
 

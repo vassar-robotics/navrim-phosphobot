@@ -64,7 +64,7 @@ export function AppSidebar() {
                   asChild
                   isActive={currentPath.startsWith("/browse")}
                 >
-                  <a href="/browse?path=./lerobot_v2">
+                  <a href="/browse">
                     <FolderOpen className="h-5 w-5" />
                     <span>Browse Datasets</span>
                   </a>

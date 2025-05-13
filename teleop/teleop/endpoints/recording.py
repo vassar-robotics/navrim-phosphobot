@@ -49,7 +49,7 @@ async def start_recording_episode(
 
     # Remove .DS_Store files from the dataset folder
     dataset_path = os.path.join(
-        get_home_app_path(), "recordings", "lerobot_v2", dataset_name
+        get_home_app_path(), "recordings", recorder.episode_format, dataset_name
     )
     Dataset.remove_ds_store_files(dataset_path)
 
@@ -229,7 +229,7 @@ async def play_recording(
                 status_code=400,
                 detail=f"Episode path {query.episode_path} does not exist.",
             )
-        episode = Episode.load(query.episode_path)
+        episode = Episode.load(query.episode_path, format=recorder.episode_format)
     elif query.dataset_name is not None and query.episode_id is None:
         # Load the latest episode
         dataset_path = os.path.join(
