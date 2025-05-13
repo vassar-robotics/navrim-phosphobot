@@ -72,6 +72,10 @@ def main(config: Config):
     # Start the server
     server = RobotInferenceServer(model=policy, port=args.port)
 
+    logger.info(
+        f"Server starting on port {args.port}... (make sure the port is open and not already in use)"
+    )
+
     server.run()
 
 
