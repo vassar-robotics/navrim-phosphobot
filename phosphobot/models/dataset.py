@@ -323,7 +323,7 @@ class Episode(BaseModel):
         folder_name: str,
         dataset_name: str,
         fps: int,
-        format_to_save: Literal["json", "lerobot_v2"] = "json",
+        format_to_save: Literal["json", "lerobot_v2", "lerobot_v2.1"] = "lerobot_v2.1",
         last_frame_index: int | None = 0,
         info_model: Optional["InfoModel"] = None,
     ):
@@ -337,7 +337,7 @@ class Episode(BaseModel):
         |   ---- json
         |   |   ---- <dataset_name>
         |   |   |   ---- episode_xxxx-xx-xx_xx-xx-xx.json
-        |   ---- lerobot_v2
+        |   ---- lerobot_v2 or lerobot_v2.1
         |   |   ---- <dataset_name>
         |   |   |   ---- data
         |   |   |   |   ---- chunk-000
@@ -353,7 +353,7 @@ class Episode(BaseModel):
         |   |   |   |   |   ---- observation.images.secondary_1 (Optional)
         |   |   |   |   |   |   ---- episode_xxxxxx.mp4
         |   |   |   ---- meta
-        |   |   |   |   ---- stats.json
+        |   |   |   |   ---- stats.json or episodes_stats.jsonl (depending on format version)
         |   |   |   |   ---- episodes.jsonl
         |   |   |   |   ---- tasks.jsonl
         |   |   |   |   ---- info.json
@@ -367,7 +367,7 @@ class Episode(BaseModel):
             folder_name, format_to_save, dataset_name
         )
 
-        if format_to_save == "lerobot_v2":
+        if format_to_save.startswith("lerobot"):
             if not info_model:
                 raise ValueError("InfoModel is required to save in LeRobot format")
 
@@ -476,7 +476,9 @@ class Episode(BaseModel):
         return cls(**data_dict)
 
     @classmethod
-    def from_parquet(cls, episode_data_path: str) -> "Episode":
+    def from_parquet(
+        cls, episode_data_path: str, format: Literal["lerobot_v2", "lerobot_v2.1"]
+    ) -> "Episode":
         """
         Load an episode data file. We only extract the information from the parquet data file.
         TODO(adle): Add more information in the Episode when loading from parquet data file from metafiles and videos
@@ -534,7 +536,7 @@ class Episode(BaseModel):
 
         metadata = {
             "dataset_name": dataset_path,
-            "format": "lerobot_v2",
+            "format": format,
             "index": episode_df["episode_index"].iloc[0],
         }
 
@@ -545,7 +547,11 @@ class Episode(BaseModel):
         return episode_model
 
     @classmethod
-    def load(cls, episode_data_path: str) -> "Episode":
+    def load(
+        cls,
+        episode_data_path: str,
+        format: Literal["json", "lerobot_v2", "lerobot_v2.1"],
+    ) -> "Episode":
         """Load an episode data file. There is numpy array handling for json format.""
         If we load the parquet file we don't have informations about the images
         """
@@ -554,7 +560,10 @@ class Episode(BaseModel):
         if episode_data_extension == "json":
             return cls.from_json(episode_data_path)
         elif episode_data_extension == "parquet":
-            return cls.from_parquet(episode_data_path)
+            return cls.from_parquet(
+                episode_data_path,
+                format=cast(Literal["lerobot_v2", "lerobot_v2.1"], format),
+            )
         else:
             raise ValueError(
                 f"Unsupported episode data format: {episode_data_extension}"
@@ -696,29 +705,6 @@ class Episode(BaseModel):
                 start_time = time.perf_counter()
                 move_robots(curr_step.observation.joints_position)
 
-    def get_episode_index(self, episode_recording_folder_path: str, dataset_name: str):
-        dataset_path = os.path.join(
-            episode_recording_folder_path, f"lerobot_v2-format/{dataset_name}/"
-        )
-
-        meta_path = os.path.join(dataset_path, "meta")
-        # Ensure meta folder exists
-        os.makedirs(meta_path, exist_ok=True)
-
-        # Check the number of elements in the meta_file info.json
-        if not os.path.exists(os.path.join(meta_path, "info.json")):
-            episode_index = 0
-
-        else:
-            with open(
-                os.path.join(meta_path, "info.json"),
-                "r",
-                encoding=DEFAULT_FILE_ENCODING,
-            ) as f:
-                info_json = json.load(f)
-                episode_index = info_json["total_episodes"]
-        return episode_index
-
     @property
     def index(self) -> int:
         """
@@ -833,7 +819,10 @@ class Episode(BaseModel):
         There is no verification that the files are actually in the repository or that the repository exists.
         You need to do that beforehand.
         """
-        if self.metadata.get("format") == "lerobot_v2":
+        if (
+            self.metadata.get("format") == "lerobot_v2"
+            or self.metadata.get("format") == "lerobot_v2.1"
+        ):
             # Delete the parquet file
             try:
                 os.remove(self.parquet_path)
@@ -878,7 +867,10 @@ class Episode(BaseModel):
         """
         Load the .parquet file of the episode. Only works for LeRobot format.
         """
-        if not self.metadata.get("format") == "lerobot_v2":
+        if not (
+            self.metadata.get("format") == "lerobot_v2"
+            or self.metadata.get("format") == "lerobot_v2.1"
+        ):
             raise ValueError(
                 "The episode must be in LeRobot format to convert it to a DataFrame"
             )
@@ -943,7 +935,7 @@ class Dataset:
     metadata: dict = Field(default_factory=dict)
     path: str
     dataset_name: str
-    episode_format: Literal["json", "lerobot_v2"]
+    episode_format: Literal["json", "lerobot_v2", "lerobot_v2.1"]
     data_file_extension: str
     # Full path to the dataset folder
     folder_full_path: Path
@@ -955,13 +947,19 @@ class Dataset:
         # Check path format
         path_obj = Path(path)
         path_parts = path_obj.parts
-        if len(path_parts) < 2 or path_parts[-2] not in ["json", "lerobot_v2"]:
+        if len(path_parts) < 2 or path_parts[-2] not in [
+            "json",
+            "lerobot_v2",
+            "lerobot_v2.1",
+        ]:
             raise ValueError("Wrong dataset path provided.")
 
         self.path = str(path_obj)
         self.episodes = []
         self.dataset_name = path_parts[-1]
-        self.episode_format = cast(Literal["json", "lerobot_v2"], path_parts[-2])
+        self.episode_format = cast(
+            Literal["json", "lerobot_v2", "lerobot_v2.1"], path_parts[-2]
+        )
         self.folder_full_path = path_obj
         self.data_file_extension = "json" if path_parts[-2] == "json" else "parquet"
         self.HF_API = HfApi(token=get_hf_token())
@@ -1050,7 +1048,7 @@ class Dataset:
 
     def get_df_episode(self, episode_id: int) -> pd.DataFrame:
         """Get the episode data as a pandas DataFrame"""
-        if self.episode_format == "lerobot_v2":
+        if self.episode_format.startswith("lerobot"):
             logger.debug(f"Loading episode {episode_id} from parquet file")
             logger.debug(f"Episode data path: {self.get_episode_data_path(episode_id)}")
             return pd.read_parquet(self.get_episode_data_path(episode_id))
@@ -1078,7 +1076,7 @@ class Dataset:
         """Get the full path to the data with episode id in the repository"""
         return (
             f"data/chunk-000/episode_{episode_id:06d}.{self.data_file_extension}"
-            if self.episode_format == "lerobot_v2"
+            if self.episode_format.startswith("lerobot")
             else f"episode_{episode_id:06d}.{self.data_file_extension}"
         )
 
@@ -1245,14 +1243,16 @@ class Dataset:
     def delete_episode(self, episode_id: int, update_hub: bool = True) -> None:
         """
         Delete the episode data from the dataset.
-        If format is lerobot_v2, also delete the episode videos from the dataset
+        If format is lerobot, also delete the episode videos from the dataset
         and updates the meta data.
         JSON format not supported
 
         If update_hub is True, also delete the episode data from the Hugging Face repository
         """
 
-        episode_to_delete = Episode.load(self.get_episode_data_path(episode_id))
+        episode_to_delete = Episode.load(
+            self.get_episode_data_path(episode_id), format=self.episode_format
+        )
         # Get the full path to the data with episode id
 
         if self.check_repo_exists(self.repo_id) is False:
@@ -1265,7 +1265,7 @@ class Dataset:
             f"Deleting episode {episode_id} from dataset {self.dataset_name} with episode format {self.episode_format}"
         )
 
-        if self.episode_format == "lerobot_v2":
+        if self.episode_format.startswith("lerobot"):
             # Start loading current meta data
             info_model = InfoModel.from_json(
                 meta_folder_path=self.meta_folder_full_path
@@ -1274,7 +1274,8 @@ class Dataset:
                 meta_folder_path=self.meta_folder_full_path
             )
             episodes_model = EpisodesModel.from_jsonl(
-                meta_folder_path=self.meta_folder_full_path
+                meta_folder_path=self.meta_folder_full_path,
+                format=cast(Literal["lerobot_v2", "lerobot_v2.1"], self.episode_format),
             )
             if info_model.codebase_version == "v2.1":
                 episodes_stats_model = EpisodesStatsModel.from_jsonl(
@@ -2584,6 +2585,7 @@ class InfoModel(BaseModel):
         robots: List[BaseRobot] | None = None,
         target_size: tuple[int, int] | None = None,
         secondary_camera_key_names: List[str] | None = None,
+        format: Literal["lerobot_v2", "lerobot_v2.1"] = "lerobot_v2.1",
     ) -> "InfoModel":
         """
         Read the info.json file in the meta folder path.
@@ -2634,6 +2636,8 @@ class InfoModel(BaseModel):
                         info=video_info,
                     )
                 )
+
+            info_model.codebase_version = "v2.1" if format == "lerobot_v2.1" else "v2.0"
 
             return info_model
 
@@ -3007,7 +3011,9 @@ class EpisodesModel(BaseModel):
             raise ValueError("save_mode must be 'append' or 'overwrite'")
 
     @classmethod
-    def from_jsonl(cls, meta_folder_path: str) -> "EpisodesModel":
+    def from_jsonl(
+        cls, meta_folder_path: str, format: Literal["lerobot_v2", "lerobot_v2.1"]
+    ) -> "EpisodesModel":
         """
         Read the episodes.jsonl file in the meta folder path.
         """
@@ -3041,7 +3047,7 @@ class EpisodesModel(BaseModel):
                             f"episode_{i:06d}.parquet",
                         )
                         if os.path.exists(episode_path):
-                            episode = Episode.from_parquet(episode_path)
+                            episode = Episode.from_parquet(episode_path, format=format)
                             _episodes_features[i] = EpisodesFeatures(
                                 episode_index=i,
                                 tasks=[
