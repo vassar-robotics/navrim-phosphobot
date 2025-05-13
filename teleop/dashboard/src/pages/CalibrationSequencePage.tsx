@@ -1,0 +1,316 @@
+"use client";
+
+import position1 from "@/assets/CalibrationPosition1.jpg";
+import position2 from "@/assets/CalibrationPosition2.jpg";
+import { LoadingPage } from "@/components/common/loading";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { fetcher } from "@/lib/utils";
+import { ServerStatus } from "@/types";
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle,
+  Home,
+  Keyboard,
+  Loader2,
+  RotateCcw,
+} from "lucide-react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import useSWR from "swr";
+
+export default function CalibrationPage() {
+  const { data: serverStatus, error: serverError } = useSWR<ServerStatus>(
+    ["/status"],
+    fetcher,
+    {
+      refreshInterval: 5000,
+    },
+  );
+
+  const [step, setStep] = useState(1);
+  const [calibrationStatus, setCalibrationStatus] = useState<
+    "idle" | "loading" | "success" | "error" | "in_progress"
+  >("idle");
+  const [message, setMessage] = useState("");
+  const [selectedRobotName, setSelectedRobotName] = useState<string | null>(
+    null,
+  );
+
+  const totalSteps = 3;
+
+  const handleNextStep = async () => {
+    if (step < totalSteps) {
+      setStep((prevStep) => prevStep + 1);
+    }
+
+    setCalibrationStatus("loading");
+    try {
+      // robot_id is the index of the robot in the robot_status array
+      const robot_id = serverStatus?.robot_status.findIndex(
+        (robot) => robot.usb_port === selectedRobotName,
+      );
+      if (robot_id === -1 || robot_id === undefined) {
+        throw new Error(`Robot not found: ${robot_id}`);
+      }
+      const queryParam = new URLSearchParams({ robot_id: robot_id.toString() });
+      const response = await fetch(`/calibrate?${queryParam.toString()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      const data = await response.json();
+
+      setCalibrationStatus(data.calibration_status);
+      setMessage(data.message || "Calibration completed successfully!");
+    } catch (error) {
+      setCalibrationStatus("error");
+      setMessage(
+        `An error occurred during calibration. Please try again. ${error}`,
+      );
+    }
+  };
+
+  const handleRestart = () => {
+    setStep(1);
+    setCalibrationStatus("idle");
+    setMessage("");
+  };
+
+  const renderStepContent = (currentStep: number) => {
+    if (calibrationStatus === "error") {
+      return (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-5 w-5" />
+          <AlertTitle>Calibration Failed</AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      );
+    }
+
+    switch (currentStep) {
+      case 1:
+        if (
+          selectedRobotName === null &&
+          serverStatus &&
+          serverStatus.robot_status.length > 0 &&
+          serverStatus.robot_status[0].usb_port
+        ) {
+          setSelectedRobotName(serverStatus.robot_status[0].usb_port);
+        }
+
+        return (
+          <div className="flex flex-col gap-y-4">
+            <h2 className="text-xl font-semibold">Prepare Your Robot</h2>
+            <Alert
+              variant="destructive"
+              className="mb-6 flex items-start gap-3"
+            >
+              <div className="flex flex-col">
+                <AlertTitle className="mb-1">
+                  <div className="flex items-center gap-1">
+                    <AlertTriangle className="size-5" />
+                    Safety Warning
+                  </div>
+                </AlertTitle>
+                <AlertDescription>
+                  Make sure you can safely catch your robot. Calibration
+                  disables torque.
+                </AlertDescription>
+              </div>
+            </Alert>
+            {serverStatus && serverStatus?.robot_status.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="follower-robot">Robot to calibrate</Label>
+                <Select
+                  value={selectedRobotName || ""}
+                  onValueChange={(value) => setSelectedRobotName(value)}
+                >
+                  <SelectTrigger id="follower-robot">
+                    <SelectValue placeholder="Select robot to calibrate" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {serverStatus?.robot_status.map((robot) => (
+                      <SelectItem
+                        key={robot.usb_port}
+                        value={robot.usb_port || "Undefined port"}
+                      >
+                        {robot.name} ({robot.usb_port})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        );
+      case 2:
+        return (
+          <div className="text-center">
+            <h2 className="text-xl font-semibold mb-4">
+              Move Robot to Position 1
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Move the arm forward and fully close the gripper. The gripper
+              moving claw should be to the left of the arm.
+            </p>
+            <div>
+              <img
+                src={position1 || "/placeholder.svg"}
+                alt="Calibration Position 1"
+                className="rounded-md w-full max-w-md mx-auto"
+              />
+              <p className="mt-3 text-sm text-muted-foreground">
+                Red: X-axis, Green: Y-axis, Blue: Z-axis
+              </p>
+            </div>
+          </div>
+        );
+      case 3:
+        return (
+          <div className="text-center">
+            <h2 className="text-xl font-semibold mb-4">
+              Move Robot to Position 2
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Twist the arm to the left and fully open the gripper.
+            </p>
+            <div>
+              <img
+                src={position2 || "/placeholder.svg"}
+                alt="Calibration Position 2"
+                className="rounded-md w-full max-w-md mx-auto"
+              />
+              <p className="mt-3 text-sm text-muted-foreground">
+                Red: X-axis, Green: Y-axis, Blue: Z-axis
+              </p>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Loading state
+  if (!serverStatus && !serverError) {
+    <LoadingPage />;
+  }
+
+  return (
+    <>
+      <Alert variant={"default"} className="mb-6">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>
+          Calibration is only required if you've built your own robot arm.
+        </AlertTitle>
+        <AlertDescription>
+          Assembled robots are pre-calibrated and ready to use.
+        </AlertDescription>
+      </Alert>
+
+      <div className="mb-8">{renderStepContent(step)}</div>
+
+      {calibrationStatus === "loading" && (
+        <Alert className="mb-6 bg-primary/10 border-primary/20">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <AlertTitle>Calibrating your robot...</AlertTitle>
+          <AlertDescription>
+            This may take a few moments. Please don't move the robot.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {(calibrationStatus === "success" ||
+        calibrationStatus === "in_progress") && (
+        <Alert
+          variant={"default"}
+          className={`mb-6 ${calibrationStatus === "success" ? "bg-green-50 border-green-200" : ""}`}
+        >
+          {calibrationStatus === "success" ? (
+            <CheckCircle className="h-5 w-5 text-green-500" />
+          ) : (
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          )}
+          <AlertTitle>
+            {calibrationStatus === "success" && "Calibration Complete"}
+            {calibrationStatus === "in_progress" && "Calibration In Progress"}
+          </AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="flex flex-col gap-4">
+        {calibrationStatus === "idle" && (
+          <Button onClick={handleNextStep}>Start Calibration</Button>
+        )}
+        {calibrationStatus === "error" && (
+          <Button onClick={handleRestart} variant="secondary">
+            <RotateCcw className="mr-2 h-5 w-5" />
+            Restart Calibration
+          </Button>
+        )}
+        {calibrationStatus === "loading" && (
+          <Button disabled={true}>
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Calibrating...
+          </Button>
+        )}
+        {calibrationStatus === "in_progress" && (
+          <Button onClick={handleNextStep}>
+            {step < totalSteps ? (
+              <>
+                Next Step
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </>
+            ) : (
+              "Complete Calibration"
+            )}
+          </Button>
+        )}
+        {calibrationStatus === "success" && (
+          <div className="flex flex-col gap-2 w-full">
+            <Link to="/">
+              <Button className="w-full">
+                <Home className="mr-2 h-5 w-5" />
+                Back to Home
+              </Button>
+            </Link>
+            <Button onClick={handleRestart} variant="secondary">
+              <RotateCcw className="mr-2 h-5 w-5" />
+              Restart Calibration
+            </Button>
+            <Link to="/control">
+              <Button className="w-full" variant="secondary">
+                <Keyboard className="mr-2 h-5 w-5" />
+                Keyboard Control
+              </Button>
+            </Link>
+          </div>
+        )}
+
+        <div className="mb-8">
+          <div className="flex items-end justify-between mb-2">
+            <span className="text-xs text-muted-foreground">
+              Step {step} of {totalSteps}
+            </span>
+          </div>
+          <Progress value={(step / totalSteps) * 100} className="h-2" />
+        </div>
+      </div>
+    </>
+  );
+}

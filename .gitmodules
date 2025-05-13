@@ -1,0 +1,6 @@
+[submodule "lerobot"]
+	path = lerobot
+	url = https://github.com/huggingface/lerobot.git
+[submodule "docs"]
+	path = docs
+	url = https://github.com/phospho-app/docs.git

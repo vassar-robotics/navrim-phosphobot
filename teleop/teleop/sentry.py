@@ -1,0 +1,31 @@
+import sentry_sdk
+from teleop._version import __version__
+from teleop.telemetry import TELEMETRY
+from teleop.utils import get_tokens
+
+
+def init_sentry():
+    if not TELEMETRY:
+        return
+
+    tokens = get_tokens()
+    if tokens.SENTRY_DSN is None:
+        return
+
+    sentry_sdk.init(
+        dsn=tokens.SENTRY_DSN,
+        send_default_pii=True,
+        traces_sample_rate=0.1,
+        release=f"teleop@{__version__}",
+        environment=tokens.ENV,
+    )
+
+
+def add_email_to_sentry(email: str) -> None:
+    if not TELEMETRY:
+        return
+
+    if not email:
+        return
+
+    sentry_sdk.set_user({"email": email})

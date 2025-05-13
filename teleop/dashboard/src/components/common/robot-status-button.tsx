@@ -1,0 +1,360 @@
+"use client";
+
+import connectionImage from "@/assets/ConnectBot.jpg";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useGlobalStore } from "@/lib/hooks";
+import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
+import type { RobotConfigStatus, ServerStatus, TorqueStatus } from "@/types";
+import {
+  Bot,
+  Crown,
+  Hand,
+  Link,
+  Link2Off,
+  LoaderCircle,
+  Moon,
+  X,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { toast } from "sonner";
+import useSWR from "swr";
+
+function RobotStatusMenuItem({
+  robotId,
+  robotUsbPort,
+  robot,
+}: {
+  robotId: number;
+  robotUsbPort: string;
+  robot: RobotConfigStatus;
+}) {
+  const { data: robotTorqueStatus, mutate: mutateTorque } =
+    useSWR<TorqueStatus>([`/torque/read?robot_id=${robotId}`], ([url]) =>
+      fetcher(url, "POST"),
+    );
+  const { data: serverStatus } = useSWR<ServerStatus>(["/status"], ([url]) =>
+    fetcher(url),
+  );
+
+  const leaderArmSerialIds = useGlobalStore(
+    (state) => state.leaderArmSerialIds,
+  );
+  const addLeaderArmSerialId = useGlobalStore(
+    (state) => state.addLeaderArmSerialId,
+  );
+  const removeLeaderArmSerialId = useGlobalStore(
+    (state) => state.removeLeaderArmSerialId,
+  );
+
+  const torqueStatus = robotTorqueStatus?.current_torque as
+    | number[]
+    | undefined;
+  const isTorqueEnabled = torqueStatus?.some((status) => status === 1);
+
+  // Sends a shutdown command to a specific robot and then refreshes its status.
+  const moveToSleep = async () => {
+    if (!serverStatus) {
+      console.error("Server not available");
+      return;
+    }
+    await fetchWithBaseUrl(`/move/sleep?robot_id=${robotId}`, "POST").then(
+      mutateTorque,
+    );
+  };
+
+  const jiggleGripper = async () => {
+    if (!serverStatus) {
+      console.error("Server not available");
+      return;
+    }
+    await fetchWithBaseUrl(`/move/hello?robot_id=${robotId}`, "POST").then(
+      mutateTorque,
+    );
+  };
+
+  const disableTorque = async () => {
+    await fetchWithBaseUrl(`/torque/toggle?robot_id=${robotId}`, "POST", {
+      torque_status: false,
+    }).then(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      await mutateTorque();
+    });
+  };
+
+  const enableTorque = async () => {
+    if (!serverStatus) {
+      console.error("Server not available");
+      return;
+    }
+    await fetchWithBaseUrl(`/torque/toggle?robot_id=${robotId}`, "POST", {
+      torque_status: true,
+    }).then(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      await mutateTorque();
+    });
+  };
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <div className="p-2 text-sm flex justify-between items-center gap-x-2">
+          <div className="relative">
+            <Bot className="size-5" />
+            {leaderArmSerialIds.includes(robotUsbPort) && (
+              <Crown className="absolute -top-2 -right-2 size-3 text-green-500" />
+            )}
+          </div>
+          <div className="flex flex-col items-start mr-1">
+            <div className="font-medium">
+              #{robotId}: {robot.name}
+            </div>
+            {robot.usb_port && (
+              <div className="text-xs text-muted-foreground">
+                {robot.usb_port}
+              </div>
+            )}
+          </div>
+        </div>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        <DropdownMenuItem
+          onClick={() => jiggleGripper()}
+          className="flex items-center gap-2"
+        >
+          <Hand className="size-4" />
+          <span>Jiggle gripper</span>
+        </DropdownMenuItem>
+        {isTorqueEnabled && (
+          <DropdownMenuItem
+            onClick={() => disableTorque()}
+            className="flex items-center gap-2"
+          >
+            <Link2Off className="size-4" />
+            <span>Unlock position</span>
+          </DropdownMenuItem>
+        )}
+        {!isTorqueEnabled && (
+          <DropdownMenuItem
+            onClick={() => enableTorque()}
+            className="flex items-center gap-2"
+          >
+            <Link className="size-4" />
+            <span>Lock position</span>
+          </DropdownMenuItem>
+        )}
+        {leaderArmSerialIds.includes(robotUsbPort) ? (
+          <DropdownMenuItem
+            onClick={() => removeLeaderArmSerialId(robotUsbPort)}
+            className="flex items-center gap-2"
+          >
+            <div className="relative">
+              <Crown className="size-4" />
+              <X className="absolute -top-2 -right-2 size-3 stroke-[3]" />
+            </div>
+            <span>Remove leader arm mark</span>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onClick={() => addLeaderArmSerialId(robotUsbPort)}
+            className="flex items-center gap-2"
+          >
+            <Crown className="size-4" />
+            <span>Mark as leader arm</span>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem
+          onClick={() => moveToSleep()}
+          className="flex items-center gap-2"
+        >
+          <Moon className="size-4" />
+          <span>Move to sleep</span>
+        </DropdownMenuItem>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+}
+
+function FullscreenImage() {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const openFullscreen = () => {
+    setIsFullscreen(true);
+    document.body.style.overflow = "hidden";
+  };
+
+  const closeFullscreen = () => {
+    setIsFullscreen(false);
+    document.body.style.overflow = "";
+  };
+
+  return (
+    <>
+      <div className="cursor-pointer" onClick={openFullscreen}>
+        <img
+          src={connectionImage || "/placeholder.svg"}
+          alt="ConnectBot"
+          width={100}
+          height={100}
+          className="rounded-md aspect-square object-cover w-[100px] h-[100px]"
+        />
+      </div>
+
+      {isFullscreen &&
+        createPortal(
+          <div
+            className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center"
+            onClick={closeFullscreen}
+            style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}
+          >
+            <div className="relative max-w-[90vw] max-h-[100vh]">
+              <img
+                src={connectionImage || "/placeholder.svg"}
+                alt="ConnectBot"
+                className="object-contain max-w-full max-h-full"
+              />
+              <button
+                className="absolute top-2 right-2 bg-black/50 rounded-full p-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeFullscreen();
+                }}
+              >
+                <X className="size-5 text-white" />
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+export function RobotStatusDropdown() {
+  const { data: serverStatus } = useSWR<ServerStatus>(["/status"], ([url]) =>
+    fetcher(url),
+  );
+  const prevRef = useRef<RobotConfigStatus[]>([]);
+
+  useEffect(() => {
+    if (!serverStatus) return;
+    const prev = prevRef.current;
+    const current = serverStatus.robot_status ?? [];
+    const disconnected = prev.filter(
+      (r) => !current.some((c) => c.usb_port === r.usb_port),
+    );
+    if (disconnected.length > 0) {
+      const ids = disconnected.map((r) => r.usb_port ?? "").join(", ");
+      toast(`Robot${disconnected.length > 1 ? "s" : ""} ${ids} disconnected`);
+    }
+    prevRef.current = current;
+  }, [serverStatus]);
+
+  const leaderArmSerialIds = useGlobalStore(
+    (state) => state.leaderArmSerialIds,
+  );
+
+  if (!serverStatus) {
+    return (
+      <Button
+        variant="outline"
+        className="flex items-center gap-2 relative cursor-pointer"
+      >
+        <LoaderCircle className="animate-spin size-5" />
+      </Button>
+    );
+  }
+
+  const robotConnected =
+    serverStatus.robot_status && serverStatus.robot_status.length > 0;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          className="flex items-center gap-2 relative cursor-pointer"
+        >
+          {robotConnected ? (
+            <span className="size-2 rounded-full bg-green-500" />
+          ) : (
+            <span className="size-2 rounded-full bg-destructive" />
+          )}
+          {robotConnected && (
+            <>
+              {serverStatus.robot_status.map((robot, index) => (
+                <div key={index} className="relative">
+                  <Bot className="size-5" />
+                  {robot.usb_port &&
+                    leaderArmSerialIds.includes(robot.usb_port) && (
+                      <Crown className="absolute -top-2 -right-2 size-3 text-green-500" />
+                    )}
+                </div>
+              ))}
+            </>
+          )}
+          {!robotConnected && (
+            <>
+              <Bot className="size-5" />
+              <div className="flex items-center gap-1">
+                <div className="flex items-end text-muted-foreground font-semibold leading-none">
+                  <span className="text-[8px] translate-y-[-1px]">Z</span>
+                  <span className="text-xs">Z</span>
+                  <span className="text-[8px] translate-y-[1px]">Z</span>
+                </div>
+              </div>
+            </>
+          )}
+          <span className="sr-only">
+            {robotConnected ? "Robot Connected" : "Robot Disconnected"}
+          </span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel className="text-xs text-muted-foreground">
+          {robotConnected
+            ? `${serverStatus.robot_status.length} Robot${serverStatus.robot_status.length > 1 ? "s" : ""} Connected`
+            : "Robot is disconnected"}
+        </DropdownMenuLabel>
+
+        {robotConnected && serverStatus.robot_status && (
+          <>
+            <DropdownMenuSeparator />
+            {serverStatus.robot_status.map((robot, index) => {
+              return (
+                <RobotStatusMenuItem
+                  key={index}
+                  robotId={index}
+                  robotUsbPort={robot.usb_port ?? "unknown"}
+                  robot={robot}
+                />
+              );
+            })}
+          </>
+        )}
+
+        {!robotConnected && (
+          <>
+            <div className="flex flex-col items-center p-2">
+              <FullscreenImage />
+              <span className="text-xs text-muted-foreground mt-2">
+                Check USB-C and Power cable connections
+              </span>
+            </div>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
