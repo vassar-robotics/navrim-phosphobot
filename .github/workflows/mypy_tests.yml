@@ -1,4 +1,4 @@
-name: MyPy teleop tests
+name: Python type checking
 
 on:
   workflow_dispatch:
@@ -13,8 +13,11 @@ permissions:
   contents: read
 
 jobs:
-  mypy_teleop_tests:
+  mypy_phosphobot_tests:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: phosphobot-python
     steps:
       - uses: actions/checkout@v4
 
@@ -32,4 +35,4 @@ jobs:
           uv sync --dev
 
       - name: Run mypy
-        run: uv run mypy ./phosphobot-python --follow-imports=silent || exit 1
+        run: uv run mypy . --follow-imports=silent || exit 1
