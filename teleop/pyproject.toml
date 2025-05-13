@@ -1,0 +1,81 @@
+[project]
+name = "teleop"
+version = "0.2.210"
+description = "Teleoperation server for robots"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "dynamixel-sdk>=3.7.31",
+    "fastapi[standard]>=0.115.5",
+    "loguru>=0.7.2",
+    "matplotlib>=3.9.3",
+    "numpy<2",
+    "pybullet>=3.2.7",
+    "pydantic>=2.10.2",
+    "scipy>=1.14.1",
+    "uvicorn>=0.32.1",
+    "opencv-python-headless>=4.0",
+    "openpi-client>=0.1.0",
+    "requests>=2.32.0",
+    "types-requests>=2.32.0.20241016",
+    "json-numpy>=2.1.0",
+    "pandas>=2.2",
+    "tqdm>=4.67.1",
+    "feetech-servo-sdk>=1.0.0",
+    "typer>=0.15.1",
+    "websockets>=14.1",
+    "huggingface-hub>=0.28.0",
+    "datasets>=3.2.0",
+    "phosphobot[realsense]",
+    "sentry-sdk[fastapi]>=2.20.0",
+    "posthog>=3.11.0",
+    "piper-sdk>=0.1.16",
+    # "python-can>=4.5.0",
+    "supabase>=2.15.0",
+    "zmq>=0.0.0",
+    "toml>=0.10.2",
+    "types-toml>=0.10.8.20240310",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstrument>=5.0.0",
+    "mypy>=1.13.0",
+    "ruff>=0.8.1",
+    # "nuitka>=2.6",
+    "pyinstaller>=6.11.1",
+    "pytest>=8.3.4",
+    "pytest-xdist>=3.6.1",
+    "pytest-asyncio>=0.25.1",
+    "pytest-dependency>=0.6.0",
+]
+lerobot = ["lerobot>=0.1.0"]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.uv.sources]
+phosphobot = { editable = true, path = "../phosphobot-python" }
+lerobot = { editable = true, path = "../lerobot" }
+# We are cloning from our fork instead of the original repo (https://github.com/Physical-Intelligence/openpi) 
+# because we had the error unknow host: github.com
+openpi-client = { git = "https://github.com/phospho-app/openpi.git", subdirectory = "packages/openpi-client", rev = "main" }
+
+
+[project.scripts]
+teleop = "teleop.main:cli"
+
+[build-system]
+requires = ["setuptools>=42", "wheel", "toml"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["teleop", "resources"]
+
+[tool.setuptools.package-data]
+resources = ["*"] # Include all files in the resources directory
+
+[tool.ruff]
+src = ["app"]
+
+[tool.mypy]
