@@ -99,7 +99,7 @@ jobs:
       - name: Install the project with lerobot
         run: |
           cd teleop
-          uv sync --frozen --all-groups
+          uv sync --all-groups
 
       - name: Display the current directory
         run: pwd
