@@ -36,3 +36,59 @@ jobs:
 
       - name: Run mypy
         run: uv run mypy . --follow-imports=silent || exit 1
+
+  mypy_teleop_tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: teleop/
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create minimal pyproject.toml file in lerobot folder
+        run: |
+          mkdir -p ../lerobot
+          cat > ../lerobot/pyproject.toml << 'EOF'
+          [build-system]
+          requires = ["poetry-core"]
+          build-backend = "poetry.core.masonry.api"
+
+          [tool.poetry]
+          name = "lerobot"
+          version = "0.1.0"
+          description = "Minimal lerobot placeholder"
+          authors = ["Placeholder <placeholder@example.com>"]
+          packages = [{include = "lerobot"}]
+
+          [tool.poetry.dependencies]
+          python = ">=3.10,<3.13"
+          EOF
+          touch ../lerobot/__init__.py
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "teleop/uv.lock"
+
+      - name: Set up Python
+        run: uv python pin 3.11 && uv python install
+
+      - name: Install the project
+        run: |
+          uv sync --dev --frozen
+
+      # - name: Get changed Python files
+      #   id: changed-files
+      #   uses: tj-actions/changed-files@v45
+      #   with:
+      #     files: |
+      #       *.py
+
+      # - name: Run mypy on changed files
+      #   if: steps.changed-files.outputs.any_changed == 'true'
+      #   run: |
+      #     uv run mypy ${{ steps.changed-files.outputs.all_changed_files }} --ignore-missing-imports --follow-imports=silent || exit 1
+
+      - name: Run mypy
+        run: uv run mypy ./ --ignore-missing-imports --follow-imports=silent || exit 1
