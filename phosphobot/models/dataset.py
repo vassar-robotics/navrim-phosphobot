@@ -2208,6 +2208,23 @@ class EpisodesStatsFeatutes(BaseModel):
     episode_index: int = 0
     stats: StatsModel = Field(default_factory=StatsModel)
 
+    def to_json(self) -> str:
+        """
+        Save the features as a json string.
+        """
+        # Use the aliases in StatsModel
+        model_dict = self.stats.model_dump(by_alias=True)
+
+        for key, value in model_dict["observation.images"].items():
+            model_dict[key] = value
+        model_dict.pop("observation.images")
+
+        # Add the episode index
+        result_dict = {"episode_index": self.episode_index, "stats": model_dict}
+
+        # Convert to JSON string
+        return json.dumps(result_dict)
+
 
 class EpisodesStatsModel(BaseModel):
     """
@@ -2255,12 +2272,7 @@ class EpisodesStatsModel(BaseModel):
             encoding=DEFAULT_FILE_ENCODING,
         ) as f:
             for episode_stats in self.episodes_stats:
-                model_dict = self.model_dump(by_alias=True)
-
-                for key, value in model_dict["observation.images"].items():
-                    model_dict[key] = value
-                model_dict.pop("observation.images")
-                f.write(json.dumps(model_dict, indent=4) + "\n")
+                f.write(episode_stats.to_json() + "\n")
 
     @classmethod
     def from_jsonl(cls, meta_folder_path: str) -> "EpisodesStatsModel":
