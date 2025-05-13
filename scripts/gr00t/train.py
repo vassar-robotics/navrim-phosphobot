@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 import os
 from huggingface_hub import HfApi, snapshot_download
-
-# Import loguru
 from loguru import logger
 
 from phosphobot.am.base import (
@@ -15,7 +13,6 @@ from phosphobot.am.base import (
 )
 import json
 import asyncio
-import subprocess
 
 
 @dataclass
