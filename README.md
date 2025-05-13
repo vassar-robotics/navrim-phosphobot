@@ -1,6 +1,6 @@
 # phosphobot
 
-**phosphobot** is a community-driven platform for robotics enthusiasts to share and explore creative projects built with the phospho starter pack.
+**phosphobot** is a community-driven platform that enables you to use action models to control your robot.
 
 <div align="center">
 
@@ -16,9 +16,11 @@ This repository contains demo code and community projects developed using the ph
 
 ## Getting started
 
-1. **Get Your Dev Kit**: Purchase your Phospho starter pack at [robots.phospho.ai](https://robots.phospho.ai). Unbox it and set it up following the instructions in the box.
+### 1. Get a SO-100 robot
 
-2. **Install the phosphobot server** and run it:
+Purchase your Phospho starter pack at [robots.phospho.ai](https://robots.phospho.ai) or build your own robot following the instructions in [the SO-100 repo](https://github.com/TheRobotStudio/SO-ARM100).
+
+### 2. Install the phosphobot server
 
 ```bash
 # Install it this way
@@ -30,140 +32,56 @@ phosphobot run
 # brew update && brew upgrade phosphobot
 ```
 
-3. Use the HTTP API to interact with the phosphobot server.
+### 3. Make your robot move for the first time!
 
-Go to the interactive docs of the API to use it interactively and learn more about it.
-It is available at `YOUR_SERVER_ADDRESS:YOUR_SERVER_PORT/docs`. By default, it is available at `localhost:80/docs`.
+Go to the webapp at `YOUR_SERVER_ADDRESS:YOUR_SERVER_PORT` (default is `localhost:80`) and click control.
 
-We release new versions very often, so make sure to check the API docs for the latest features and changes.
+You will be able to control your robot with:
+
+- the keyboard
+- a leader arm
+- a Meta Quest if you have the phospho teleop app
+
+### 4. Record a dataset
+
+Record a 40 episodes dataset of the task you want the robot to learn.
+
+Check out the [docs](https://docs.phospho.ai/basic-usage/dataset-recording) for more details.
+
+### 5. Train an action model
+
+Train an action model on the dataset you recorded.
+If you want to train on your own machine, here are the requirements:
+
+| GPU Memory | Model    | MPS Support |
+| ---------- | -------- | ----------- |
+| >16GB      | ACT      | ✅ Yes      |
+| >70GB      | Gr00t n1 | ❌ No       |
+
+To learn more about training action models for robotics, check out the [docs](https://docs.phospho.ai/basic-usage/training).
+
+### 6. Use the model to control your robot
+
+You can use the model you just trained to control your robot either:
+
+- directly from the webapp
+- from your own code using the HTTP API
+
+Learn more [in the docs](https://docs.phospho.ai/basic-usage/inference).
 
 ## Official Examples
 
 The `examples/` directory is the quickest way to see the toolkit in action. Check it out!
 Proud of what you build? Share it with the community by opening a PR to add it to the `examples/` directory.
 
-## How to train ACT with LeRobot?
+## Advanced Usage
 
-1. **Record a Dataset with phosphobot**: Record a dataset using the app. Do the same gesture 30-50 times (depending on the task complexity) to create a dataset. [Learn more](https://docs.phospho.ai/basic-usage/dataset-recording)
+You can directly call the phosphobot server from your own code, using the HTTP API and websocket API.
 
-2. **Install LeRobot**. [LeRobot](https://github.com/huggingface/lerobot) by HuggingFace is a research-oriented library for AI training which is still a work in progress. We made a few workarounds to make sure it works reliably. On MacOS, here is a step by step guide.
+Go to the interactive docs of the API to use it interactively and learn more about it.
+It is available at `YOUR_SERVER_ADDRESS:YOUR_SERVER_PORT/docs`. By default, it is available at `localhost:80/docs`.
 
-2.1. Install [uv](https://docs.astral.sh/uv/), a Python environment manager.
-
-```bash
-# On macOS and Linux.
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-2.2 Create a new directory and install requirements.
-
-```bash
-mkdir my_model
-cd my_model
-uv init
-uv add phosphobot git+https://github.com/phospho-app/lerobot
-git clone https://github.com/phospho-app/lerobot
-```
-
-2.3 On MacOS M1, you need to set this variable for torchcodec to work.
-
-```bash
-export DYLD_LIBRARY_PATH="/opt/homebrew/lib:/usr/local/lib:$DYLD_LIBRARY_PATH"
-```
-
-2.4 Run the **LeRobot** training script. For example, on Mac M1:
-
-```bash
-uv run lerobot/lerobot/scripts/train.py \
- --dataset.repo_id=PLB/simple-lego-pickup-mono-2 \
- --policy.type=act \
- --output_dir=outputs/train/phoshobot_test \
- --job_name=phosphobot_test \
- --policy.device=mps
-```
-
-Change the dataset.repo_id to the id of your dataset on Hugging Face.
-
-Change the `--policy.device` flag based on your hardware: `cuda` if you have an NVIDIA GPU, `mps` if you use a MacBook Pro Sillicon, and `cpu` otherwise.
-
-3. **Use the ACT model to control your robot**:
-
-3.1 Launch the ACT server to run inference. This should be running on a beefy GPU machine. Check out our folder [/inference] for more details.
-
-```bash
-curl -o server.py https://raw.githubusercontent.com/phospho-app/phosphobot/refs/heads/main/inference/ACT/server.py
-```
-
-```bash
-uv run server.py --model_id LegrandFrederic/Orange-brick-in-black-box # Replace with <YOUR_HF_MODEL_ID>
-```
-
-3.2 Make sure the [phosphobot server](https://docs.phospho.ai/installation) is running to control your robot:
-
-```bash
-# Install it this way
-curl -fsSL https://raw.githubusercontent.com/phospho-app/phosphobot/main/install.sh | bash
-# Start it this way
-phosphobot run
-```
-
-3.3 Create a script called `my_model/client.py` and copy paste the content below.
-
-```python
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "phosphobot",
-# ]
-# ///
-from phosphobot.camera import AllCameras
-import httpx
-from phosphobot.am import ACT
-
-import time
-import numpy as np
-
-# Connect to the phosphobot server
-PHOSPHOBOT_API_URL = "http://localhost:80"
-
-# Get a camera frame
-allcameras = AllCameras()
-
-# Need to wait for the cameras to initialize
-time.sleep(1)
-
-# Instantiate the model
-model = ACT()
-
-while True:
-    images = [
-        allcameras.get_rgb_frame(camera_id=0, resize=(240, 320)),
-        allcameras.get_rgb_frame(camera_id=1, resize=(240, 320)),
-        allcameras.get_rgb_frame(camera_id=2, resize=(240, 320)),
-    ]
-
-    # Get the robot state
-    state = httpx.post(f"{PHOSPHOBOT_API_URL}/joints/read").json()
-
-    inputs = {"state": np.array(state.angles_rad), "images": np.array(images)}
-
-    # Go through the model
-    actions = model(inputs)
-
-    for action in actions:
-        # Send the new joint postion to the robot
-        httpx.post(f"{PHOSPHOBOT_API_URL}/joints/write", json={"angles": action.tolist()})
-        # Wait to respect frequency control (30 Hz)
-        time.sleep(1 / 30)
-```
-
-3.4 Run this script to control your robot using the model:
-
-```
-uv run client.py
-```
-
-For the full detailed instructions and other model (Pi0, OpenVLA,...), refer to the [docs](https://docs.phospho.ai/basic-usage/inference).
+We release new versions very often, so make sure to check the API docs for the latest features and changes.
 
 ## Join the Community
 
