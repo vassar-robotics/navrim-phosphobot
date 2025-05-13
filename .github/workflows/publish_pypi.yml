@@ -1,4 +1,4 @@
-name: Publish to PyPI
+name: Publish phosphobot-python to PyPI
 
 on:
   release:
@@ -13,6 +13,9 @@ permissions:
 jobs:
   publish_phospho_python:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: phosphobot-python
 
     steps:
       - uses: actions/checkout@v4
