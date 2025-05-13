@@ -1270,15 +1270,24 @@ class Dataset:
             info_model = InfoModel.from_json(
                 meta_folder_path=self.meta_folder_full_path
             )
-            stats_model = EpisodesStatsModel.from_jsonl(
-                meta_folder_path=self.meta_folder_full_path
-            )
             tasks_model = TasksModel.from_jsonl(
                 meta_folder_path=self.meta_folder_full_path
             )
             episodes_model = EpisodesModel.from_jsonl(
                 meta_folder_path=self.meta_folder_full_path
             )
+            if info_model.codebase_version == "v2.1":
+                episodes_stats_model = EpisodesStatsModel.from_jsonl(
+                    meta_folder_path=self.meta_folder_full_path
+                )
+            elif info_model.codebase_version == "v2.0":
+                stats_model = StatsModel.from_json(
+                    meta_folder_path=self.meta_folder_full_path
+                )
+            else:
+                raise NotImplementedError(
+                    f"Codebase version {info_model.codebase_version} not supported, should be v2.1 or v2.0"
+                )
 
             # Update meta data before episode removal
             try:
@@ -1324,12 +1333,20 @@ class Dataset:
             )
             logger.info("Episodes model updated")
 
-            stats_model.update_for_episode_removal(
-                episode_to_delete_index=episode_id,
-                old_index_to_new_index=old_index_to_new_index,
-            )
-            stats_model.save(meta_folder_path=self.meta_folder_full_path)
-            logger.info("Stats model updated")
+            if info_model.codebase_version == "v2.1":
+                episodes_stats_model.update_for_episode_removal(
+                    episode_to_delete_index=episode_id,
+                    old_index_to_new_index=old_index_to_new_index,
+                )
+                episodes_stats_model.save(meta_folder_path=self.meta_folder_full_path)
+                logger.info("Episodes stats model updated")
+            elif info_model.codebase_version == "v2.0":
+                # Update the stats model for v2.0
+                stats_model.update_for_episode_removal(
+                    data_folder_path=self.data_folder_full_path,
+                )
+                stats_model.save(meta_folder_path=self.meta_folder_full_path)
+                logger.info("Stats model updated")
 
             if update_hub:
                 upload_folder(
@@ -2493,7 +2510,7 @@ class InfoModel(BaseModel):
 
     robot_type: str
 
-    codebase_version: str = "v2.0"
+    codebase_version: str = "v2.1"
     total_episodes: int = 0
     total_frames: int = 0
     total_tasks: int = 1  # By default, there is 1 task: "None"
