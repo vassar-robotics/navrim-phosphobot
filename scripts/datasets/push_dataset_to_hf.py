@@ -66,7 +66,7 @@ It's compatible with LeRobot and RLDS.
 
         # Construct full repo name
         dataset_repo_name = f"{username_or_org_id}/{dataset_name}"
-        create_2_0_branch = False
+        create_2_1_branch = False
 
         # Check if repo exists, create if it doesn't
         try:
@@ -83,7 +83,7 @@ It's compatible with LeRobot and RLDS.
                 token=True,
             )
             logger.info(f"Repository {dataset_repo_name} created.")
-            create_2_0_branch = True
+            create_2_1_branch = True
 
         # Push to main branch
         logger.info(
@@ -97,30 +97,30 @@ It's compatible with LeRobot and RLDS.
         )
 
         # Create and push to v2.0 branch if needed
-        if create_2_0_branch:
+        if create_2_1_branch:
             try:
-                logger.info(f"Creating branch v2.0 for dataset {dataset_repo_name}")
+                logger.info(f"Creating branch v2.1 for dataset {dataset_repo_name}")
                 create_branch(
                     dataset_repo_name,
                     repo_type="dataset",
-                    branch="v2.0",
+                    branch="v2.1",
                     token=True,
                 )
-                logger.info(f"Branch v2.0 created for dataset {dataset_repo_name}")
+                logger.info(f"Branch v2.1 created for dataset {dataset_repo_name}")
 
-                # Push to v2.0 branch
+                # Push to v2.1 branch
                 logger.info(
-                    f"Pushing the dataset to the branch v2.0 in repository {dataset_repo_name}"
+                    f"Pushing the dataset to the branch v2.1 in repository {dataset_repo_name}"
                 )
                 upload_folder(
                     folder_path=dataset_path,
                     repo_id=dataset_repo_name,
                     repo_type="dataset",
                     token=True,
-                    revision="v2.0",
+                    revision="v2.1",
                 )
             except Exception as e:
-                logger.error(f"Error handling v2.0 branch: {e}")
+                logger.error(f"Error handling v2.1 branch: {e}")
 
         # Push to additional branch if specified
         if branch_path:

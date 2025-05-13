@@ -777,9 +777,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert (
-                step.action is not None
-            ), "The action must be set for each step before saving"
+            assert step.action is not None, (
+                "The action must be set for each step before saving"
+            )
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -1270,7 +1270,7 @@ class Dataset:
             info_model = InfoModel.from_json(
                 meta_folder_path=self.meta_folder_full_path
             )
-            stats_model = StatsModel.from_json(
+            stats_model = EpisodesStatsModel.from_jsonl(
                 meta_folder_path=self.meta_folder_full_path
             )
             tasks_model = TasksModel.from_jsonl(
@@ -1278,13 +1278,6 @@ class Dataset:
             )
             episodes_model = EpisodesModel.from_jsonl(
                 meta_folder_path=self.meta_folder_full_path
-            )
-
-            # Update stats for images before deleting the videos
-            stats_model._update_for_episode_removal_images_stats(
-                folder_videos_path=self.videos_folder_full_path,
-                meta_folder_path=self.meta_folder_full_path,
-                episode_to_delete_index=episode_id,
             )
 
             # Update meta data before episode removal
@@ -1331,13 +1324,9 @@ class Dataset:
             )
             logger.info("Episodes model updated")
 
-            stats_model._update_for_episode_removal_mean_std_count(
-                df_episode_to_delete=episode_parquet,
-            )
-            stats_model._update_for_episode_removal_min_max(
-                data_folder_path=self.data_folder_full_path,
-                meta_folder_path=self.meta_folder_full_path,
+            stats_model.update_for_episode_removal(
                 episode_to_delete_index=episode_id,
+                old_index_to_new_index=old_index_to_new_index,
             )
             stats_model.save(meta_folder_path=self.meta_folder_full_path)
             logger.info("Stats model updated")
@@ -1505,7 +1494,7 @@ It's compatible with LeRobot and RLDS.
 
             # Construct full repo name
             dataset_repo_name = f"{username_or_org_id}/{self.dataset_name}"
-            create_2_0_branch = False
+            create_2_1_branch = False
 
             # Check if repo exists, create if it doesn't
             try:
@@ -1522,7 +1511,7 @@ It's compatible with LeRobot and RLDS.
                     token=True,
                 )
                 logger.info(f"Repository {dataset_repo_name} created.")
-                create_2_0_branch = True
+                create_2_1_branch = True
 
             # Push to main branch
             logger.info(
@@ -1539,35 +1528,35 @@ It's compatible with LeRobot and RLDS.
             )
             existing_branch_names = [ref.name for ref in repo_refs.branches]
 
-            # Create and push to v2.0 branch if needed
-            if create_2_0_branch:
+            # Create and push to v2.1 branch if needed
+            if create_2_1_branch:
                 try:
-                    if "v2.0" not in existing_branch_names:
+                    if "v2.1" not in existing_branch_names:
                         logger.info(
-                            f"Creating branch v2.0 for dataset {dataset_repo_name}"
+                            f"Creating branch v2.1 for dataset {dataset_repo_name}"
                         )
                         create_branch(
                             dataset_repo_name,
                             repo_type="dataset",
-                            branch="v2.0",
+                            branch="v2.1",
                             token=True,
                         )
                         logger.info(
-                            f"Branch v2.0 created for dataset {dataset_repo_name}"
+                            f"Branch v2.1 created for dataset {dataset_repo_name}"
                         )
 
-                    # Push to v2.0 branch
+                    # Push to v2.1 branch
                     logger.info(
-                        f"Pushing the dataset to the branch v2.0 in repository {dataset_repo_name}"
+                        f"Pushing the dataset to the branch v2.1 in repository {dataset_repo_name}"
                     )
                     self.HF_API.upload_folder(
                         folder_path=self.folder_full_path,
                         repo_id=dataset_repo_name,
                         repo_type="dataset",
-                        revision="v2.0",
+                        revision="v2.1",
                     )
                 except Exception as e:
-                    logger.error(f"Error handling v2.0 branch: {e}")
+                    logger.error(f"Error handling v2.1 branch: {e}")
 
             # Push to additional branch if specified
             if branch_path:
@@ -1764,8 +1753,6 @@ class StatsModel(BaseModel):
     frame_index: Stats = Field(default_factory=Stats)
     episode_index: Stats = Field(default_factory=Stats)
     index: Stats = Field(default_factory=Stats)
-
-    # TODO: implement multiple language instructions
     task_index: Stats = Field(default_factory=Stats)
 
     # key is like: observation.images.main
@@ -2194,6 +2181,157 @@ class StatsModel(BaseModel):
     def update_for_episode_removal(self, data_folder_path: str) -> None:
         # TODO: Handle everything in one function
         pass
+
+
+class EpisodesStatsFeatutes(BaseModel):
+    """
+    Features for each line of the episodes_stats.jsonl file.
+    """
+
+    episode_index: int = 0
+    stats: StatsModel = Field(default_factory=StatsModel)
+
+
+class EpisodesStatsModel(BaseModel):
+    """
+    Creates the structure of the episodes_stats.jsonl file.
+    """
+
+    episodes_stats: List[EpisodesStatsFeatutes] = Field(default_factory=list)
+
+    def update(self, step: Step, episode_index: int, current_step_index: int) -> None:
+        """
+        Updates the episodes_stats with the given step.
+        """
+        # Check if the episode index already exists
+        if (
+            self.episodes_stats != []
+            and self.episodes_stats[-1].episode_index == episode_index
+        ):
+            # Update the stats for the last episode
+            self.episodes_stats[-1].stats.update(
+                step=step,
+                episode_index=episode_index,
+                current_step_index=current_step_index,
+            )
+            return
+
+        # If the episode index does not exist, create a new entry
+        new_episode_stats = EpisodesStatsFeatutes(
+            episode_index=episode_index,
+            stats=StatsModel(),
+        )
+        new_episode_stats.stats.update(
+            step=step,
+            episode_index=episode_index,
+            current_step_index=current_step_index,
+        )
+        self.episodes_stats.append(new_episode_stats)
+
+    def to_jsonl(self, meta_folder_path: str) -> None:
+        """
+        Write the episodes_stats.jsonl file in the meta folder path.
+        """
+        with open(
+            f"{meta_folder_path}/episodes_stats.jsonl",
+            "w",
+            encoding=DEFAULT_FILE_ENCODING,
+        ) as f:
+            for episode_stats in self.episodes_stats:
+                f.write(episode_stats.model_dump_json() + "\n")
+
+    @classmethod
+    def from_jsonl(cls, meta_folder_path: str) -> "EpisodesStatsModel":
+        """
+        Read the episodes_stats.jsonl file in the meta folder path.
+        If the file does not exist, return an empty EpisodeStatsModel.
+        """
+        if (
+            not os.path.exists(f"{meta_folder_path}/episodes_stats.jsonl")
+            or os.stat(f"{meta_folder_path}/episodes_stats.jsonl").st_size == 0
+        ):
+            return EpisodesStatsModel()
+
+        with open(
+            f"{meta_folder_path}/episodes_stats.jsonl",
+            "r",
+            encoding=DEFAULT_FILE_ENCODING,
+        ) as f:
+            _episodes_stats_dict: dict[int, EpisodesStatsFeatutes] = {}
+            for line in f:
+                episodes_stats_feature = EpisodesStatsFeatutes.model_validate(
+                    json.loads(line)
+                )
+                _episodes_stats_dict[episodes_stats_feature.episode_index] = (
+                    episodes_stats_feature
+                )
+
+        _episodes_stats_dict = dict(
+            sorted(_episodes_stats_dict.items(), key=lambda x: x[0])
+        )
+
+        episodes_stats_model = EpisodesStatsModel(
+            episodes_stats=list(_episodes_stats_dict.values())
+        )
+
+        return episodes_stats_model
+
+    def save(self, meta_folder_path: str) -> None:
+        """
+        Save the episodes_stats to the meta folder path.
+        Also computes the final mean and std for the Stats objects.
+        """
+        for episode_stats in self.episodes_stats:
+            for field_key, field_value in episode_stats.stats.__dict__.items():
+                # if field is a Stats object, call .compute_from_rolling() to get the final mean and std
+                if isinstance(field_value, Stats):
+                    field_value.compute_from_rolling()
+
+                # Special case for images
+                if isinstance(field_value, dict) and field_key == "observation_images":
+                    for key, value in field_value.items():
+                        try:
+                            if isinstance(value, Stats):
+                                value.compute_from_rolling_images()
+                        except ValueError as e:
+                            logger.error(f"Error computing mean and std for {key}: {e}")
+
+        self.to_jsonl(meta_folder_path)
+
+    def update_for_episode_removal(
+        self, episode_to_delete_index: int, old_index_to_new_index: Dict[int, int]
+    ) -> None:
+        """
+        Update the episodes_stats model before removing an episode from the dataset.
+        We remove the line corresponding to the episode index.
+        """
+        self.episodes_stats = [
+            episode_stats
+            for episode_stats in self.episodes_stats
+            if episode_stats.episode_index != episode_to_delete_index
+        ]
+
+        # Reindex the episodes
+        if not old_index_to_new_index:
+            for episode_stats in self.episodes_stats:
+                if episode_stats.episode_index > episode_to_delete_index:
+                    episode_stats.episode_index -= 1
+
+        else:
+            current_max_index = max(old_index_to_new_index.keys()) + 1
+            for episode_stats in self.episodes_stats:
+                if episode_stats.episode_index == episode_to_delete_index:
+                    pass
+                if episode_stats.episode_index in old_index_to_new_index.keys():
+                    episode_stats.episode_index = old_index_to_new_index[
+                        episode_stats.episode_index
+                    ]
+                else:
+                    episode_stats.episode_index = current_max_index
+                    current_max_index += 1
+                    old_index_to_new_index[episode_stats.episode_index] = (
+                        current_max_index
+                    )
 
 
 class FeatureDetails(BaseModel):
@@ -2765,7 +2903,7 @@ class TasksModel(BaseModel):
 
 class EpisodesFeatures(BaseModel):
     """
-    Features of the lines in episodes.jsonl.
+    Features for each line of the episodes.jsonl file.
     """
 
     episode_index: int = 0

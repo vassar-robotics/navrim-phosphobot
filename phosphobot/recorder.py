@@ -16,7 +16,7 @@ from phosphobot.models import (
     EpisodesModel,
     InfoModel,
     Observation,
-    StatsModel,
+    EpisodesStatsModel,
     Step,
     TasksModel,
 )
@@ -38,7 +38,7 @@ class Recorder:
     cameras_ids_to_record: list[int] | None = None
 
     # class of meta files
-    stats_model: StatsModel | None = None
+    stats_model: EpisodesStatsModel | None = None
     info_model: InfoModel | None = None
     episodes_model: EpisodesModel | None = None
     tasks_model: TasksModel | None = None
@@ -181,7 +181,7 @@ class Recorder:
             os.makedirs(self.videos_folder_path, exist_ok=True)
 
             # Load the meta files from the disk
-            self.stats_model = StatsModel.from_json(
+            self.stats_model = EpisodesStatsModel.from_jsonl(
                 meta_folder_path=self.meta_folder_path
             )
 
@@ -255,7 +255,7 @@ class Recorder:
         |   |   |   |   |   ---- observation.images.secondary_1 (Optional)
         |   |   |   |   |   |   ---- episode_xxxxxx.mp4
         |   |   |   ---- meta
-        |   |   |   |   ---- stats.json
+        |   |   |   |   ---- episodes_stats.jsonl
         |   |   |   |   ---- episodes.jsonl
         |   |   |   |   ---- tasks.jsonl
         |   |   |   |   ---- info.json
@@ -442,15 +442,15 @@ class Recorder:
             # Second, we add the step with the observations
             self.episode.add_step(step)
             if self.episode_format == "lerobot_v2":
-                assert (
-                    self.stats_model is not None
-                ), "Stats model is not initialized. Call start() first"
-                assert (
-                    self.episodes_model is not None
-                ), "Episodes model is not initialized. Call start() first"
-                assert (
-                    self.tasks_model is not None
-                ), "Tasks model is not initialized. Call start() first"
+                assert self.stats_model is not None, (
+                    "Stats model is not initialized. Call start() first"
+                )
+                assert self.episodes_model is not None, (
+                    "Episodes model is not initialized. Call start() first"
+                )
+                assert self.tasks_model is not None, (
+                    "Tasks model is not initialized. Call start() first"
+                )
                 # Update the models
 
                 # We pass the step count to update frame index properly

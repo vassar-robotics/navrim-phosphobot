@@ -9,6 +9,8 @@ from .dataset import (
     Dataset,
     Stats,
     StatsModel,
+    EpisodesStatsFeatutes,
+    EpisodesStatsModel,
     FeatureDetails,
     VideoInfo,
     VideoFeatureDetails,
