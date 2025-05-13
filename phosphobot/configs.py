@@ -48,6 +48,8 @@ class Configuration(BaseModel):
     # Whether to initialize the RealSense camera
     ENABLE_REALSENSE: bool = True
     ENABLE_CAMERAS: bool = True
+    # Enable crash reporting and usage telemetry
+    TELEMETRY: bool = False
 
     # How simulation should be run
     SIM_MODE: SimulationMode = SimulationMode.headless
