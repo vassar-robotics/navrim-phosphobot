@@ -624,11 +624,7 @@ def test_save_lerobot_recording():
         make_request_with_retry(
             "POST",
             f"{BASE_URL}/move/absolute",
-            json={
-                "x": 5,
-                "y": 5,
-                "z": 5,
-            },
+            json={"x": 5, "y": 5, "z": 5, "open": 0},
         )
 
         # Wait before stopping the recording
