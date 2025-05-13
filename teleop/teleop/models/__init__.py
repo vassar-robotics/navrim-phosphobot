@@ -366,7 +366,7 @@ class RecordingStartRequest(BaseModel):
         + "If None, defaults to the value set in Admin Configuration.",
         examples=["example_dataset"],
     )
-    episode_format: Literal["json", "lerobot_v2"] | None = Field(
+    episode_format: Literal["json", "lerobot_v2", "lerobot_v2.1"] | None = Field(
         None,
         description="Format to save the episode.\n`json` is compatible with OpenVLA and stores videos as a series of npy.\n`lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models)."
         + "If None, defaults to the value set in Admin Configuration.",
