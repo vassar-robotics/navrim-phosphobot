@@ -34,6 +34,9 @@ class Config:
     output_dir: str = "outputs/"
     """the directory to save the model to"""
 
+    output_hf_model_id: str | None = None
+    """the Hugging Face id of the model to save the finetuned model to. If not provided, will not save the model to Hugging Face."""
+
     epochs: int = 10
     """the number of epochs to train for"""
 
@@ -110,6 +113,8 @@ async def run_gr00t_training(
         "Isaac-GR00T/scripts/gr00t_finetune.py",
         "--dataset-path",
         str(data_dir),
+        # Only 1 GPU for now
+        # Open an issue for multi-GPU support
         "--num-gpus",
         "1",
         "--output-dir",
@@ -180,6 +185,15 @@ def main(config: Config):
     selected_branch = "main"
     print(f"Using branch {selected_branch}")
 
+    if config.output_hf_model_id is not None:
+        # We check if the user has write access to the model-id
+        if not HuggingFaceTokenValidator().has_write_access(
+            hf_model_name=config.output_hf_model_id
+        ):
+            raise ValueError(
+                f"The provided HF token does not have write access to {config.output_hf_model_id}"
+            )
+
     # Download huggingface dataset with huggingface_hub
     logger.info(f"Downloading dataset {config.dataset_id} to {data_dir}")
     max_retries = 3
@@ -240,6 +254,75 @@ def main(config: Config):
         )
     )
     logger.info("Training finished")
+    # Upload to Hugging Face if token is provided
+    if config.output_hf_model_id is not None:
+        logger.info(f"Uploading model to Hugging Face as {config.output_hf_model_id}")
+
+        # Upload using huggingface_hub
+        api = HfApi()
+        files_directory = output_dir
+
+        api.create_repo(
+            repo_id=config.output_hf_model_id,
+            repo_type="model",
+            private=False,
+            exist_ok=True,
+        )
+
+        # Then upload main files to the main branch
+        for item in files_directory.glob("*"):
+            if item.is_file() and item.name != "README.md":
+                logger.info(
+                    f"Uploading {item} to {config.output_hf_model_id} as {item.name}"
+                )
+                api.upload_file(
+                    repo_id=config.output_hf_model_id,
+                    repo_type="model",
+                    path_or_fileobj=str(item.resolve()),
+                    path_in_repo=item.name,
+                )
+
+        # Upload experiment_cfg and its contents
+        exp_cfg_dir = files_directory / "experiment_cfg"
+        if exp_cfg_dir.exists() and exp_cfg_dir.is_dir():
+            for item in exp_cfg_dir.glob("**/*"):
+                if item.is_file():
+                    # Keep the directory structure
+                    rel_path = item.relative_to(files_directory)
+                    logger.info(f"Uploading config file: {item} as {rel_path}")
+                    api.upload_file(
+                        repo_type="model",
+                        path_or_fileobj=str(item.resolve()),
+                        path_in_repo=str(rel_path),
+                        repo_id=config.output_hf_model_id,
+                    )
+
+        # Upload README last
+        readme = generate_readme(
+            model_type="gr00t",
+            dataset_repo_id=config.dataset_id,
+            epochs=config.epochs,
+            batch_size=config.batch_size,
+            return_readme_as_bytes=True,
+        )
+
+        api.upload_file(
+            repo_type="model",
+            path_or_fileobj=readme,
+            path_in_repo="README.md",
+            repo_id=config.output_hf_model_id,
+        )
+
+        # Get the model URL
+        huggingface_model_url = f"https://huggingface.co/{config.output_hf_model_id}"
+        logger.info(f"Model successfully uploaded to {huggingface_model_url}")
+
+        logger.info("Model successfully uploaded to Hugging Face")
+        logger.info(f"Find your trained model on Hugging Face: {huggingface_model_url}")
+
+    else:
+        logger.info("Skipping upload to Hugging Face")
+        logger.info("Provide a model-id to enable automatic upload to Hugging Face")
 
 
 if __name__ == "__main__":

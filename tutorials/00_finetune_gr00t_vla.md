@@ -54,6 +54,13 @@ Adjust the batch size to use as much as possible of the GPU memory.
 If you encounter an Out of Memory error, try to reduce the batch size.
 
 Use tools like `nvidia-smi` or `nvitop` to monitor the GPU memory usage.
+Use `wandb` to track the training (just login with `wandb login`).
+
+For more advanced usage, see all the options available with:
+
+```bash
+python scripts/gr00t/train.py --help
+```
 
 ## Evaluate the finetuned model
 
@@ -63,7 +70,16 @@ TODO
 
 Make sure the setup of your robot matches the dataset setup (number of cameras, order of cameras, etc...).
 
-TODO
+Run the inference server on the machine where the model is (the one with the GPU):
+
+```bash
+python scripts/gr00t/serve.py --model-path /outputs
+```
+
+If you are using a remote machine, make sure the port (555 by default) is open.
+
+Then, on the machine where the robot is, run:
+
 
 ## Troubleshooting common issues
 
@@ -79,7 +95,11 @@ git lfs install
 
 ### Failed to initialize NVML
 
+After running the installation commands, try restarting your machine:
 
+```bash
+sudo reboot
+```
 
 ## Acknowledgements 
 
