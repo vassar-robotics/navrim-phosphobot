@@ -18,25 +18,29 @@ git clone https://github.com/phospho-app/phosphobot.git
 cd phosphobot
 ```
 
-We are going to use the phospho fork of Isaac-GR00T repo.
+We are going to use the phospho fork of Isaac-GR00T repo that supports multiple SO-100 as embodiments.
+
+Install the dependencies using conda:
 
 ```bash
 git clone https://github.com/phospho-app/Isaac-GR00T.git
-cd Isaac-GR00T
-```
-
-Then install the dependencies using conda:
-
-```bash
-conda create -n gr00t python=3.10
+conda create -n gr00t python=3.10 -y
 conda activate gr00t
 pip install --upgrade setuptools
+pip install -e Isaac-GR00T
 pip install -e .
 pip install --no-build-isolation flash-attn==2.7.1.post4
-cd ..
 ```
 
-You should now have a working environment to finetune the model in gr00t.
+Now, you need to login to Hugging Face to be able to download the datasets.
+Get an access token from [here](https://huggingface.co/settings/tokens) and run:
+
+```bash
+huggingface-cli login
+```
+Follow the instructions to login.
+
+You should now have a working environment to finetune the model in `gr00t` conda environment.
 
 ## Finetune the model
 
@@ -72,3 +76,12 @@ curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.s
 sudo apt-get install git-lfs
 git lfs install
 ```
+
+### Failed to initialize NVML
+
+
+
+## Acknowledgements 
+
+- the NVIDIA team for providing the GR00T model and most of the code for the finetuning. Link to the original repo [here](https://github.com/NVIDIA/Isaac-GR00T).
+- the LeRobot team for the dataset format. Link to the original repo [here](https://github.com/huggingface/lerobot).
