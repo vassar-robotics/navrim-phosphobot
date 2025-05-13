@@ -2255,7 +2255,12 @@ class EpisodesStatsModel(BaseModel):
             encoding=DEFAULT_FILE_ENCODING,
         ) as f:
             for episode_stats in self.episodes_stats:
-                f.write(episode_stats.model_dump_json() + "\n")
+                model_dict = self.model_dump(by_alias=True)
+
+                for key, value in model_dict["observation.images"].items():
+                    model_dict[key] = value
+                model_dict.pop("observation.images")
+                f.write(json.dumps(model_dict, indent=4) + "\n")
 
     @classmethod
     def from_jsonl(cls, meta_folder_path: str) -> "EpisodesStatsModel":
