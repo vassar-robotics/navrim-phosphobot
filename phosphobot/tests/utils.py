@@ -1,6 +1,6 @@
 import numpy as np
 from phosphobot.hardware.base import BaseRobot
-from phosphobot_old.utils import step_simulation
+from phosphobot.utils import step_simulation
 
 
 def compare_angles_radian(

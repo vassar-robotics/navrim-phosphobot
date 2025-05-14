@@ -12,7 +12,7 @@ import sys
 import numpy as np
 import pytest
 from loguru import logger
-from phosphobot_old.utils import step_simulation
+from phosphobot.utils import step_simulation
 from utils import compare_angles_radian, move_robot_testing
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
