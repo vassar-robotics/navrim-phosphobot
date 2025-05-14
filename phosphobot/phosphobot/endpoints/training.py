@@ -5,10 +5,10 @@ from huggingface_hub import HfApi
 from phosphobot_old.am.base import TrainingRequest
 from phosphobot_old.models.dataset import InfoModel
 from fastapi import APIRouter, Depends, HTTPException
-from phosphobot_old.supabase import get_client, user_is_logged_in
-from phosphobot_old.utils import get_hf_token, get_home_app_path
-from phosphobot_old.utils import get_tokens
-from phosphobot_old.models import (
+from phosphobot.supabase import get_client, user_is_logged_in
+from phosphobot.utils import get_hf_token, get_home_app_path
+from phosphobot.utils import get_tokens
+from phosphobot.models import (
     StatusResponse,
     TrainingConfig,
     SupabaseTrainingModel,

@@ -1,7 +1,7 @@
 from lerobot.common.robot_devices.motors.dynamixel import DynamixelMotorsBus  # type: ignore
 from lerobot.common.robot_devices.robots.manipulator import ManipulatorRobot  # type: ignore
 
-from phosphobot_old.robot import RobotConnectionManager
+from phosphobot.robot import RobotConnectionManager
 
 rcm = RobotConnectionManager()
 

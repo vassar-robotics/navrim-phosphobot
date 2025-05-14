@@ -9,7 +9,7 @@ from phosphobot_old.configs import config
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
-from phosphobot_old.hardware import (
+from phosphobot.hardware import (
     BaseRobot,
     KochHardware,
     PiperHardware,
@@ -17,8 +17,8 @@ from phosphobot_old.hardware import (
     SO100LeaderHardware,
     WX250SHardware,
 )
-from phosphobot_old.models import RobotConfigStatus
-from phosphobot_old.utils import is_can_plugged
+from phosphobot.models import RobotConfigStatus
+from phosphobot.utils import is_can_plugged
 
 rcm = None
 

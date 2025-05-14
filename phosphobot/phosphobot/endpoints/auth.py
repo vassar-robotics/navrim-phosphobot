@@ -2,15 +2,15 @@ import time
 from loguru import logger
 from supabase import AsyncClient
 from fastapi import APIRouter, HTTPException
-from phosphobot_old.supabase import (
+from phosphobot.supabase import (
     get_client,
     delete_session,
     save_session,
     Session,
 )
-from phosphobot_old.posthog import add_email_to_posthog
-from phosphobot_old.sentry import add_email_to_sentry
-from phosphobot_old.models import (
+from phosphobot.posthog import add_email_to_posthog
+from phosphobot.sentry import add_email_to_sentry
+from phosphobot.models import (
     ResetPasswordRequest,
     LoginCredentialsRequest,
     ConfirmRequest,

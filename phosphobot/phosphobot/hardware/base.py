@@ -17,8 +17,8 @@ from scipy.spatial.transform import Rotation as R  # type: ignore
 from serial.tools.list_ports_common import ListPortInfo
 
 from phosphobot_old.configs import SimulationMode, config
-from phosphobot_old.models import RobotConfigStatus
-from phosphobot_old.utils import (
+from phosphobot.models import RobotConfigStatus
+from phosphobot.utils import (
     euler_from_quaternion,
     get_resources_path,
     step_simulation,

@@ -10,8 +10,8 @@ from phosphobot_old.models import BaseRobotConfig
 from piper_sdk import C_PiperInterface_V2
 
 
-from phosphobot_old.hardware.base import BaseRobot
-from phosphobot_old.utils import is_running_on_linux, get_resources_path
+from phosphobot.hardware.base import BaseRobot
+from phosphobot.utils import is_running_on_linux, get_resources_path
 
 
 class PiperHardware(BaseRobot):

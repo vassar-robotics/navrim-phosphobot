@@ -5,9 +5,9 @@ import uuid
 from phosphobot_old.utils import get_home_app_path
 from posthog import Posthog
 
-from phosphobot_old import __version__
-from phosphobot_old.telemetry import TELEMETRY
-from phosphobot_old.utils import get_tokens
+from phosphobot import __version__
+from phosphobot.telemetry import TELEMETRY
+from phosphobot.utils import get_tokens
 
 tokens = get_tokens()
 posthog = Posthog(

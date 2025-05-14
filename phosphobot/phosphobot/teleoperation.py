@@ -8,9 +8,9 @@ import numpy as np
 from fastapi import WebSocket
 from loguru import logger
 
-from phosphobot_old.hardware import BaseRobot
-from phosphobot_old.models import AppControlData, RobotStatus
-from phosphobot_old.robot import RobotConnectionManager
+from phosphobot.hardware import BaseRobot
+from phosphobot.models import AppControlData, RobotStatus
+from phosphobot.robot import RobotConnectionManager
 
 
 @dataclass

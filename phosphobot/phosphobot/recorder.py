@@ -1,8 +1,8 @@
 from fastapi import Depends
 from phosphobot_old.recorder import Recorder
 
-from phosphobot_old.camera import get_all_cameras
-from phosphobot_old.robot import RobotConnectionManager, get_rcm
+from phosphobot.camera import get_all_cameras
+from phosphobot.robot import RobotConnectionManager, get_rcm
 
 recorder = None  # Global variable to store the recorder instance
 

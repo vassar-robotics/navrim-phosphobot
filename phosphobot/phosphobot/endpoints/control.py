@@ -20,10 +20,10 @@ from phosphobot_old.control_signal import ControlSignal
 from phosphobot_old.utils import background_task_log_exceptions
 from scipy.spatial.transform import Rotation as R
 
-from phosphobot_old.ai_control import CustomAIControlSignal, setup_ai_control
-from phosphobot_old.camera import get_all_cameras
-from phosphobot_old.leader_follower import RobotPair, leader_follower_loop
-from phosphobot_old.models import (
+from phosphobot.ai_control import CustomAIControlSignal, setup_ai_control
+from phosphobot.camera import get_all_cameras
+from phosphobot.leader_follower import RobotPair, leader_follower_loop
+from phosphobot.models import (
     AIControlStatusResponse,
     AIStatusRequest,
     AIStatusResponse,
@@ -44,9 +44,9 @@ from phosphobot_old.models import (
     TorqueReadResponse,
     VoltageReadResponse,
 )
-from phosphobot_old.robot import RobotConnectionManager, SO100Hardware, get_rcm
-from phosphobot_old.supabase import get_client, user_is_logged_in
-from phosphobot_old.teleoperation import TeleopManager
+from phosphobot.robot import RobotConnectionManager, SO100Hardware, get_rcm
+from phosphobot.supabase import get_client, user_is_logged_in
+from phosphobot.teleoperation import TeleopManager
 
 # This is used to send numpy arrays as JSON to OpenVLA server
 json_numpy.patch()

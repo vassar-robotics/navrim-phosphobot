@@ -4,7 +4,7 @@ logger.info("Starting phosphobot...")
 
 from rich import print
 
-from phosphobot_old import __version__
+from phosphobot import __version__
 
 _splash_shown = False
 
@@ -30,7 +30,7 @@ print_phospho_splash()
 import platform
 import threading
 
-from phosphobot_old.utils import fetch_latest_brew_version
+from phosphobot.utils import fetch_latest_brew_version
 
 _version_check_started = False
 
@@ -72,7 +72,7 @@ def init_telemetry() -> None:
     """
     This is used for automatic crash reporting.
     """
-    from phosphobot_old.sentry import init_sentry
+    from phosphobot.sentry import init_sentry
 
     init_sentry()
 
@@ -144,7 +144,7 @@ def info(
 
     import cv2
 
-    from phosphobot_old.camera import get_all_cameras
+    from phosphobot.camera import get_all_cameras
 
     cameras = get_all_cameras()
     time.sleep(0.5)
@@ -156,7 +156,7 @@ def info(
         print(cv2.getBuildInformation())
 
     if servos:
-        from phosphobot_old.hardware.motors.feetech import dump_servo_states_to_file  # type: ignore
+        from phosphobot.hardware.motors.feetech import dump_servo_states_to_file  # type: ignore
         from phosphobot_old.utils import get_home_app_path
 
         # Diagnose SO-100 servos

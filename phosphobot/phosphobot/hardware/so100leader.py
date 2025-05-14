@@ -1,4 +1,4 @@
-from phosphobot_old.hardware import SO100Hardware
+from phosphobot.hardware import SO100Hardware
 import numpy as np
 
 

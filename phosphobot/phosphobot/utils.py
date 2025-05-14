@@ -16,7 +16,7 @@ from loguru import logger
 from phosphobot_old.configs import config
 from phosphobot_old.utils import get_home_app_path, parse_hf_username_or_orgid
 
-from phosphobot_old.models import ItemInfo
+from phosphobot.models import ItemInfo
 from dataclasses import dataclass
 
 

@@ -9,9 +9,9 @@ from loguru import logger
 from phosphobot_old.control_signal import ControlSignal
 from serial.tools.list_ports_common import ListPortInfo
 
-from phosphobot_old.hardware.base import BaseRobot
-from phosphobot_old.hardware.motors.feetech import FeetechMotorsBus  # type: ignore
-from phosphobot_old.utils import step_simulation
+from phosphobot.hardware.base import BaseRobot
+from phosphobot.hardware.motors.feetech import FeetechMotorsBus  # type: ignore
+from phosphobot.utils import step_simulation
 
 
 class SO100Hardware(BaseRobot):

@@ -1,5 +1,5 @@
 import numpy as np
-from phosphobot_old._version import __version__
+from phosphobot._version import __version__
 from phosphobot_old.types import VideoCodecs
 from phosphobot_old.models import AllCamerasStatus
 from typing import Dict, List, Literal, Optional

@@ -5,9 +5,9 @@ import subprocess
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from loguru import logger
 
-from phosphobot_old.models import NetworkCredentials
-from phosphobot_old.utils import is_running_on_pi
-from phosphobot_old.utils import background_task_log_exceptions
+from phosphobot.models import NetworkCredentials
+from phosphobot.utils import is_running_on_pi
+from phosphobot.utils import background_task_log_exceptions
 
 router = APIRouter(tags=["networking"])
 

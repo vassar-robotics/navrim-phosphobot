@@ -1,5 +1,5 @@
 from typing import Optional
-from phosphobot_old.hardware.koch11 import KochHardware
+from phosphobot.hardware.koch11 import KochHardware
 import numpy as np
 from importlib.resources import files
 from serial.tools.list_ports_common import ListPortInfo

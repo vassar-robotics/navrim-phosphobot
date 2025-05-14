@@ -7,7 +7,7 @@ import pybullet as p
 from loguru import logger
 from phosphobot_old.control_signal import ControlSignal
 
-from phosphobot_old.hardware import SO100Hardware
+from phosphobot.hardware import SO100Hardware
 
 
 @dataclass

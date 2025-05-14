@@ -16,7 +16,7 @@ from dynamixel_sdk import (
 from loguru import logger
 from serial.tools.list_ports_common import ListPortInfo
 
-from phosphobot_old.hardware.base import BaseRobot
+from phosphobot.hardware.base import BaseRobot
 
 
 class KochHardware(BaseRobot):

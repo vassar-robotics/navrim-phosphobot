@@ -13,19 +13,19 @@ from phosphobot_old.models.dataset import InfoModel
 from phosphobot_old.recorder import Recorder
 from phosphobot_old.utils import background_task_log_exceptions, get_home_app_path
 
-from phosphobot_old.camera import get_all_cameras
-from phosphobot_old.models import (
+from phosphobot.camera import get_all_cameras
+from phosphobot.models import (
     RecordingPlayRequest,
     RecordingStartRequest,
     RecordingStopRequest,
     RecordingStopResponse,
     StatusResponse,
 )
-from phosphobot_old.recorder import get_recorder
-from phosphobot_old.robot import RobotConnectionManager, get_rcm
+from phosphobot.recorder import get_recorder
+from phosphobot.robot import RobotConnectionManager, get_rcm
 from copy import copy
 
-from phosphobot_old.posthog import is_github_actions
+from phosphobot.posthog import is_github_actions
 
 router = APIRouter(tags=["recording"])
 

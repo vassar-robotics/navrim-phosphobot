@@ -13,7 +13,7 @@ from phosphobot_old.utils import (
     parse_hf_username_or_orgid,
 )
 
-from phosphobot_old.models import (
+from phosphobot.models import (
     AdminSettingsRequest,
     AdminSettingsResponse,
     AdminSettingsTokenResponse,
@@ -28,7 +28,7 @@ from phosphobot_old.models import (
     VizSettingsResponse,
     WandBTokenRequest,
 )
-from phosphobot_old.utils import (
+from phosphobot.utils import (
     get_dashboard_path,
     is_running_on_pi,
     list_directory_items,

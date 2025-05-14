@@ -1,7 +1,7 @@
 import sentry_sdk
-from phosphobot_old._version import __version__
-from phosphobot_old.telemetry import TELEMETRY
-from phosphobot_old.utils import get_tokens
+from phosphobot._version import __version__
+from phosphobot.telemetry import TELEMETRY
+from phosphobot.utils import get_tokens
 
 
 def init_sentry():

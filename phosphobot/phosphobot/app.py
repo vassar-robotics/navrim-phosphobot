@@ -16,9 +16,9 @@ from phosphobot_old.configs import config
 from phosphobot_old.recorder import Recorder
 from rich import print
 
-from phosphobot_old import __version__
-from phosphobot_old.camera import AllCameras, get_all_cameras
-from phosphobot_old.endpoints import (
+from phosphobot import __version__
+from phosphobot.camera import AllCameras, get_all_cameras
+from phosphobot.endpoints import (
     auth_router,
     camera_router,
     control_router,
@@ -28,20 +28,20 @@ from phosphobot_old.endpoints import (
     training_router,
     update_router,
 )
-from phosphobot_old.hardware import simulation_init, simulation_stop
-from phosphobot_old.models import ServerStatus
-from phosphobot_old.posthog import posthog, posthog_pageview
-from phosphobot_old.recorder import get_recorder
-from phosphobot_old.robot import RobotConnectionManager, get_rcm
-from phosphobot_old.teleoperation import UDPServer
-from phosphobot_old.utils import get_dashboard_path, get_resources_path, login_to_hf
+from phosphobot.hardware import simulation_init, simulation_stop
+from phosphobot.models import ServerStatus
+from phosphobot.posthog import posthog, posthog_pageview
+from phosphobot.recorder import get_recorder
+from phosphobot.robot import RobotConnectionManager, get_rcm
+from phosphobot.teleoperation import UDPServer
+from phosphobot.utils import get_dashboard_path, get_resources_path, login_to_hf
 
 
 def init_telemetry() -> None:
     """
     This is used for automatic crash reporting.
     """
-    from phosphobot_old.sentry import init_sentry
+    from phosphobot.sentry import init_sentry
 
     init_sentry()
 
@@ -95,7 +95,7 @@ async def lifespan(app: FastAPI):
         if cameras:
             cameras.stop()
             logger.info("Cameras stopped")
-        from phosphobot_old.endpoints.control import (
+        from phosphobot.endpoints.control import (
             ai_control_signal,
             gravity_control,
             leader_follower_control,
@@ -170,7 +170,7 @@ async def status(
     """
     Get the status of the server.
     """
-    from phosphobot_old.endpoints.control import (
+    from phosphobot.endpoints.control import (
         ai_control_signal,
         leader_follower_control,
     )

@@ -4,8 +4,8 @@ import platform
 
 from fastapi import APIRouter, HTTPException
 
-from phosphobot_old._version import __version__
-from phosphobot_old.utils import fetch_latest_brew_version, is_running_on_pi
+from phosphobot._version import __version__
+from phosphobot.utils import fetch_latest_brew_version, is_running_on_pi
 
 router = APIRouter(tags=["update"])
 
