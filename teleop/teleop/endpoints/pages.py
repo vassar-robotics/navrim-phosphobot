@@ -22,6 +22,7 @@ from teleop.models import (
     DatasetListResponse,
     DeleteEpisodeRequest,
     HuggingFaceTokenRequest,
+    MergeDatasetsRequest,
     ModelVideoKeysRequest,
     ModelVideoKeysResponse,
     StatusResponse,
@@ -281,6 +282,69 @@ async def delete_dataset(request: Request, path: str):
 
     dataset = Dataset(path=dataset_path)
     dataset.delete()
+
+    return StatusResponse(status="ok")
+
+
+@router.post("/dataset/merge")
+async def merge_datasets(merge_request: MergeDatasetsRequest):
+    """
+    Merge two datasets into one.
+    """
+    # Validation
+    # 1 - Check that there are more than 1 dataset
+    # 2 - Check that the datasets are of the same type, v2 or v2.1
+    # 3 - Check that the datasets are not empty
+    # 4 - Check that the datasets are not the same
+
+    # 1
+    if len(merge_request.datasets) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="You must select at least two datasets to merge.",
+        )
+
+    # 2
+    dataset_type = None
+    for dataset in merge_request.datasets:
+        if dataset_type is None:
+            dataset_type = dataset.split("/")[0]
+        elif dataset.split("/")[0] != dataset_type:
+            raise HTTPException(
+                status_code=400,
+                detail="You can only merge datasets of the same type (v2 or v2.1).",
+            )
+
+    # 3
+    for dataset in merge_request.datasets:
+        dataset_path = os.path.join(ROOT_DIR, dataset)
+        if not os.path.exists(dataset_path) or not os.path.isdir(dataset_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Dataset {dataset} not found",
+            )
+        # Check that the dataset is not empty
+        if len(os.listdir(dataset_path)) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Dataset {dataset} is empty.",
+            )
+
+    # 4
+    if len(set(merge_request.datasets)) != len(merge_request.datasets):
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot merge the same dataset.",
+        )
+
+    # Merge the datasets
+
+    # initial_dataset = Dataset(path=os.path.join(ROOT_DIR, merge_request.datasets[0]))
+    # initial_dataset.merge_datasets(
+    #     datasets=[
+    #         os.path.join(ROOT_DIR, dataset) for dataset in merge_request.datasets[1:]
+    #     ]
+    # )
 
     return StatusResponse(status="ok")
 

@@ -166,7 +166,25 @@ export default function FileBrowser() {
     mutate();
   };
 
-
+  const mergeMultipleDatasets = async () => {
+    if (selectedItems.length === 0) {
+      toast.error("No datasets selected for merging");
+      return;
+    }
+    fetchWithBaseUrl(
+      `/dataset/merge`,
+      "POST",
+      { datasets: selectedItems }
+    ).then((response) => {
+      if (response.status !== "ok") {
+        toast.error("Failed to merge datasets");
+      } else {
+        toast.success("Datasets merged successfully");
+        mutate();
+        redirect(path);
+      }
+    });
+  };
 
   const handleDeleteEpisode = async () => {
     // Ensure an episode is selected.
@@ -418,8 +436,17 @@ export default function FileBrowser() {
       )}
 
       {selectedItems.length > 0 && (path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1")) && (
-        <div className="mb-4 mt-6">
+        <div className="flex flex-row">
           <Button
+            className="mb-4 mt-6"
+            variant="outline"
+            onClick={() => mergeMultipleDatasets()}
+          >
+            <Repeat className="mr-2 h-4 w-3" />
+            Merge Selected Datasets
+          </Button>
+          <Button
+            className="mb-4 mt-6 ml-2"
             variant="destructive"
             onClick={() => setConfirmDeleteOpen(true)}
           >
@@ -427,7 +454,8 @@ export default function FileBrowser() {
             Delete Selected Datasets
           </Button>
         </div>
-      )}
+      )
+      }
 
       {/* Dataset deletion dialog */}
       <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
@@ -503,6 +531,6 @@ export default function FileBrowser() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }

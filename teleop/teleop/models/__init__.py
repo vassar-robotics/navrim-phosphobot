@@ -637,6 +637,11 @@ class VizSettingsResponse(BaseModel):
     quality: int
 
 
+class MergeDatasetsRequest(BaseModel):
+    # Contains a list of dataset paths to merge
+    datasets: list[str]
+
+
 class DatasetListResponse(BaseModel):
     """
     List of datasets
