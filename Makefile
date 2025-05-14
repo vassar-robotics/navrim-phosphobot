@@ -9,7 +9,7 @@ all: prod
 
 # Run the server for prod settings (able to connect to the Meta Quest). If npm is not installed, it will skip the build step.
 prod:
-	cd ./dashboard && ((npm i && npm run build && cp -r ./dist/* ../phosphobot/resources/dist/) || echo "npm command failed, continuing anyway") 
+	cd ./dashboard && ((npm i && npm run build && mkdir -p ../phosphobot/resources/dist/ && cp -r ./dist/* ../phosphobot/resources/dist/) || echo "npm command failed, continuing anyway") 
 	cd phosphobot && uv run phosphobot run --simulation=headless --no-telemetry
 
 # Run the server for prod settings with the simulation enabled

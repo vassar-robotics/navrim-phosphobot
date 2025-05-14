@@ -478,6 +478,9 @@ jobs:
           npm run build 
           $sourcePath = Join-Path -Path "phosphobot/resources/dist" -ChildPath "*"
           $destinationPath = Join-Path -Path "phosphobot" -ChildPath "resources/dist"
+          if (!(Test-Path $destinationPath)) {
+            New-Item -ItemType Directory -Force -Path $destinationPath
+          }
           Copy-Item -Path $sourcePath -Destination $destinationPath -Recurse -Force
 
       # Rest of your steps with corrected paths
