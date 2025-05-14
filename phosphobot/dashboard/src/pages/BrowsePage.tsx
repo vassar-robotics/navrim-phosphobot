@@ -403,7 +403,7 @@ export default function FileBrowser() {
         redirect(path);
       }
     });
-    setMergeModalOpen(true);
+    setMergeModalOpen(false);
   };
 
   const handleDeleteEpisode = async () => {
