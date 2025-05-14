@@ -8,7 +8,7 @@ from loguru import logger
 from huggingface_hub import HfApi
 from abc import abstractmethod, ABC
 from typing import Literal, Optional
-from phosphobot_old.models import InfoModel
+from phosphobot.models import InfoModel
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 

@@ -10,9 +10,8 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from loguru import logger
-from phosphobot_old.camera import AllCameras
 
-from phosphobot.camera import get_all_cameras
+from phosphobot.camera import AllCameras, get_all_cameras
 
 router = APIRouter(tags=["camera"])
 

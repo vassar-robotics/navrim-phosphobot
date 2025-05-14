@@ -2,7 +2,7 @@ from lerobot.common.robot_devices.motors.dynamixel import DynamixelMotorsBus
 from lerobot.common.robot_devices.robots.manipulator import ManipulatorRobot
 import numpy as np
 
-from phosphobot_old.robot import RobotConnectionManager
+from phosphobot.robot import RobotConnectionManager
 
 rcm = RobotConnectionManager()
 

@@ -17,8 +17,8 @@ from utils import compare_angles_radian, move_robot_testing
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from phosphobot_old.configs import config
-from phosphobot_old.types import SimulationMode
+from phosphobot.configs import config
+from phosphobot.types import SimulationMode
 from phosphobot.hardware import KochHardware, SO100Hardware, simulation_init
 from phosphobot.hardware.base import BaseRobot
 

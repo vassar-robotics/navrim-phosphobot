@@ -1,4 +1,5 @@
 import sentry_sdk
+
 from phosphobot._version import __version__
 from phosphobot.telemetry import TELEMETRY
 from phosphobot.utils import get_tokens

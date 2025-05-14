@@ -6,9 +6,9 @@ import httpx
 from fastapi import HTTPException
 from loguru import logger
 import numpy as np
-from phosphobot_old.am.act import ACT, ACTSpawnConfig
-from phosphobot_old.am.gr00t import Gr00tN1, Gr00tSpawnConfig
-from phosphobot_old.control_signal import AIControlSignal
+from phosphobot.am.act import ACT, ACTSpawnConfig
+from phosphobot.am.gr00t import Gr00tN1, Gr00tSpawnConfig
+from phosphobot.control_signal import AIControlSignal
 
 from phosphobot.camera import AllCameras
 from phosphobot.hardware.base import BaseRobot

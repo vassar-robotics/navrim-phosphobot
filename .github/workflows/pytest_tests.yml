@@ -68,6 +68,9 @@ jobs:
           working-directory: phosphobot/dashboard
 
       - name: Build dashboard frontend
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: make build_frontend
 
       - name: Check that the frontend build was successful (dist folder not empty)

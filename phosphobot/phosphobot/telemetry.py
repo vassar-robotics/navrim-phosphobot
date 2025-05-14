@@ -1,3 +1,3 @@
-from phosphobot_old.configs import config
+from phosphobot.configs import config
 
 TELEMETRY = config.TELEMETRY

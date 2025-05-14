@@ -17,12 +17,12 @@ import os
 from huggingface_hub import HfApi, snapshot_download
 import json
 
-from phosphobot_old.am.base import ActionModel, BaseTrainer
-from phosphobot_old.camera import AllCameras
-from phosphobot_old.control_signal import AIControlSignal
-from phosphobot_old.models.dataset import BaseRobot
-from phosphobot_old.utils import background_task_log_exceptions, get_hf_token
-from phosphobot_old.am.base import (
+from phosphobot.am.base import ActionModel, BaseTrainer
+from phosphobot.camera import AllCameras
+from phosphobot.control_signal import AIControlSignal
+from phosphobot.models.dataset import BaseRobot
+from phosphobot.utils import background_task_log_exceptions, get_hf_token
+from phosphobot.am.base import (
     HuggingFaceTokenValidator,
     generate_readme,
     resize_dataset,

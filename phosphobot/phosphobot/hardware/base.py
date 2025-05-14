@@ -8,7 +8,7 @@ from typing import List, Literal, Optional, Union
 import numpy as np
 import pybullet as p  # type: ignore
 from loguru import logger
-from phosphobot_old.models import (
+from phosphobot.models import (
     BaseRobotConfig,
     BaseRobotInfo,
     FeatureDetails,
@@ -16,7 +16,7 @@ from phosphobot_old.models import (
 from scipy.spatial.transform import Rotation as R  # type: ignore
 from serial.tools.list_ports_common import ListPortInfo
 
-from phosphobot_old.configs import SimulationMode, config
+from phosphobot.configs import SimulationMode, config
 from phosphobot.models import RobotConfigStatus
 from phosphobot.utils import (
     euler_from_quaternion,

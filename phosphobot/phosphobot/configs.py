@@ -9,8 +9,8 @@ import yaml  # type: ignore
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from phosphobot_old.types import SimulationMode, VideoCodecs
-from phosphobot_old.utils import get_home_app_path
+from phosphobot.types import SimulationMode, VideoCodecs
+from phosphobot.utils import get_home_app_path
 
 YAML_CONFIG_PATH = str(get_home_app_path() / "config.yaml")
 
