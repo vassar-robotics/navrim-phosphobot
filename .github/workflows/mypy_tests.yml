@@ -6,20 +6,20 @@ on:
     branches:
       - main
     paths:
-      - "teleop/**"
+      - "phosphobot/**"
       - "phosphobot-python/**"
   push:
     branches:
       - main
     paths:
-      - "teleop/**"
+      - "phosphobot/**"
       - "phosphobot-python/**"
 
 permissions:
   contents: read
 
 jobs:
-  mypy_phosphobot_tests:
+  mypy_phosphobot_python_tests:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -43,11 +43,11 @@ jobs:
       - name: Run mypy
         run: uv run mypy . --follow-imports=silent || exit 1
 
-  mypy_teleop_tests:
+  mypy_phosphobot_tests:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: teleop/
+        working-directory: phosphobot/
     steps:
       - uses: actions/checkout@v4
 
@@ -75,7 +75,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
-          cache-dependency-glob: "teleop/pyproject.toml"
+          cache-dependency-glob: "phosphobot/pyproject.toml"
 
       - name: Set up Python
         run: uv python pin 3.11 && uv python install
