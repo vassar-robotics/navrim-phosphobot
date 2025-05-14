@@ -1157,7 +1157,7 @@ Falling back to simulation mode.
             - joints_position: np.array joints position of the robot
         """
 
-        from phosphobot_old.endpoints.control import (
+        from phosphobot.endpoints.control import (
             ai_control_signal,
             leader_follower_control,
             vr_control_signal,
