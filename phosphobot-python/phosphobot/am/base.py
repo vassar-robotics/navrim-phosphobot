@@ -401,3 +401,13 @@ def resize_dataset(
     except Exception as e:
         logger.error(f"Error resizing videos: {e}")
         return False, False
+
+
+class BaseTrainer(ABC):
+    """
+    Currently only implemented for gr00t.
+    """
+
+    @abstractmethod
+    def train(self):
+        pass

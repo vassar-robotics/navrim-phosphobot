@@ -50,6 +50,22 @@ In the phosphobot folder, still in the `gr00t` conda environment, run:
 python scripts/gr00t/train.py --dataset-id YOUR-DATASET-ID
 ```
 
+Or simply in pure python:
+
+```python
+from pathlib import Path
+from phosphobot.am import Gr00tTrainerConfig, Gr00tTrainer
+
+config = Gr00tTrainerConfig(
+    # Path to the Isaac-GR00T repo
+    path_to_gr00t_repo="Isaac-GR00T/",
+    dataset_id="YOUR_USERNAME/YOUR_DATASET_ID",
+)
+
+trainer = Gr00tTrainer(config)
+trainer.train()
+```
+
 Adjust the batch size to use as much as possible of the GPU memory.
 If you encounter an Out of Memory error, try to reduce the batch size.
 
