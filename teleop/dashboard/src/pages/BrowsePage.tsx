@@ -8,6 +8,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -87,20 +87,6 @@ interface BrowseData {
   episode_paths?: string[];
 }
 
-// const handleRevealInFinder = (path: string) => {
-//   // `item.path` should be the absolute path to the file or directory on the user's local system
-//   // If it's a file, extract the containing directory; if it's a directory, use it directly
-//   const directoryPath = path.endsWith("/")
-//     ? path
-//     : path.substring(0, path.lastIndexOf("/"));
-
-//   // Construct the file:// URL for the directory
-//   const fileUrl = `file://${directoryPath}`;
-
-//   // Open the URL in a new tab/window, which may trigger the file explorer
-//   window.open(fileUrl, "_blank");
-// };
-
 export default function FileBrowser() {
   const params = useParams();
   const [searchParams] = useSearchParams();
@@ -108,17 +94,18 @@ export default function FileBrowser() {
 
   const { data, error, mutate } = useSWR<BrowseData>(
     ["/files", path],
-    ([url]) => fetcher(url, "POST", { path }),
+    ([url]) => fetcher(url, "POST", { path })
   );
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmEpisodeDeleteOpen, setConfirmEpisodeDeleteOpen] =
     useState(false);
-  const [selectedItem, setSelectedItem] = useState<FileItem | null>(null);
   const [selectedEpisode, setSelectedEpisode] = useState("");
   const leaderArmSerialIds = useGlobalStore(
     (state) => state.leaderArmSerialIds,
   );
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+
 
   // Loading state for episode deletion
   const [loadingDeleteEpisode, setLoadingDeleteEpisode] = useState(false);
@@ -146,10 +133,40 @@ export default function FileBrowser() {
 
   if (!data) return <LoadingPage />;
 
-  const handleDeleteDataset = (item: FileItem) => {
-    setSelectedItem(item);
-    setConfirmDeleteOpen(true);
+  const handleSelectItem = (path: string) => {
+    setSelectedItems((prev) => {
+      if (prev.includes(path)) {
+        return prev.filter((item) => item !== path);
+      } else {
+        return [...prev, path];
+      }
+    }
+    );
   };
+
+  const handleDeleteMultipleDatasets = async () => {
+    if (selectedItems.length === 0) {
+      toast.error("No datasets selected for deletion");
+      return;
+    }
+    const deletePromises = selectedItems.map(async (item) => {
+      const resp = await fetchWithBaseUrl(
+        `/dataset/delete?path=${encodeURIComponent(item)}`,
+        "POST",
+      );
+      if (resp.status !== "ok") {
+        toast.error(`Failed to delete dataset: ${item}`);
+        return;
+      }
+      toast.success(`Dataset deleted successfully: ${item}`);
+    });
+    await Promise.all(deletePromises);
+    setConfirmDeleteOpen(false);
+    setSelectedItems([]);
+    mutate();
+  };
+
+
 
   const handleDeleteEpisode = async () => {
     // Ensure an episode is selected.
@@ -177,43 +194,6 @@ export default function FileBrowser() {
       episode_path,
       robot_serials_to_ignore,
     });
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!selectedItem) return;
-
-    try {
-      const resp = await fetchWithBaseUrl(
-        `/dataset/delete?path=${encodeURIComponent(selectedItem.path)}`,
-        "POST",
-      );
-
-      if (resp.status !== "ok") {
-        toast.error("Failed to delete dataset");
-        return;
-      }
-
-      toast.success("Dataset deleted successfully");
-      mutate();
-      setConfirmDeleteOpen(false);
-      setSelectedItem(null);
-
-      // split on both "/" and "\\" so it works on Windows & POSIX
-      const segments = selectedItem.path.split(/[/\\]+/).filter(Boolean);
-      const parentSegments = segments.slice(0, -1);
-      const parentPath = parentSegments.length
-        ? parentSegments.join("/") // always join with "/" for URLs
-        : "";
-
-      if (parentPath) {
-        redirect(parentPath);
-      } else {
-        redirect("/browse");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("An unexpected error occurred");
-    }
   };
 
   const handlePushToHub = async (item: FileItem) => {
@@ -276,6 +256,7 @@ export default function FileBrowser() {
       <Table className="bg-background rounded-lg">
         <TableHeader>
           <TableRow>
+            <TableCell className="w-[50px]" />
             <TableCell>Name</TableCell>
             <TableCell></TableCell>
           </TableRow>
@@ -283,6 +264,17 @@ export default function FileBrowser() {
         <TableBody>
           {data.items.map((item) => (
             <TableRow key={item.path}>
+              {/* Show checkbox only if path ends with 'lerobot_v2.1' or lerobot_v2 */}
+              <TableCell className="w-[50px]">
+                {item.is_dataset_dir ? (
+                  <Checkbox
+                    checked={selectedItems.includes(item.path)}
+                    onCheckedChange={() => handleSelectItem(item.path)}
+                    aria-label={`Select ${item.name}`}
+                    key={item.path}
+                  />
+                ) : null}
+              </TableCell>
               <TableCell>
                 <Link
                   to={item.browseUrl}
@@ -369,18 +361,6 @@ export default function FileBrowser() {
                             </a>
                           </DropdownMenuItem>
                         )}
-                        {item.canDeleteDataset && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteDataset(item)}
-                              className="text-red-500 focus:text-destructive cursor-pointer"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4 text-red-500" />
-                              Delete dataset
-                            </DropdownMenuItem>
-                          </>
-                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}
@@ -437,15 +417,35 @@ export default function FileBrowser() {
         </div>
       )}
 
+      {selectedItems.length > 0 && (path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1")) && (
+        <div className="mb-4 mt-6">
+          <Button
+            variant="destructive"
+            onClick={() => setConfirmDeleteOpen(true)}
+          >
+            <Trash2 className="mr-2 h-4 w-3" />
+            Delete Selected Datasets
+          </Button>
+        </div>
+      )}
+
       {/* Dataset deletion dialog */}
       <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Delete Dataset</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the dataset{" "}
-              <strong>{selectedItem?.name}</strong>? This action cannot be
-              undone.
+              Are you sure you want to delete the selected datasets:
+              <br />
+              {selectedItems.length > 0
+                ? selectedItems.map((item) => (
+                  <span key={item}>
+                    <strong>{item}</strong>
+                    <br />
+                  </span>
+                ))
+                : null}
+              This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -455,7 +455,7 @@ export default function FileBrowser() {
             >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
+            <Button variant="destructive" onClick={handleDeleteMultipleDatasets}>
               Delete
             </Button>
           </DialogFooter>
