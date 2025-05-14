@@ -13,11 +13,6 @@ from loguru import logger
 
 @dataclass
 class Config:
-    """
-    If no indexes_to_delete is provided, will attempt to repair the dataset.
-    If indexes_to_delete is provided, will delete the specified indexes from the dataset and repair the rest.
-    """
-
     output_dir: str = "outputs/"
     """the directory to load the model from (or save the model to if downloading)"""
 
