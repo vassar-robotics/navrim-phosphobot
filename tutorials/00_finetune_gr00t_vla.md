@@ -38,6 +38,7 @@ Get an access token from [here](https://huggingface.co/settings/tokens) and run:
 ```bash
 huggingface-cli login
 ```
+
 Follow the instructions to login.
 
 You should now have a working environment to finetune the model in `gr00t` conda environment.
@@ -54,7 +55,7 @@ Or simply in pure python:
 
 ```python
 from pathlib import Path
-from phosphobot.am import Gr00tTrainerConfig, Gr00tTrainer
+from phosphobot_old.am import Gr00tTrainerConfig, Gr00tTrainer
 
 config = Gr00tTrainerConfig(
     # Path to the Isaac-GR00T repo
@@ -98,7 +99,7 @@ python scripts/gr00t/serve.py --model-path /outputs
 
 If you are using a remote machine, make sure the port (5555 by default) is open.
 
-To control your local robot, we will use `phosphobot`. 
+To control your local robot, we will use `phosphobot`.
 If you haven't already, install it with:
 
 ```bash
@@ -149,7 +150,7 @@ After running the installation commands, try restarting your machine:
 sudo reboot
 ```
 
-## Acknowledgements 
+## Acknowledgements
 
 - the NVIDIA team for providing the GR00T model and most of the code for the finetuning. Link to the original repo [here](https://github.com/NVIDIA/Isaac-GR00T).
 - the LeRobot team for the dataset format. Link to the original repo [here](https://github.com/huggingface/lerobot).

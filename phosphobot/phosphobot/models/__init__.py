@@ -1,0 +1,851 @@
+import numpy as np
+from phosphobot._version import __version__
+from phosphobot_old.types import VideoCodecs
+from phosphobot_old.models import AllCamerasStatus
+from typing import Dict, List, Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class RobotConfigStatus(BaseModel):
+    """
+    Contains the configuration of a robot.
+    """
+
+    name: str
+    usb_port: str | None
+
+
+class ServerStatus(BaseModel):
+    """Contains the status of the app"""
+
+    status: Literal["ok", "error"]
+    name: str
+    robots: List[str] = Field(default_factory=list, deprecated=True)
+    robot_status: List[RobotConfigStatus] = Field(default_factory=list)
+    cameras: AllCamerasStatus = Field(default_factory=AllCamerasStatus)
+    version_id: str = Field(
+        default=__version__, description="Current version of the teleoperation server"
+    )
+    is_recording: bool = Field(
+        False, description="Whether the server is currently recording an episode."
+    )
+    ai_running_status: Literal["stopped", "running", "paused", "waiting"] = Field(
+        "stopped",
+        description="Whether the robot is currently controlled by an AI model.",
+    )
+    server_ip: str = Field(
+        ..., description="IP address of the server", examples=["192.168.1.X"]
+    )
+    leader_follower_status: bool = Field(
+        False,
+        description="Whether the leader-follower control is currently active.",
+    )
+
+
+class RobotStatus(BaseModel):
+    """
+    Contains the status of the robot and the number of actions received in one second
+    This is sent by the robot to the app.
+    """
+
+    is_object_gripped: bool | None = None
+    is_object_gripped_source: Literal["left", "right"] | None = None
+    nb_actions_received: int
+
+
+class EndEffectorPosition(BaseModel):
+    """
+    End effector position for a movement in absolute frame.
+    All zeros means the initial position, that you get by calling /move/init
+    """
+
+    x: float = Field(description="X position in centimeters")
+    y: float = Field(description="Y position in centimeters")
+    z: float = Field(description="Z position in centimeters")
+    rx: float = Field(description="Absolute Pitch in degrees")
+    ry: float = Field(description="Absolute Yaw in degrees")
+    rz: float = Field(description="Absolute Roll in degrees")
+    open: float = Field(description="0 for closed, 1 for open")
+
+
+class MoveAbsoluteRequest(BaseModel):
+    """
+    Move the robot to an absolute position. All zeros means the initial position,
+    that you get by calling /move/init.
+    """
+
+    x: float = Field(description="X position in centimeters")
+    y: float = Field(description="Y position in centimeters")
+    z: float = Field(description="Z position in centimeters")
+    rx: float | None = Field(
+        None,
+        description="Absolute Pitch in degrees. If None, inverse kinematics will be used to calculate the best position.",
+    )
+    ry: float | None = Field(
+        None,
+        description="Absolute Yaw in degrees. If None, inverse kinematics will be used to calculate the best position.",
+    )
+    rz: float | None = Field(
+        None,
+        description="Absolute Roll in degrees. If None, inverse kinematics will be used to calculate the best position.",
+    )
+    open: float = Field(description="0 for closed, 1 for open")
+
+    max_trials: int = Field(
+        10,
+        ge=1,
+        description="The maximum number of trials to reach the target position.",
+    )
+    position_tolerance: float = Field(
+        0.03,
+        ge=0,
+        description="Increase max_trials and decrease tolerance to get more precision."
+        + "Position tolerance is the euclidean distance between the target and the current position.",
+    )
+    orientation_tolerance: float = Field(
+        0.2,
+        ge=0,
+        description="Increase max_trials and decrease tolerance to get more precision."
+        + "Orientation tolerance is the euclidean distance between the target and the current orientation.",
+    )
+
+
+class AppControlData(BaseModel):
+    """
+    Type of data sent by the Metaquest app.
+    """
+
+    x: float
+    y: float
+    z: float
+    rx: float = Field(description="Absolute Pitch in degrees")
+    ry: float = Field(description="Absolute Yaw in degrees")
+    rz: float = Field(description="Absolute Roll in degrees")
+    open: float = Field(description="0 for closed, 1 for open")
+    source: Literal["left", "right"] = Field(
+        "right", description="Which hand the data comes from. Can be left or right."
+    )
+    timestamp: float | None = Field(
+        None, description="Unix timestamp with milliseconds"
+    )
+
+    def is_null(self, eps: float = 1e-6) -> bool:
+        """
+        Return True if the data received is null (below a certain threshold)
+        """
+        return (
+            self.x < eps
+            and self.y < eps
+            and self.z < eps
+            and self.rx < eps
+            and self.ry < eps
+            and self.rz < eps
+            and self.open == 0
+        )
+
+    def has_null_position(self) -> bool:
+        return self.x == 0 and self.y == 0 and self.z == 0
+
+    def has_null_orientation(self) -> bool:
+        return self.rx == 0 and self.ry == 0 and self.rz == 0
+
+    def to_robot(
+        self, robot_name: str = "so-100"
+    ) -> tuple[np.ndarray, np.ndarray, float]:
+        """
+        Convert the MetaQuest data to the robot referential.
+
+        - y and z are inverted
+        - ry and rz are inverted
+        - we take the opposite of ry for rz as the base is inverted
+
+        This mutates the object.
+
+        This returns a tuple with the position, orientation and gripper state.
+        """
+        # TODO:This function should become a more generic config that depends on a
+        # succession of instructions at the beginning.
+        # Example : please move your arm sideways as much as you can, then up and down, etc.
+        # These will we used to calibrate the robot and the MetaQuest.
+        # The calibration has to be saved in a file and loaded at the beginning of the program.
+
+        # Unity axis and robot axis are different
+        position = np.array([self.x, self.z, self.y])
+
+        # Pitch axis is inverted in RollPitchYaw: https://simple.wikipedia.org/wiki/Pitch,_yaw,_and_roll
+        if robot_name == "wx-250s" or robot_name == "koch-v1.1":
+            orientation = np.array([-self.rx, -self.rz, -self.ry])
+        else:  # SO-100 configuration
+            orientation = np.array([-self.rx, -self.rz, -self.ry])
+
+        orientation = np.mod(orientation + 180, 360) - 180
+
+        return position, orientation, self.open
+
+
+class RelativeEndEffectorPosition(BaseModel):
+    """
+    Relative end effector position for a movement in relative frame.
+    Useful for OpenVLA-like control.
+    """
+
+    ### How we store the robot state for dataset generation ###
+    # Dataset are in RDLS format like the Bridge Data V2 dataset
+    # See https://github.com/google-research/rlds for more information
+
+    x: float = Field(description="Delta X position in centimeters")
+    y: float = Field(description="Delta Y position in centimeters")
+    z: float = Field(description="Delta Z position in centimeters")
+    rx: float = Field(description="Relative Pitch in degrees")
+    ry: float = Field(description="Relative Yaw in degrees")
+    rz: float = Field(description="Relative Roll in degrees")
+    open: float
+
+    def init(self, np_array: np.ndarray) -> None:
+        if np_array.shape != (7,):
+            raise ValueError("Invalid array shape")
+
+        self.x = np_array[0]
+        self.y = np_array[1]
+        self.z = np_array[2]
+        self.rx = np_array[3]
+        self.ry = np_array[4]
+        self.rz = np_array[5]
+        self.open = np_array[6]
+
+
+class EmoteRequest(BaseModel):
+    """
+    Emote supported by the application.
+    """
+
+    emote_name: Literal["wave", "dance", "bow"] = Field(
+        ...,
+        description="Name of the emote to play. See the list of emotes in the documentation.",
+        examples=["wave", "dance", "bow"],
+    )
+
+
+class AutoControlRequest(BaseModel):
+    """
+    Launch an auto control with a request to the OpenVLA or ACT server.
+    """
+
+    type_of_model: Literal["act", "openvla", "pi0"] = Field(
+        ..., description="Type of model, either OpenVLA or ACT"
+    )
+    size_of_images: Optional[tuple[int, int]] = Field(
+        None,
+        description="Size of the images to send to the model (the size it was trained with)",
+    )
+    instruction: Optional[str] = Field(
+        None, description="Prompt to be followed by the robot when using OpenVLA"
+    )
+    robot_ids: List[int] = Field(
+        [0], description="List of robot ids to control, in order, defaults to [0]"
+    )
+
+
+class CalibrateResponse(BaseModel):
+    """
+    Response from the calibration endpoint.
+    """
+
+    calibration_status: Literal["error", "success", "in_progress"] = Field(
+        ...,
+        description="Status of the calibration. Ends when status is success or error.",
+    )
+    message: str
+    current_step: int
+    total_nb_steps: int
+
+
+class JointsWriteRequest(BaseModel):
+    """
+    Request to set the joints of the robot.
+    """
+
+    angles: List[float] = Field(
+        ...,
+        description="A list with the position of each joint. The length of the list must be equal to the number of joints. The unit is given by the 'unit' field.",
+    )
+    unit: Literal["rad", "motor_units", "degrees"] = Field(
+        "rad",
+        description="The unit of the angles. Defaults to radian.",
+    )
+    joints_ids: List[int] | None = Field(
+        None,
+        description="If set, only set the joints with these ids. If None, set all joints."
+        "Example: 'angles'=[1,1,1], 'joints_ids'=[0,1,2] will set the first 3 joints to 1 radian.",
+    )
+
+
+class JointsReadResponse(BaseModel):
+    """
+    Response to read the joints of the robot.
+    """
+
+    angles_rad: List[float] = Field(
+        ...,
+        description="A list of length 6, with the position of each joint in radian.",
+    )
+    angles_motor_units: List[int] = Field(
+        ...,
+        description="A list of length 6, with the position of each joint in motor units.",
+    )
+
+
+class TorqueReadResponse(BaseModel):
+    """
+    Response to read the torque of the robot.
+    """
+
+    current_torque: List[float] = Field(
+        ...,
+        description="A list of length 6, with the current torque of each joint.",
+    )
+
+
+class VoltageReadResponse(BaseModel):
+    """
+    Response to read the torque of the robot.
+    """
+
+    current_voltage: List[float] | None = Field(
+        ...,
+        description="A list of length 6, with the current voltage of each joint. If the robot is not connected, this will be None.",
+    )
+
+
+class StatusResponse(BaseModel):
+    """
+    Default response. May contain other fields.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    status: Literal["ok", "error"] = "ok"
+    message: str | None = None
+
+
+class ServerInfoResponse(BaseModel):
+    server_id: int
+    url: str
+    port: int
+    tcp_socket: tuple[str, int]
+    model_id: str
+    timeout: int
+
+
+class SpawnStatusResponse(StatusResponse):
+    """
+    Response to spawn a server.
+    """
+
+    server_info: ServerInfoResponse
+
+
+class AIControlStatusResponse(StatusResponse):
+    """
+    Response when starting the AI control.
+    """
+
+    server_info: ServerInfoResponse | None = None
+    ai_control_signal_id: str
+    ai_control_signal_status: Literal["stopped", "running", "paused", "waiting"]
+
+
+class RecordingStartRequest(BaseModel):
+    """
+    Request to start the recording of an episode.
+    """
+
+    dataset_name: str | None = Field(
+        None,
+        description="Name of the dataset to save the episode in."
+        + "If None, defaults to the value set in Admin Configuration.",
+        examples=["example_dataset"],
+    )
+    episode_format: Literal["json", "lerobot_v2", "lerobot_v2.1"] | None = Field(
+        None,
+        description="Format to save the episode.\n`json` is compatible with OpenVLA and stores videos as a series of npy.\n`lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models)."
+        + "If None, defaults to the value set in Admin Configuration.",
+        examples=["lerobot_v2.1"],
+    )
+    video_codec: VideoCodecs | None = Field(
+        None,
+        description="Codec to use for the video saving."
+        + "If None, defaults to the value set in Admin Configuration.",
+        examples=["avc1"],
+    )
+    freq: int | None = Field(
+        None,
+        description="Records steps of the robot at this frequency."
+        + "If None, defaults to the value set in Admin Configuration.",
+        examples=[30],
+    )
+    branch_path: str | None = Field(
+        None,
+        description="Path to the branch to push the dataset to, in addition to the main branch. If set to None, only push to the main branch. Defaults to None.",
+    )
+    target_video_size: tuple[int, int] | None = Field(
+        None,
+        description="Target video size for the recording, all videos in the dataset should have the same size. If set to None, defaults to the value set in Admin Configuration.",
+        examples=[(320, 240)],
+    )
+    cameras_ids_to_record: List[int] | None = Field(
+        None,
+        description="List of camera ids to record. If set to None, records all available cameras.",
+        examples=[[0, 1]],
+    )
+    instruction: str | None = Field(
+        None,
+        description="A text describing the recorded task. If set to None, defaults to the value set in Admin Configuration.",
+        examples=["Pick up the orange brick and put it in the black box."],
+    )
+    robot_serials_to_ignore: List[str] | None = Field(
+        None,
+        description="List of robot serial ids to ignore. If set to None, records all available robots.",
+        examples=[["/dev/ttyUSB0"]],
+    )
+
+
+class RecordingStopRequest(BaseModel):
+    """
+    Request to stop the recording of the episode.
+    """
+
+    save: bool = Field(
+        True,
+        description="Whether to save the episode to disk. Defaults to True.",
+    )
+
+
+class RecordingStopResponse(BaseModel):
+    """
+    Response when the recording is stopped. The episode is saved in the given path.
+    """
+
+    episode_folder_path: str | None = Field(
+        ...,
+        description="Path to the folder where the episode is saved.",
+    )
+    episode_index: int | None = Field(
+        ...,
+        description="Index of the recorded episode in the dataset.",
+    )
+
+
+class RecordingPlayRequest(BaseModel):
+    """
+    Request to play a recorded episode.
+    """
+
+    dataset_name: str | None = Field(
+        None,
+        description="Name of the dataset to play the episode from. If None, defaults to the last dataset recorded.",
+        examples=["example_dataset"],
+    )
+    episode_id: int | None = Field(
+        None,
+        description="ID of the episode to play. If a dataset_name is specified but episode_id is None, plays the last episode recorded of this dataset. "
+        + "If dataset_name is None, this is ignored and plays the last episode recorded.",
+        examples=[0],
+    )
+    episode_path: str | None = Field(
+        None,
+        description="(Optional) If you recorded your data with LeRobot v2 compatible format, you can directly specifiy the path to the .parquet file of the episode to play. If specified, you don't have to pass a dataset_name or episode_id.",
+        examples=[
+            "~/phosphobot/lerobot_v2/example_dataset/chunk-000/episode_000000.json"
+        ],
+    )
+
+    robot_id: None | int | List[int] = Field(
+        None,
+        description="ID of the robot to play the episode on. If None, plays on all robots. If a list, plays on the robots with the given IDs.",
+        examples=[0, [0, 1]],
+    )
+    robot_serials_to_ignore: List[str] | None = Field(
+        None,
+        description="List of robot serial ids to ignore. If set to None, plays on all available robots.",
+        examples=[["/dev/ttyUSB0"]],
+    )
+    replicate: bool = Field(
+        True,
+        description="If False and there are more robots than number of robots in the episode, extra robots will not move. If True, all the extras robots will replicate movements of the robots in the episode."
+        + "Examples: If there are 4 robots and the episode has 2 robots, if replicate is True, robot 3 and 4 will replicate the movements of robot 1 and 2. If replicate is False, robot 3 and 4 will not move.",
+    )
+
+    playback_speed: float = Field(
+        1.0,
+        ge=0,
+        description="Speed of the playback. 1.0 is normal speed, 0.5 is half speed, 2.0 is double speed. High speed may cause the robot to break.",
+    )
+    interpolation_factor: int = Field(
+        4,
+        ge=1,
+        description="Smoothen the playback by interpolating between frames. 1 means no interpolation, 2 means 1 frame every 2 frames, etc. 4 is the recommended value.",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "dataset_name": "example_dataset",
+                    "episode_id": 0,
+                },
+                {
+                    "episode_path": "~/phosphobot/lerobot_v2/example_dataset/chunk-000/episode_000000.json",
+                    "robot_id": [0, 1],
+                    "replicate": False,
+                },
+            ]
+        }
+    }
+
+
+class HuggingFaceTokenRequest(BaseModel):
+    """
+    Hugging Face token saved by the user.
+    """
+
+    token: str
+
+
+class WandBTokenRequest(BaseModel):
+    """
+    WandB token saved by the user.
+    """
+
+    token: str
+
+
+class ItemInfo(BaseModel):
+    """
+    Contains the information of the items in a directory used in the browser page
+    """
+
+    name: str
+    path: str
+    absolute_path: str
+    is_dir: bool
+    is_dataset_dir: bool = False
+    browseUrl: Optional[str] = None
+    downloadUrl: Optional[str] = None
+    previewUrl: Optional[str] = None
+    huggingfaceUrl: Optional[str] = None
+    canDeleteDataset: bool = False
+    deleteDatasetAction: Optional[str] = None
+
+
+class BrowseFilesResponse(BaseModel):
+    """
+    Represents a response for browsing directories or items in a robotic system.
+    """
+
+    directoryTitle: str
+    tokenError: Optional[str] = None
+    items: List[ItemInfo]
+    episode_ids: List[int] = []
+    episode_paths: List[str] = []
+
+
+class BrowserFilesRequest(BaseModel):
+    """
+    Request to browse files in a directory.
+    """
+
+    path: str
+
+
+class DeleteEpisodeRequest(BaseModel):
+    """
+    Request to delete an episode.
+    """
+
+    path: str
+    episode_id: int
+
+
+class ModelVideoKeysRequest(BaseModel):
+    model_id: str = Field(
+        ...,
+        description="Hugging Face model id to use",
+        examples=["PLB/GR00T-N1-lego-pickup-mono-2"],
+        # no empty string
+        pattern=r"^\s*\S.*$",
+    )
+    model_type: Literal["gr00t", "ACT"] = Field(
+        ...,
+        description="Type of model to use.",
+    )
+
+
+class ModelVideoKeysResponse(BaseModel):
+    video_keys: List[str] = Field(
+        ...,
+        description="List of video keys for the model. These are the keys used to access the videos in the dataset.",
+        examples=[["video_0", "video_1"]],
+    )
+
+
+class AdminSettingsRequest(BaseModel):
+    """
+    Contains the admin settings
+    """
+
+    dataset_name: str
+    episode_format: str
+    freq: int
+    video_codec: VideoCodecs
+    video_size: List[int]  # size 2
+    task_instruction: str
+    cameras_to_record: List[int] | None = None
+
+
+class AdminSettingsResponse(BaseModel):
+    """
+    Contains the settings returned in the admin page
+    """
+
+    dataset_name: str
+    freq: int
+    episode_format: str
+    video_codec: VideoCodecs
+    video_size: List[int]  # size 2
+    task_instruction: str
+    cameras_to_record: List[int] | None
+
+
+class AdminSettingsTokenResponse(BaseModel):
+    """
+    To each provider is assigned a bool, which is True
+    if the token is set and valid.
+    """
+
+    huggingface: bool = False
+    wandb: bool = False
+
+
+class VizSettingsResponse(BaseModel):
+    """
+    Settings for the vizualisation page.
+    """
+
+    width: int
+    height: int
+    quality: int
+
+
+class MergeDatasetsRequest(BaseModel):
+    # Contains a list of dataset paths to merge
+    datasets: list[str]
+
+
+class DatasetListResponse(BaseModel):
+    """
+    List of datasets
+    """
+
+    pushed_datasets: List[str]
+    local_datasets: List[str]
+
+
+class StartServerRequest(BaseModel):
+    """
+    Request to start an inference server and get the server info.
+    """
+
+    model_id: str = Field(..., description="Hugging Face model id to use")
+    robot_serials_to_ignore: List[str] | None = Field(
+        None,
+        description="List of robot serial ids to ignore. If set to None, controls all available robots.",
+        examples=[["/dev/ttyUSB0"]],
+    )
+    model_type: Literal["gr00t", "ACT"] = Field(
+        ...,
+        description="Type of model to use. Can be gr00t or act.",
+    )
+
+
+class StartAIControlRequest(BaseModel):
+    """
+    Request to start the AI control of the robot.
+    """
+
+    prompt: str | None = Field(None, description="Prompt to be followed by the robot")
+    model_id: str = Field(..., description="Hugging Face model id to use")
+    speed: float = Field(
+        1.0,
+        ge=0.1,
+        le=2,
+        description="Speed of the AI control. 1.0 is normal speed, 0.5 is half speed, 2.0 is double speed. The highest speed is still bottlenecked by the GPU inference time.",
+    )
+
+    robot_serials_to_ignore: List[str] | None = Field(
+        None,
+        description="List of robot serial ids to ignore. If set to None, controls all available robots.",
+        examples=[["/dev/ttyUSB0"]],
+    )
+    cameras_keys_mapping: Dict[str, int] | None = Field(
+        None,
+        description="Mapping of the camera keys to the camera ids. If set to None, use the default mapping based on cameras order.",
+        examples=[{"wrist_camera": 0, "context_camera": 1}],
+    )
+    model_type: Literal["gr00t", "ACT"] = Field(
+        ...,
+        description="Type of model to use. Can be gr00t or act.",
+    )
+
+
+class AIStatusRequest(BaseModel):
+    user_id: str = Field(
+        ..., description="User ID of the user who started the AI control"
+    )
+
+
+class AIStatusResponse(BaseModel):
+    """
+    Response to the AI status request.
+    """
+
+    status: Literal["stopped", "running", "paused", "waiting"] = Field(
+        ..., description="Status of the AI control"
+    )
+    id: str | None = Field(..., description="ID of the AI control session.")
+
+
+class TorqueControlRequest(BaseModel):
+    """
+    Request to control the robot's torque.
+    """
+
+    torque_status: bool = Field(
+        ..., description="Whether to enable or disable torque control."
+    )
+
+
+class ModelStatusResponse(BaseModel):
+    model_url: str
+    model_status: Literal["Done", "In progress", "Not started", "Failed"]
+
+
+class ModelStatusRequest(BaseModel):
+    model_url: str = Field(..., description="Hugging Face model URL")
+
+
+class NetworkCredentials(BaseModel):
+    ssid: str
+    password: str
+
+
+class ResetPasswordRequest(BaseModel):
+    access_token: str = Field(..., description="Access token from the reset email")
+    refresh_token: str = Field(..., description="Refresh token from the reset email")
+    new_password: str = Field(..., description="New password to set for the user")
+
+
+class LoginCredentialsRequest(BaseModel):
+    email: str
+    password: str
+
+
+class ConfirmRequest(BaseModel):
+    access_token: str
+    refresh_token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class Session(BaseModel):
+    """
+    Session model for storing supabase session details.
+    """
+
+    user_id: str
+    user_email: str
+    email_confirmed: bool
+    access_token: str
+    refresh_token: str
+    expires_at: int
+
+
+class SessionReponse(BaseModel):
+    """
+    Response for login/signup
+    """
+
+    message: str
+    session: Session | None = None
+
+
+class AuthResponse(BaseModel):
+    authenticated: bool
+    session: Session | None = None
+
+
+class FeedbackRequest(BaseModel):
+    feedback: Literal["positive", "negative"] = Field(
+        ...,
+        description="Feedback on the AI control. Can be positive or negative.",
+    )
+    ai_control_id: str = Field(
+        ...,
+        description="ID of the AI control session.",
+    )
+
+
+class RobotPairRequest(BaseModel):
+    """
+    Represents a pair of robots for leader-follower control.
+    """
+
+    leader_id: int | None = Field(..., description="Serial number of the leader robot")
+    follower_id: int | None = Field(
+        ..., description="Serial number of the follower robot"
+    )
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class StartLeaderArmControlRequest(BaseModel):
+    """
+    Request to set up leader-follower control. The leader robot will be controlled by the user,
+    and the follower robot will mirror the leader's movements.
+
+    You need two robots connected to the same computer to use this feature.
+    """
+
+    robot_pairs: List[RobotPairRequest] = Field(
+        ...,
+        description="List of robot pairs to control. Each pair contains the robot id of the leader and the corresponding follower.",
+    )
+    invert_controls: bool = Field(
+        False, description="Mirror controls for the follower robots"
+    )
+    enable_gravity_compensation: bool = Field(
+        False, description="Enable gravity compensation for the leader robots"
+    )
+    gravity_compensation_values: dict[str, int] | None = Field(
+        {"shoulder": 100, "elbow": 50, "wrist": 10},
+        description="Gravity compensation pourcentage values for shoulder, elbow, and wrist joints (0-100%)",
+    )
+
+
+class SupabaseTrainingModel(BaseModel):
+    id: int
+    status: Literal["succeeded", "failed", "running", "canceled"]
+    user_id: str
+    dataset_name: str
+    model_name: str
+    requested_at: str
+    terminated_at: str | None
+    used_wandb: bool | None
+    model_type: str
+    training_params: dict | None = None
+
+
+class TrainingConfig(BaseModel):
+    models: list[SupabaseTrainingModel]
