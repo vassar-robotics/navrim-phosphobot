@@ -1,6 +1,6 @@
 from typing import List
 from pydantic import BaseModel, Field
-from phosphobot_old.types import CameraTypes
+from phosphobot.types import CameraTypes
 
 
 class SingleCameraStatus(BaseModel):

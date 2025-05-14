@@ -1,12 +1,12 @@
 import asyncio
-from dataclasses import dataclass
 import time
+from dataclasses import dataclass
 
 import numpy as np
 import pybullet as p
 from loguru import logger
-from phosphobot_old.control_signal import ControlSignal
 
+from phosphobot.control_signal import ControlSignal
 from phosphobot.hardware import SO100Hardware
 
 

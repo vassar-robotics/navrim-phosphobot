@@ -55,7 +55,7 @@ Or simply in pure python:
 
 ```python
 from pathlib import Path
-from phosphobot_old.am import Gr00tTrainerConfig, Gr00tTrainer
+from phosphobot.am import Gr00tTrainerConfig, Gr00tTrainer
 
 config = Gr00tTrainerConfig(
     # Path to the Isaac-GR00T repo

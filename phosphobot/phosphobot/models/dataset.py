@@ -22,8 +22,8 @@ from huggingface_hub import (
 from loguru import logger
 from pydantic import AliasChoices, BaseModel, Field, model_validator
 
-from phosphobot_old.types import VideoCodecs
-from phosphobot_old.utils import (
+from phosphobot.types import VideoCodecs
+from phosphobot.utils import (
     NdArrayAsList,
     NumpyEncoder,
     compute_sum_squaresum_framecount_from_video,

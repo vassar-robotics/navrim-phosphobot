@@ -1,4 +1,6 @@
 import os
+from copy import copy
+
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -6,26 +8,23 @@ from fastapi import (
     HTTPException,
 )
 from loguru import logger
-from phosphobot_old.camera import AllCameras
-from phosphobot_old.configs import config
-from phosphobot_old.models import Dataset, Episode
-from phosphobot_old.models.dataset import InfoModel
-from phosphobot_old.recorder import Recorder
-from phosphobot_old.utils import background_task_log_exceptions, get_home_app_path
 
-from phosphobot.camera import get_all_cameras
+from phosphobot.camera import AllCameras, get_all_cameras
+from phosphobot.configs import config
 from phosphobot.models import (
+    Dataset,
+    Episode,
     RecordingPlayRequest,
     RecordingStartRequest,
     RecordingStopRequest,
     RecordingStopResponse,
     StatusResponse,
 )
-from phosphobot.recorder import get_recorder
-from phosphobot.robot import RobotConnectionManager, get_rcm
-from copy import copy
-
+from phosphobot.models.dataset import InfoModel
 from phosphobot.posthog import is_github_actions
+from phosphobot.recorder import Recorder, get_recorder
+from phosphobot.robot import RobotConnectionManager, get_rcm
+from phosphobot.utils import background_task_log_exceptions, get_home_app_path
 
 router = APIRouter(tags=["recording"])
 

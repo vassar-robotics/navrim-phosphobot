@@ -5,20 +5,16 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from huggingface_hub import HfApi
 from loguru import logger
-from phosphobot_old.am.base import ActionModel
-from phosphobot_old.configs import config
-from phosphobot_old.models import Dataset
-from phosphobot_old.utils import (
-    get_home_app_path,
-    parse_hf_username_or_orgid,
-)
 
+from phosphobot.am.base import ActionModel
+from phosphobot.configs import config
 from phosphobot.models import (
     AdminSettingsRequest,
     AdminSettingsResponse,
     AdminSettingsTokenResponse,
     BrowseFilesResponse,
     BrowserFilesRequest,
+    Dataset,
     DatasetListResponse,
     DeleteEpisodeRequest,
     HuggingFaceTokenRequest,
@@ -30,9 +26,11 @@ from phosphobot.models import (
 )
 from phosphobot.utils import (
     get_dashboard_path,
+    get_home_app_path,
     is_running_on_pi,
     list_directory_items,
     login_to_hf,
+    parse_hf_username_or_orgid,
     sanitize_path,
     zip_folder,
 )
@@ -403,7 +401,7 @@ async def get_model_video_keys(
     """
     request.model_id = request.model_id.strip()
 
-    from phosphobot_old.am import ACT, Gr00tN1
+    from phosphobot.am import ACT, Gr00tN1
 
     model_type_to_class: dict[str, type[ActionModel]] = {
         "gr00t": Gr00tN1,

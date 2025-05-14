@@ -2,12 +2,11 @@ import os
 import platform
 import uuid
 
-from phosphobot_old.utils import get_home_app_path
 from posthog import Posthog
 
 from phosphobot import __version__
 from phosphobot.telemetry import TELEMETRY
-from phosphobot.utils import get_tokens
+from phosphobot.utils import get_home_app_path, get_tokens
 
 tokens = get_tokens()
 posthog = Posthog(

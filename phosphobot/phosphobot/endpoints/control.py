@@ -15,13 +15,11 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from loguru import logger
-from phosphobot_old.camera import AllCameras
-from phosphobot_old.control_signal import ControlSignal
-from phosphobot_old.utils import background_task_log_exceptions
 from scipy.spatial.transform import Rotation as R
 
 from phosphobot.ai_control import CustomAIControlSignal, setup_ai_control
-from phosphobot.camera import get_all_cameras
+from phosphobot.camera import AllCameras, get_all_cameras
+from phosphobot.control_signal import ControlSignal
 from phosphobot.leader_follower import RobotPair, leader_follower_loop
 from phosphobot.models import (
     AIControlStatusResponse,
@@ -47,6 +45,7 @@ from phosphobot.models import (
 from phosphobot.robot import RobotConnectionManager, SO100Hardware, get_rcm
 from phosphobot.supabase import get_client, user_is_logged_in
 from phosphobot.teleoperation import TeleopManager
+from phosphobot.utils import background_task_log_exceptions
 
 # This is used to send numpy arrays as JSON to OpenVLA server
 json_numpy.patch()

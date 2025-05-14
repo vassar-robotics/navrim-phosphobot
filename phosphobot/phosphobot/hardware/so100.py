@@ -6,7 +6,7 @@ from typing import Optional
 import numpy as np
 import pybullet as p  # type: ignore
 from loguru import logger
-from phosphobot_old.control_signal import ControlSignal
+from phosphobot.control_signal import ControlSignal
 from serial.tools.list_ports_common import ListPortInfo
 
 from phosphobot.hardware.base import BaseRobot

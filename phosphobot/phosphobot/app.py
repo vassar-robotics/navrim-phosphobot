@@ -3,21 +3,19 @@ import platform
 import socket
 from contextlib import asynccontextmanager
 
-from fastapi.responses import JSONResponse
-from phosphobot_old.utils import get_home_app_path
 import sentry_sdk
 import typer
 from fastapi import Depends, FastAPI, HTTPException, Request, applications
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
-from phosphobot_old.configs import config
-from phosphobot_old.recorder import Recorder
 from rich import print
 
 from phosphobot import __version__
 from phosphobot.camera import AllCameras, get_all_cameras
+from phosphobot.configs import config
 from phosphobot.endpoints import (
     auth_router,
     camera_router,
@@ -31,10 +29,15 @@ from phosphobot.endpoints import (
 from phosphobot.hardware import simulation_init, simulation_stop
 from phosphobot.models import ServerStatus
 from phosphobot.posthog import posthog, posthog_pageview
-from phosphobot.recorder import get_recorder
+from phosphobot.recorder import Recorder, get_recorder
 from phosphobot.robot import RobotConnectionManager, get_rcm
 from phosphobot.teleoperation import UDPServer
-from phosphobot.utils import get_dashboard_path, get_resources_path, login_to_hf
+from phosphobot.utils import (
+    get_dashboard_path,
+    get_home_app_path,
+    get_resources_path,
+    login_to_hf,
+)
 
 
 def init_telemetry() -> None:

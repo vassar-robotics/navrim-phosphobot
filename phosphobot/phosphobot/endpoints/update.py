@@ -1,6 +1,6 @@
 import asyncio
-import subprocess
 import platform
+import subprocess
 
 from fastapi import APIRouter, HTTPException
 
