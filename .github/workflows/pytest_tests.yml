@@ -1,10 +1,10 @@
-name: Run Pytest and API tests on Teleop
+name: Run Pytest and API tests on phosphobot
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "teleop/**"
+      - "phosphobot/**"
     branches:
       - main
 
@@ -18,11 +18,11 @@ env:
   COMMIT_ID: ${{ github.sha }}
 
 jobs:
-  pytest_teleop_tests:
+  pytest_phosphobot_tests:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: teleop/
+        working-directory: phosphobot/
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +36,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
-          cache-dependency-glob: "teleop/pyproject.toml"
+          cache-dependency-glob: "phosphobot/pyproject.toml"
 
       - name: Set up Python
         run: uv python pin 3.11 && uv python install
@@ -45,11 +45,11 @@ jobs:
         run: uv sync --dev
 
       - name: Run Pytest tests
-        run: uv run pytest tests/teleop/ -n 5
+        run: uv run pytest tests/phosphobot/ -n 5
 
   api_tests:
     runs-on: ubuntu-latest
-    needs: pytest_teleop_tests
+    needs: pytest_phosphobot_tests
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -65,18 +65,18 @@ jobs:
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
         with:
-          working-directory: teleop/dashboard
+          working-directory: phosphobot/dashboard
 
       - name: Build dashboard frontend
         run: make build_frontend
 
       - name: Check that the frontend build was successful (dist folder not empty)
         run: |
-          if [ ! -d "teleop/dashboard/dist" ]; then
+          if [ ! -d "phosphobot/dashboard/dist" ]; then
             echo "Dashboard frontend build failed: dist folder not found"
             exit 1
           fi
-          if [ ! "$(ls -A teleop/dashboard/dist)" ]; then
+          if [ ! "$(ls -A phosphobot/dashboard/dist)" ]; then
             echo "Dashboard frontend build failed: dist folder is empty"
             exit 1
           fi
@@ -85,11 +85,11 @@ jobs:
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
-          cache-dependency-glob: "teleop/pyproject.toml"
+          cache-dependency-glob: "phosphobot/pyproject.toml"
 
       - name: Set up Python
         run: |
-          cd teleop
+          cd phosphobot
           uv python pin 3.11
           uv python install
 
@@ -98,7 +98,7 @@ jobs:
 
       - name: Install the project with lerobot
         run: |
-          cd teleop
+          cd phosphobot
           uv sync --all-groups
 
       - name: Display the current directory
@@ -123,20 +123,20 @@ jobs:
 
       - name: Run integration tests and capture logs
         run: |
-          cd teleop
+          cd phosphobot
           uv run pytest -s -v tests/api/ 2>&1 | tee tests.log
         continue-on-error: true
 
       - name: Summarize test results to Markdown
         run: |
-          cd teleop
+          cd phosphobot
           uv run python tests/api/summarize.py tests.log summary.md
         continue-on-error: true
 
       - name: Display integration test logs
         run: |
           echo "Integration test logs:"
-          cat teleop/tests.log
+          cat phosphobot/tests.log
 
       - name: Display server logs
         run: |
@@ -146,12 +146,12 @@ jobs:
       - name: Read test summary
         id: read_test_summary
         shell: bash
-        run: cat teleop/summary.md
+        run: cat phosphobot/summary.md
 
       - name: Create comment from markdown file
         uses: GrantBirki/comment@v2.1.0
         with:
-          file: teleop/summary.md
+          file: phosphobot/summary.md
 
       - name: Stop server
         run: make stop

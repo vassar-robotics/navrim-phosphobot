@@ -16,9 +16,9 @@ from backend.modules.mic import record_audio
 from backend.modules.llm import get_llm_response
 from backend.modules.whisper_transcriber import transcribe_audio
 from backend.modules.tts import speak_streaming
-from phosphobot.camera import AllCameras
-from phosphobot.api.client import PhosphoApi
-from phosphobot.am import Gr00tN1
+from phosphobot_old.camera import AllCameras
+from phosphobot_old.api.client import PhosphoApi
+from phosphobot_old.am import Gr00tN1
 
 # ===== SHARED STATE =====
 SHARED_STATE_PATH = "shared_state.json"
@@ -41,15 +41,16 @@ def load_state():
         print(f"⚠️ Could not load shared state: {e}")
         return {"running": False}
 
+
 # ====== ASYNC MODEL INIT (THREAD) ======
 def init_modal_model():
     global model
     try:
         print("⚡ Starting Modal server (/ai-control/spawn)...")
-        payload = {
-            "model_id": "phospho-app/PAphospho-AI-voice-lego-red-2"
-        }
-        r = requests.post("http://localhost:80/ai-control/spawn", json=payload, timeout=120)
+        payload = {"model_id": "phospho-app/PAphospho-AI-voice-lego-red-2"}
+        r = requests.post(
+            "http://localhost:80/ai-control/spawn", json=payload, timeout=120
+        )
         print(f"✅ Modal spawn response: {r.status_code} {r.text}")
 
         if r.status_code == 200:
@@ -74,7 +75,9 @@ def init_modal_model():
 
 # ====== FASTAPI ======
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+)
 
 
 @app.post("/shutdown")
@@ -104,11 +107,11 @@ def run_model_loop(prompt: str):
             images[i] = np.expand_dims(images[i], axis=0)
             # Ensure dtype is uint8 (if it isn’t already)
             images[i] = images[i].astype(np.uint8)
-        
+
         robot_state = client.control.read_joints()
         inputs = {
-            "state.single_arm": np.array(robot_state.angles_rad)[:5].reshape(1,5),
-            "state.gripper": np.array(robot_state.angles_rad[-1]).reshape(1,1),
+            "state.single_arm": np.array(robot_state.angles_rad)[:5].reshape(1, 5),
+            "state.gripper": np.array(robot_state.angles_rad[-1]).reshape(1, 1),
             "video.cam_context": images[0],
             "video.cam_wrist": images[1],
             "annotation.human.action.task_description": prompt,
@@ -144,7 +147,11 @@ async def handler(websocket):
 
             result_raw = get_llm_response(transcript)
             try:
-                result = json.loads(result_raw) if isinstance(result_raw, str) else result_raw
+                result = (
+                    json.loads(result_raw)
+                    if isinstance(result_raw, str)
+                    else result_raw
+                )
             except json.JSONDecodeError:
                 result = {"reply": "Sorry, I didn’t get that.", "command": None}
 
@@ -155,8 +162,7 @@ async def handler(websocket):
 
             def on_word(word):
                 asyncio.run_coroutine_threadsafe(
-                    websocket.send(json.dumps({"benderTranscriptAppend": word})),
-                    loop
+                    websocket.send(json.dumps({"benderTranscriptAppend": word})), loop
                 )
 
             t = Thread(target=speak_streaming, args=(reply, on_word))

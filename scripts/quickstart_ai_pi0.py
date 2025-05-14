@@ -1,6 +1,6 @@
-from phosphobot.camera import AllCameras
+from phosphobot_old.camera import AllCameras
 import httpx
-from phosphobot.am import Pi0
+from phosphobot_old.am import Pi0
 
 import time
 import numpy as np

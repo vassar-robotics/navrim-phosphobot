@@ -18,9 +18,9 @@ from backend.modules.mic import record_audio
 from backend.modules.llm import get_llm_response
 from backend.modules.whisper_transcriber import transcribe_audio
 from backend.modules.tts import speak_streaming
-from phosphobot.camera import AllCameras
-from phosphobot.api.client import PhosphoApi
-from phosphobot.am import ACT
+from phosphobot_old.camera import AllCameras
+from phosphobot_old.api.client import PhosphoApi
+from phosphobot_old.am import ACT
 
 # ===== CONFIG =====
 SHARED_STATE_PATH = "shared_state.json"
@@ -32,10 +32,12 @@ client = PhosphoApi(base_url="http://localhost:80")
 MODEL_ID = "phospho-app/PAphospho-AI-voice-lego-red-2-6lp91kv18x"
 ACT_SERVER_PORT = 8080  # Port sur lequel ton server.py tourne
 
+
 # ===== UTILS =====
 def write_shared_state(prompt: str = "", running: bool = False):
     with open(SHARED_STATE_PATH, "w") as f:
         json.dump({"prompt": prompt, "running": running}, f)
+
 
 def load_state():
     try:
@@ -44,6 +46,7 @@ def load_state():
     except Exception as e:
         print(f"⚠️ Could not load shared state: {e}")
         return {"running": False}
+
 
 def wait_for_act_server(host="localhost", port=ACT_SERVER_PORT, timeout=60):
     url = f"http://{host}:{port}/health"
@@ -60,18 +63,23 @@ def wait_for_act_server(host="localhost", port=ACT_SERVER_PORT, timeout=60):
 
         if time.time() - start_time > timeout:
             raise TimeoutError("❌ ACT server did not start in time.")
-        
+
         time.sleep(0.5)
+
 
 # ====== FASTAPI ======
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+)
+
 
 @app.post("/shutdown")
 def shutdown_robot():
     write_shared_state(prompt="", running=False)
     print("🛑 Shutdown received!")
     return {"status": "ok"}
+
 
 # ====== INFERENCE THREAD ======
 def run_model_loop(prompt: str):
@@ -109,6 +117,7 @@ def run_model_loop(prompt: str):
             time.sleep(1 / 30)
     print("🛑 Inference stopped.")
 
+
 # ====== WEBSOCKET HANDLER ======
 async def handler(websocket):
     print("🔌 New client connected")
@@ -129,7 +138,11 @@ async def handler(websocket):
 
             result_raw = get_llm_response(transcript)
             try:
-                result = json.loads(result_raw) if isinstance(result_raw, str) else result_raw
+                result = (
+                    json.loads(result_raw)
+                    if isinstance(result_raw, str)
+                    else result_raw
+                )
             except json.JSONDecodeError:
                 result = {"reply": "Sorry, I didn’t get that.", "command": None}
 
@@ -140,8 +153,7 @@ async def handler(websocket):
 
             def on_word(word):
                 asyncio.run_coroutine_threadsafe(
-                    websocket.send(json.dumps({"benderTranscriptAppend": word})),
-                    loop
+                    websocket.send(json.dumps({"benderTranscriptAppend": word})), loop
                 )
 
             t = Thread(target=speak_streaming, args=(reply, on_word))
@@ -164,6 +176,7 @@ async def handler(websocket):
     finally:
         connected_clients.remove(websocket)
 
+
 # ====== MAIN ======
 async def main():
     print("🌐 WebSocket server running on ws://localhost:5051/ws")
@@ -175,6 +188,7 @@ async def main():
         websockets.serve(handler, "0.0.0.0", 5050, ping_interval=None),
     )
 
+
 if __name__ == "__main__":
     if not os.path.exists(SHARED_STATE_PATH):
         write_shared_state(prompt="", running=False)
@@ -182,7 +196,13 @@ if __name__ == "__main__":
     # 🚀 1. Start ACT server with uv run
     print(f"⚡ Launching ACT server with model_id={MODEL_ID}...")
     act_server_process = subprocess.Popen(
-        ["uv", "run", "../../phosphobot/inference/ACT/server.py", "--model_id", MODEL_ID],
+        [
+            "uv",
+            "run",
+            "../../phosphobot/inference/ACT/server.py",
+            "--model_id",
+            MODEL_ID,
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )

@@ -9,58 +9,58 @@ all: prod
 
 # Run the server for prod settings (able to connect to the Meta Quest). If npm is not installed, it will skip the build step.
 prod:
-	cd ./teleop/dashboard && ((npm i && npm run build) || echo "npm command failed, continuing anyway") 
-	cd teleop && uv run teleop run --simulation=headless --no-telemetry
+	cd ./phosphobot/dashboard && ((npm i && npm run build) || echo "npm command failed, continuing anyway") 
+	cd phosphobot && uv run phosphobot run --simulation=headless --no-telemetry
 
 # Run the server for prod settings with the simulation enabled
 prod_sim:
-	cd ./teleop && uv run teleop run --simulation=gui --no-telemetry
+	cd ./phosphobot && uv run phosphobot run --simulation=gui --no-telemetry
 
 # Run info command for prod settings
 prod_info:
-	cd ./teleop && uv run teleop info --opencv --servos
+	cd ./phosphobot && uv run phosphobot info --opencv --servos
 
 # Run localhost server for dev settings
 local:
-	cd ./teleop && uv run teleop run --simulation=gui --port=8080 --host=127.0.0.1 --no-telemetry
+	cd ./phosphobot && uv run phosphobot run --simulation=gui --port=8080 --host=127.0.0.1 --no-telemetry
 
 # For running integration tests
 test_server:
-	cd ./teleop && uv run teleop run --simulation=headless --only-simulation --simulate-cameras --port=8080 --host=127.0.0.1 --no-telemetry &
+	cd ./phosphobot && uv run phosphobot run --simulation=headless --only-simulation --simulate-cameras --port=8080 --host=127.0.0.1 --no-telemetry &
 
 # For running the built app in test mode
 run_bin_test:
-	./teleop/dist/main.bin run --simulation=headless --simulate-cameras --port=8080 --host=127.0.0.1 --no-telemetry &
+	./phosphobot/dist/main.bin run --simulation=headless --simulate-cameras --port=8080 --host=127.0.0.1 --no-telemetry &
 
 # For running the built app in prod mode
 run_bin:
-	./teleop/dist/main.bin run --simulation=headless
+	./phosphobot/dist/main.bin run --simulation=headless
 
 # To have the information about the software and the hardware from the built app
 info_bin:
-	./teleop/dist/main.bin info
+	./phosphobot/dist/main.bin info
 
 
 # Don't use sudo uv run, it will break CICD
 build_pyinstaller:
-	cd teleop && \
+	cd phosphobot && \
 	uv run pyinstaller \
 	--onefile \
 	--name $(OUTPUT_FILENAME) \
 	--add-data "resources:resources" \
 	--add-data "../phosphobot-python/phosphobot/urdf:phosphobot/urdf" \
 	--add-data "dashboard/dist:dashboard/dist" \
-	--hidden-import teleop \
-	--collect-all teleop \
+	--hidden-import phosphobot \
+	--collect-all phosphobot \
 	--collect-all phosphobot \
 	--clean -c \
-	teleop/main.py \
+	phosphobot/main.py \
 
 clean_build:
-	cd ./teleop && rm -rf main.build main.dist main.onefile-build $(OUTPUT_FILENAME)
+	cd ./phosphobot && rm -rf main.build main.dist main.onefile-build $(OUTPUT_FILENAME)
 
 build_frontend:
-	cd ./teleop/dashboard && npm i && npm run build
+	cd ./phosphobot/dashboard && npm i && npm run build
 
 # Clean up
 stop:

@@ -69,7 +69,7 @@ jobs:
       - name: Extract project version
         id: version
         run: |
-          VERSION=$(grep '^version =' teleop/pyproject.toml | cut -d '"' -f2)
+          VERSION=$(grep '^version =' phosphobot/pyproject.toml | cut -d '"' -f2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Get release tag
@@ -95,7 +95,7 @@ jobs:
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
         with:
-          working-directory: teleop/dashboard
+          working-directory: phosphobot/dashboard
 
       - name: Build dashboard frontend
         env:
@@ -105,11 +105,11 @@ jobs:
 
       - name: Check that the frontend build was successful (dist folder not empty)
         run: |
-          if [ ! -d "teleop/dashboard/dist" ]; then
+          if [ ! -d "phosphobot/dashboard/dist" ]; then
             echo "Dashboard frontend build failed: dist folder not found"
             exit 1
           fi
-          if [ ! "$(ls -A teleop/dashboard/dist)" ]; then
+          if [ ! "$(ls -A phosphobot/dashboard/dist)" ]; then
             echo "Dashboard frontend build failed: dist folder is empty"
             exit 1
           fi
@@ -144,9 +144,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.uv-cache
-          key: uv-${{ runner.os }}-${{ matrix.architecture }}-${{ hashFiles('teleop/pyproject.toml') }}
+          key: uv-${{ runner.os }}-${{ matrix.architecture }}-${{ hashFiles('phosphobot/pyproject.toml') }}
           restore-keys: |
-            uv-${{ runner.os }}-${{ matrix.architecture }}-${{ hashFiles('teleop/pyproject.toml') }}
+            uv-${{ runner.os }}-${{ matrix.architecture }}-${{ hashFiles('phosphobot/pyproject.toml') }}
             uv-${{ runner.os }}-${{ matrix.architecture }}-
             uv-${{ runner.os }}-
 
@@ -155,7 +155,7 @@ jobs:
         with:
           enable-cache: true
           cache-local-path: /tmp/.uv-cache
-          cache-dependency-glob: "teleop/pyproject.toml"
+          cache-dependency-glob: "phosphobot/pyproject.toml"
 
       - name: Clean uv cache
         if: ${{ github.event.inputs.clean_cache == 'true' }}
@@ -186,20 +186,20 @@ jobs:
 
       - name: Set up Python and install the project
         run: |
-          cd teleop
+          cd phosphobot
           uv python pin 3.10
           uv python install
           CXX=g++ uv sync --dev
 
       - name: Print version
         run: |
-          cd teleop
-          uv run teleop --version
+          cd phosphobot
+          uv run phosphobot --version
 
       - name: Check release tag version
         if: github.event_name == 'release'
         run: |
-          cd teleop
+          cd phosphobot
           RELEASE_TAG=${{ github.event.release.tag_name }}
           VERSION=${RELEASE_TAG#v}
           echo "VERSION=$VERSION" >> $GITHUB_ENV
@@ -210,8 +210,8 @@ jobs:
 
       - name: Create tokens.toml
         run: |
-          mkdir -p teleop/resources
-          cat > teleop/resources/tokens.toml << EOF
+          mkdir -p phosphobot/resources
+          cat > phosphobot/resources/tokens.toml << EOF
           ENV = "prod"
           SENTRY_DSN = "${{ secrets.SENTRY_DSN }}"
           POSTHOG_API_KEY = "${{ secrets.POSTHOG_API_KEY }}"
@@ -226,15 +226,15 @@ jobs:
           make clean_build
           OUTPUT_FILENAME="phosphobot-${{ env.VERSION }}-${{ matrix.architecture }}.bin"
           make build_pyinstaller OUTPUT_FILENAME="$OUTPUT_FILENAME"
-          cp "teleop/dist/$OUTPUT_FILENAME" "teleop/$OUTPUT_FILENAME"
+          cp "phosphobot/dist/$OUTPUT_FILENAME" "phosphobot/$OUTPUT_FILENAME"
           echo "OUTPUT_FILENAME=$OUTPUT_FILENAME" >> $GITHUB_ENV
 
-      - name: Show full directory structure inside /teleop/dist
-        run: tree -L 3 teleop/dist || find teleop/dist -type f
+      - name: Show full directory structure inside /phosphobot/dist
+        run: tree -L 3 phosphobot/dist || find phosphobot/dist -type f
 
       - name: Check artifact
         run: |
-          file teleop/${{ env.OUTPUT_FILENAME }}
+          file phosphobot/${{ env.OUTPUT_FILENAME }}
 
       # BEGIN NOTARIZATION STEPS FOR macOS
       # - name: Import Code-Signing Certificate
@@ -254,13 +254,13 @@ jobs:
       #   env:
       #     TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       #   run: |
-      #     codesign --force --options runtime --sign "Developer ID Application: phospho (VX45VP8953)" teleop/${{ env.OUTPUT_FILENAME }}
-      #     codesign --verify --verbose teleop/${{ env.OUTPUT_FILENAME }}
+      #     codesign --force --options runtime --sign "Developer ID Application: phospho (VX45VP8953)" phosphobot/${{ env.OUTPUT_FILENAME }}
+      #     codesign --verify --verbose phosphobot/${{ env.OUTPUT_FILENAME }}
       # # We need to zip the file to be able to submit it to Apple
       # - name: Create Zip for Notarization
       #   if: runner.os == 'macOS'
       #   run: |
-      #     zip -r teleop/${{ env.OUTPUT_FILENAME }}.zip teleop/${{ env.OUTPUT_FILENAME }}
+      #     zip -r phosphobot/${{ env.OUTPUT_FILENAME }}.zip phosphobot/${{ env.OUTPUT_FILENAME }}
       # - name: Notarize App
       #   if: runner.os == 'macOS'
       #   env:
@@ -268,14 +268,14 @@ jobs:
       #     APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       #     APPLE_APP_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
       #   run: |
-      #     xcrun notarytool submit teleop/${{ env.OUTPUT_FILENAME }}.zip \
+      #     xcrun notarytool submit phosphobot/${{ env.OUTPUT_FILENAME }}.zip \
       #       --apple-id "$APPLE_ID" \
       #       --team-id "$APPLE_TEAM_ID" \
       #       --password "$APPLE_APP_PASSWORD" \
       #       --wait --verbose
       # # END NOTARIZATION STEPS.
       - name: Run the built application
-        run: ./teleop/${{ env.OUTPUT_FILENAME }} run --simulation=headless --simulate-cameras --port=8080 --host=127.0.0.1 --only-simulation &
+        run: ./phosphobot/${{ env.OUTPUT_FILENAME }} run --simulation=headless --simulate-cameras --port=8080 --host=127.0.0.1 --only-simulation &
 
       - name: Wait for server
         run: |
@@ -313,7 +313,7 @@ jobs:
           fi
 
       - name: Run integration tests
-        run: cd teleop && uv run pytest tests/api/
+        run: cd phosphobot && uv run pytest tests/api/
         continue-on-error: false
 
       - name: Create Debian package structure
@@ -329,7 +329,7 @@ jobs:
           Description: Phosphobot teleop application
            This package contains the Phosphobot teleop binary for robot control.
           EOF
-          cp teleop/${{ env.OUTPUT_FILENAME }} debian-package/usr/local/bin/${PACKAGE_NAME}
+          cp phosphobot/${{ env.OUTPUT_FILENAME }} debian-package/usr/local/bin/${PACKAGE_NAME}
           chmod +x debian-package/usr/local/bin/${PACKAGE_NAME}
           dpkg-deb --build debian-package
           mv debian-package.deb ${PACKAGE_NAME}_${VERSION}_${{matrix.architecture}}.deb
@@ -347,9 +347,9 @@ jobs:
         if: ${{ !matrix.create_deb }}
         run: |
           if [ "$RUNNER_OS" == "macOS" ]; then
-            SHA=$(shasum -a 256 "teleop/${{ env.OUTPUT_FILENAME }}" | awk '{print $1}')
+            SHA=$(shasum -a 256 "phosphobot/${{ env.OUTPUT_FILENAME }}" | awk '{print $1}')
           else
-            SHA=$(sha256sum "teleop/${{ env.OUTPUT_FILENAME }}" | awk '{print $1}')
+            SHA=$(sha256sum "phosphobot/${{ env.OUTPUT_FILENAME }}" | awk '{print $1}')
           fi
           echo "${SHA}" > "sha256-${OUTPUT_FILENAME}.txt"
           echo "OUTPUT_FILENAME_SHA=${SHA}" >> $GITHUB_ENV
@@ -367,7 +367,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: "${{ env.PACKAGE_NAME }}-${{ env.VERSION }}-${{ matrix.architecture }}.bin"
-          path: "teleop/${{ env.OUTPUT_FILENAME }}"
+          path: "phosphobot/${{ env.OUTPUT_FILENAME }}"
           retention-days: 1
 
       - name: Minimize uv cache
@@ -392,7 +392,7 @@ jobs:
       - name: Extract project version
         id: version
         run: |
-          $versionLine = Get-Content teleop/pyproject.toml | Select-String '^version ='
+          $versionLine = Get-Content phosphobot/pyproject.toml | Select-String '^version ='
           $version = $versionLine -replace 'version = "(.*)"', '$1'
           echo "version=$version" >> $env:GITHUB_OUTPUT
 
@@ -429,9 +429,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.uv-cache
-          key: uv-${{ runner.os }}-${{ hashFiles('teleop/pyproject.toml') }}
+          key: uv-${{ runner.os }}-${{ hashFiles('phosphobot/pyproject.toml') }}
           restore-keys: |
-            uv-${{ runner.os }}-${{ hashFiles('teleop/pyproject.toml') }}
+            uv-${{ runner.os }}-${{ hashFiles('phosphobot/pyproject.toml') }}
             uv-${{ runner.os }}-
 
       - name: Install uv
@@ -439,7 +439,7 @@ jobs:
         with:
           enable-cache: true
           cache-local-path: /tmp/.uv-cache
-          cache-dependency-glob: "teleop/pyproject.toml"
+          cache-dependency-glob: "phosphobot/pyproject.toml"
 
       - name: Clean uv cache
         if: ${{ github.event.inputs.clean_cache == 'true' }}
@@ -461,7 +461,7 @@ jobs:
           Get-ChildItem -Recurse -Depth 3 | Where-Object { $_.Name -eq "dashboard" }
 
       - name: Install frontend dependencies
-        working-directory: teleop/dashboard # Modified path
+        working-directory: phosphobot/dashboard # Modified path
         run: |
           Write-Host "Current directory: $(Get-Location)"
           Get-ChildItem
@@ -471,20 +471,20 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        working-directory: teleop/dashboard # Modified path
+        working-directory: phosphobot/dashboard # Modified path
         run: npm run build
 
       # Rest of your steps with corrected paths
       - name: Verify frontend build
         run: |
-          $dashboardPath = Join-Path -Path "teleop/dashboard" -ChildPath "dist"
+          $dashboardPath = Join-Path -Path "phosphobot/dashboard" -ChildPath "dist"
           if (-not (Test-Path $dashboardPath)) {
               Write-Error "Frontend build failed - dist directory missing"
               exit 1
           }
 
       - name: Install Python dependencies with uv
-        working-directory: teleop # Modified path
+        working-directory: phosphobot # Modified path
         run: |
           uv python pin 3.10
           uv sync --dev
@@ -500,11 +500,11 @@ jobs:
           SUPABASE_KEY = "${{ secrets.SUPABASE_KEY }}"
           MODAL_API_URL = "${{ vars.MODAL_API_URL }}"
           "@
-          New-Item -Path "teleop/resources" -ItemType Directory -Force
-          Set-Content -Path "teleop/resources/tokens.toml" -Value $tokensToml
+          New-Item -Path "phosphobot/resources" -ItemType Directory -Force
+          Set-Content -Path "phosphobot/resources/tokens.toml" -Value $tokensToml
 
       - name: Build with PyInstaller
-        working-directory: teleop
+        working-directory: phosphobot
         env:
           OUTPUT_FILENAME: phosphobot-${{ steps.version.outputs.version }}-amd64.exe
         run: |
@@ -515,15 +515,15 @@ jobs:
             --add-data "resources:resources" `
             --add-data "../phosphobot-python/phosphobot/urdf:phosphobot/urdf" `
             --add-data "dashboard/dist:dashboard/dist" `
-            --hidden-import teleop `
-            --collect-all teleop `
+            --hidden-import phosphobot `
+            --collect-all phosphobot `
             --collect-all phosphobot `
             --clean -c `
-            teleop/main.py
+            phosphobot/main.py
 
       - name: Verify Windows executable
         run: |
-          $exePath = Join-Path -Path "teleop/dist" -ChildPath "phosphobot-${{ steps.version.outputs.version }}-amd64.exe"
+          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath "phosphobot-${{ steps.version.outputs.version }}-amd64.exe"
           if (-not (Test-Path $exePath)) {
               Write-Error "Executable not found at $exePath"
               exit 1
@@ -533,12 +533,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: phosphobot-${{ steps.version.outputs.version }}-amd64.exe
-          path: teleop/dist/phosphobot-${{ steps.version.outputs.version }}-amd64.exe
+          path: phosphobot/dist/phosphobot-${{ steps.version.outputs.version }}-amd64.exe
           retention-days: 1
 
       - name: Generate SHA256
         run: |
-          $exePath = Join-Path -Path "teleop/dist" -ChildPath "phosphobot-${{ steps.version.outputs.version }}-amd64.exe"
+          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath "phosphobot-${{ steps.version.outputs.version }}-amd64.exe"
           $hash = (Get-FileHash $exePath -Algorithm SHA256).Hash
           Set-Content -Path "sha256-phosphobot-${{ steps.version.outputs.version }}-amd64.exe.txt" -Value $hash
 

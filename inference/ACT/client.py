@@ -6,9 +6,9 @@
 #
 # ///
 
-from phosphobot.camera import AllCameras
+from phosphobot_old.camera import AllCameras
 import httpx
-from phosphobot.am import ACT
+from phosphobot_old.am import ACT
 import time
 import numpy as np
 
