@@ -2221,6 +2221,7 @@ class EpisodesStatsFeatutes(BaseModel):
         model_dict.pop("observation.images")
 
         # Add the episode index
+        logger.debug(f"Model dict keys: {model_dict.keys()}")
         result_dict = {"episode_index": self.episode_index, "stats": model_dict}
 
         # Convert to JSON string
