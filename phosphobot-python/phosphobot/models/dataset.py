@@ -2295,9 +2295,19 @@ class EpisodesStatsModel(BaseModel):
         ) as f:
             _episodes_stats_dict: dict[int, EpisodesStatsFeatutes] = {}
             for line in f:
+
                 episodes_stats_feature = EpisodesStatsFeatutes.model_validate(
-                    json.loads(line)
+                    parsed_line
                 )
+                # We need to parse the observation_images properly when loading the jsonl file
+                observation_images = {}
+
+                for key in list(parsed_line["stats"].keys()):
+                    if "image" in key:
+                        observation_images[key] = parsed_line["stats"].pop(key)
+
+                episodes_stats_feature.stats.observation_images = observation_images
+
                 _episodes_stats_dict[episodes_stats_feature.episode_index] = (
                     episodes_stats_feature
                 )

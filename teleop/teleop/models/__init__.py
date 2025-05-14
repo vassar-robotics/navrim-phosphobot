@@ -370,7 +370,7 @@ class RecordingStartRequest(BaseModel):
         None,
         description="Format to save the episode.\n`json` is compatible with OpenVLA and stores videos as a series of npy.\n`lerobot_v2` is compatible with [lerobot training.](https://docs.phospho.ai/learn/ai-models)."
         + "If None, defaults to the value set in Admin Configuration.",
-        examples=["lerobot_v2"],
+        examples=["lerobot_v2.1"],
     )
     video_codec: VideoCodecs | None = Field(
         None,
