@@ -18,7 +18,7 @@ class SO100Hardware(BaseRobot):
     name = "so-100"
 
     URDF_FILE_PATH = str(
-        files("phosphobot") / "urdf" / "so-100" / "urdf" / "so-100.urdf"
+        files("phosphobot_old") / "urdf" / "so-100" / "urdf" / "so-100.urdf"
     )
 
     DEVICE_PID: int = 21971
