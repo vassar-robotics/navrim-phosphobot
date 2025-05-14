@@ -67,5 +67,10 @@
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
     "vite": "^6.2.0"
+  },
+  "overrides": {
+    "react-syntax-highlighter": {
+      "prismjs": "1.30.0"
+    }
   }
 }
