@@ -54,7 +54,7 @@ build_pyinstaller:
 	--collect-all teleop \
 	--collect-all phosphobot \
 	--clean -c \
-	teleop/main.py && \
+	teleop/main.py \
 
 clean_build:
 	cd ./teleop && rm -rf main.build main.dist main.onefile-build $(OUTPUT_FILENAME)
