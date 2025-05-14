@@ -22,7 +22,7 @@ from phosphobot.hardware.base import BaseRobot
 class KochHardware(BaseRobot):
     name: str = "koch-v1.1"
 
-    URDF_FILE_PATH = str(files("phosphobot_old") / "urdf" / "koch" / "robot.urdf")
+    URDF_FILE_PATH = str(files("phosphobot") / "urdf" / "koch" / "robot.urdf")
 
     DEVICE_PID = 21971
 

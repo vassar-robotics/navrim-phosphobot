@@ -15,7 +15,7 @@ class WX250SHardware(KochHardware):
 
     # URDF and Configuration
     URDF_FILE_PATH = str(
-        files("phosphobot_old") / "urdf" / "wx-250s" / "urdf" / "wx250s.urdf"
+        files("phosphobot") / "urdf" / "wx-250s" / "urdf" / "wx250s.urdf"
     )
 
     REGISTERED_SERIAL_ID: list[str] = ["FT94W6U7"]

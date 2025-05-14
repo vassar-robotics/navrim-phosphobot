@@ -1,13 +1,16 @@
 [project]
 name = "phosphobot"
 version = "0.3.0"
-description = "Teleoperation server for robots"
+description = "The AI-ready robotics dev kit, with built-in remote control and VLA support."
+authors = [{ name = "phospho", email = "contact@phospho.ai" }]
+license = "MIT"
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10"
 dependencies = [
     "dynamixel-sdk>=3.7.31",
     "fastapi[standard]>=0.115.5",
     "loguru>=0.7.2",
+    "rich>=13.9.4",
     "matplotlib>=3.9.3",
     "numpy<2",
     "pybullet>=3.2.7",
@@ -26,22 +29,30 @@ dependencies = [
     "websockets>=14.1",
     "huggingface-hub>=0.28.0",
     "datasets>=3.2.0",
-    "phosphobot_old[realsense]",
     "sentry-sdk[fastapi]>=2.20.0",
     "posthog>=3.11.0",
     "piper-sdk>=0.1.16",
-    # "python-can>=4.5.0",
     "supabase>=2.15.0",
     "zmq>=0.0.0",
     "toml>=0.10.2",
+    "av>=14.3.0",
+    "tyro>=0.9.20",
     "types-toml>=0.10.8.20240310",
+    "pyrealsense2>=2.54; platform_system == 'Linux'",
+    "pyrealsense2>=2.54; platform_system == 'Windows'",
+    "pyrealsense2-macosx>=2.54; platform_system == 'Darwin'",
+    "fastparquet>=2024.11.0",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]
 dev = [
     "pyinstrument>=5.0.0",
-    "mypy>=1.13.0",
     "ruff>=0.8.1",
+    "mypy>=1.13.0",
+    "types-pyyaml>=6.0.12.20241230",
+    "types-requests>=2.32.0.20250306",
+    "pandas-stubs>=2.2.2.240807",
     # "nuitka>=2.6",
     "pyinstaller>=6.11.1",
     "pytest>=8.3.4",
@@ -55,7 +66,6 @@ lerobot = ["lerobot>=0.1.0"]
 default-groups = ["dev"]
 
 [tool.uv.sources]
-phosphobot_old = { editable = true, path = "../phosphobot-python" }
 lerobot = { editable = true, path = "../lerobot" }
 # We are cloning from our fork instead of the original repo (https://github.com/Physical-Intelligence/openpi) 
 # because we had the error unknow host: github.com
