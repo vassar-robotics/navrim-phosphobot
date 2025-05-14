@@ -2295,6 +2295,7 @@ class EpisodesStatsModel(BaseModel):
         ) as f:
             _episodes_stats_dict: dict[int, EpisodesStatsFeatutes] = {}
             for line in f:
+                parsed_line: dict = json.loads(line)
 
                 episodes_stats_feature = EpisodesStatsFeatutes.model_validate(
                     parsed_line
