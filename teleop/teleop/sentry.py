@@ -9,7 +9,7 @@ def init_sentry():
         return
 
     tokens = get_tokens()
-    if tokens.SENTRY_DSN is None:
+    if tokens.SENTRY_DSN is None or tokens.ENV != "prod":
         return
 
     sentry_sdk.init(
