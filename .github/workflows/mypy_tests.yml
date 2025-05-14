@@ -7,42 +7,16 @@ on:
       - main
     paths:
       - "phosphobot/**"
-      - "phosphobot-python/**"
   push:
     branches:
       - main
     paths:
       - "phosphobot/**"
-      - "phosphobot-python/**"
 
 permissions:
   contents: read
 
 jobs:
-  mypy_phosphobot_python_tests:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: phosphobot-python
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        # with:
-        #   enable-cache: true
-        #   cache-dependency-glob: "uv.lock"
-
-      - name: Set up Python
-        run: uv python pin 3.11 && uv python install
-
-      - name: Install the project
-        run: |
-          uv sync --dev
-
-      - name: Run mypy
-        run: uv run mypy . --follow-imports=silent || exit 1
-
   mypy_phosphobot_tests:
     runs-on: ubuntu-latest
     defaults:

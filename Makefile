@@ -48,7 +48,7 @@ build_pyinstaller:
 	--onefile \
 	--name $(OUTPUT_FILENAME) \
 	--add-data "resources:resources" \
-	--add-data "../phosphobot-python/phosphobot/urdf:phosphobot/urdf" \
+	--add-data "urdf:phosphobot/urdf" \
 	--add-data "dashboard/dist:dashboard/dist" \
 	--hidden-import phosphobot \
 	--collect-all phosphobot \
