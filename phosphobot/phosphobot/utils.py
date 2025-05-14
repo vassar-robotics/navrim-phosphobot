@@ -10,7 +10,7 @@ import traceback
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, List, Literal, Tuple, Union
+from typing import Annotated, Any, Literal, Tuple, Union
 
 import av
 import cv2
@@ -23,9 +23,6 @@ from huggingface_hub import HfApi, login
 from loguru import logger
 from pydantic import BeforeValidator, PlainSerializer
 
-from phosphobot.configs import config
-from phosphobot.models import ItemInfo
-from phosphobot.models.dataset import Dataset
 from phosphobot.types import VideoCodecs
 
 
@@ -202,6 +199,7 @@ def login_to_hf(revalidate: bool = True) -> bool:
     """
     Return True if we successfully logged in to Hugging Face.
     """
+    from phosphobot.configs import config
 
     if not revalidate and config.HF_TOKEN_VALID:
         logger.debug("Skipping revalidation of Hugging Face token.")
@@ -368,66 +366,6 @@ def sanitize_path(path: str) -> str:
             status_code=400, detail=f"Invalid path: {path} (starts with ..)"
         )
     return safe_path
-
-
-def list_directory_items(path: str, root_dir: str = "") -> List[ItemInfo]:
-    full_path = os.path.join(root_dir, path)
-    if not os.path.exists(full_path):
-        raise HTTPException(status_code=404, detail=f"Path not found: {full_path}")
-
-    # Remove DS_Store files if they exist
-    Dataset.remove_ds_store_files(full_path)
-
-    items = os.listdir(full_path)
-    items_info = []
-    username_or_org_id = None
-    api = None
-    if path.endswith("lerobot_v2") or path.endswith("lerobot_v2.1"):
-        try:
-            api = HfApi()
-            user_info = api.whoami()
-            username_or_org_id = parse_hf_username_or_orgid(user_info)
-        # If we can't get the username or org ID, we can't delete the dataset
-        except Exception as e:
-            logger.debug(f"Error getting Hugging Face username or org ID: {str(e)}")
-            pass
-
-    for item in items:
-        item_path = os.path.join(path, item)
-        absolute_item_path = os.path.join(full_path, item_path)
-        is_dir = os.path.isdir(os.path.join(root_dir, item_path))
-        info = ItemInfo(
-            name=item,
-            path=item_path,
-            absolute_path=absolute_item_path,
-            is_dir=is_dir,
-            browseUrl=f"/browse?path={item_path}",
-            downloadUrl=f"/dataset/download?folder_path={item_path}"
-            if is_dir
-            else None,
-        )
-        if is_dir:
-            if api is not None and username_or_org_id is not None:
-                info.previewUrl = f"https://lerobot-visualize-dataset.hf.space/{username_or_org_id}/{info.name}"
-                info.huggingfaceUrl = (
-                    f"https://huggingface.co/datasets/{username_or_org_id}/{info.name}"
-                )
-
-            # Only add the delete button if the dataset's path ends with "json" or "lerobot_v2"
-            if (
-                path.endswith("json")
-                or path.endswith("lerobot_v2")
-                or path.endswith("lerobot_v2.1")
-            ):
-                info.canDeleteDataset = True
-                info.deleteDatasetAction = "/dataset/delete"
-
-        # Check if this is a dataset: it's a directory and the parent is lerobot_v2
-        if is_dir and (path.endswith("lerobot_v2") or path.endswith("lerobot_v2.1")):
-            info.is_dataset_dir = True
-
-        items_info.append(info)
-    return items_info
 
 
 def fetch_latest_brew_version(fail_silently: bool = False) -> str:
