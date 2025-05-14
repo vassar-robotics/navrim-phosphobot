@@ -463,7 +463,7 @@ jobs:
           Get-ChildItem -Recurse -Depth 3 | Where-Object { $_.Name -eq "dashboard" }
 
       - name: Install frontend dependencies
-        working-directory: phosphobot/dashboard # Modified path
+        working-directory: dashboard
         run: |
           Write-Host "Current directory: $(Get-Location)"
           Get-ChildItem
@@ -473,8 +473,12 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        working-directory: phosphobot/dashboard # Modified path
-        run: npm run build
+        working-directory: dashboard
+        run: |
+          npm run build 
+          $sourcePath = Join-Path -Path "phosphobot/dashboard/dist" -ChildPath "*"
+          $destinationPath = Join-Path -Path "phosphobot" -ChildPath "dashboard/dist"
+          Copy-Item -Path $sourcePath -Destination $destinationPath -Recurse -Force
 
       # Rest of your steps with corrected paths
       - name: Verify frontend build

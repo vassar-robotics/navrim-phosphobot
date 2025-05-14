@@ -59,7 +59,8 @@ clean_build:
 	cd ./phosphobot && rm -rf main.build main.dist main.onefile-build $(OUTPUT_FILENAME)
 
 build_frontend:
-	cd ./phosphobot/dashboard && npm i && npm run build
+	cd ./dashboard && npm i && npm run build && \
+	cp -r ./dist/* ../phosphobot/dashboard/dist/
 
 # Clean up
 stop:
