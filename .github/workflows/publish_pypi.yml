@@ -1,8 +1,6 @@
 name: Publish phosphobot-python to PyPI
 
 on:
-  release:
-    types: [released]
   workflow_dispatch:
 
 permissions:

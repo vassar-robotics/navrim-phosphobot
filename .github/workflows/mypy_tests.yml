@@ -5,9 +5,15 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - "teleop/**"
+      - "phosphobot-python/**"
   push:
     branches:
       - main
+    paths:
+      - "teleop/**"
+      - "phosphobot-python/**"
 
 permissions:
   contents: read

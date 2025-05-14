@@ -48,13 +48,13 @@ build_pyinstaller:
 	--onefile \
 	--name $(OUTPUT_FILENAME) \
 	--add-data "resources:resources" \
-	--add-data "../phosphobot/phosphobot/urdf:phosphobot/urdf" \
+	--add-data "../phosphobot-python/phosphobot/urdf:phosphobot/urdf" \
 	--add-data "dashboard/dist:dashboard/dist" \
 	--hidden-import teleop \
 	--collect-all teleop \
 	--collect-all phosphobot \
 	--clean -c \
-	teleop/main.py && \
+	teleop/main.py \
 
 clean_build:
 	cd ./teleop && rm -rf main.build main.dist main.onefile-build $(OUTPUT_FILENAME)

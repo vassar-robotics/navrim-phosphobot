@@ -493,7 +493,7 @@ export default function DashboardPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <Button asChild variant="outline">
-                <a href="/browse?path=./lerobot_v2">
+                <a href="/browse">
                   <FolderOpen className="size-5" />
                   Browse your Datasets
                 </a>

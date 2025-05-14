@@ -178,3 +178,4 @@ data/
 outputs/
 wandb/
 config.yaml
+node_modules

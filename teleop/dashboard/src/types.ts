@@ -92,7 +92,7 @@ export type TrainingRequest = {
 export type AdminSettings = {
   dataset_name: string;
   freq: number;
-  episode_format: "lerobot_v2" | "json";
+  episode_format: "lerobot_v2.1" | "lerobot_v2" | "json";
   video_codec: string;
   video_size: [number, number];
   task_instruction: string;

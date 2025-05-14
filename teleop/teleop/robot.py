@@ -221,6 +221,12 @@ class RobotConnectionManager:
             return self._all_robots[robot_id]
 
         robots = self.robots
+        if robot_id >= len(robots):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Robot ID {robot_id} is out of range. Only {len(robots)} robots connected.",
+            )
+
         robot = robots[robot_id] if robots else None
         if robot is None:
             raise HTTPException(
