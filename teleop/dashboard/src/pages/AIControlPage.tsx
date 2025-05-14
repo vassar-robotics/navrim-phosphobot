@@ -376,9 +376,16 @@ export default function AIControlPage() {
                 <div className="flex flex-col md:flex-row gap-2">
                   <AutoComplete
                     options={
+                      // Filter out duplicate model names and sort by requested_at
                       trainedModels?.models
                         .filter(
                           (model) => model.model_type === selectedModelType,
+                        ).sort((a, b) =>
+                          -a.requested_at.localeCompare(b.requested_at,),
+                        )
+                        .filter((model, index, self) =>
+                          index ===
+                          self.findIndex((m) => m.model_name === model.model_name),
                         )
                         .map((model) => ({
                           value: model.model_name,
@@ -503,12 +510,11 @@ export default function AIControlPage() {
                   <Button
                     size="lg"
                     variant="default"
-                    className={`h-16 w-16 rounded-full ${
-                      aiStatus?.status === "stopped" ||
+                    className={`h-16 w-16 rounded-full ${aiStatus?.status === "stopped" ||
                       aiStatus?.status === "paused"
-                        ? "bg-green-600 hover:bg-green-700"
-                        : "bg-gray-400 cursor-not-allowed"
-                    }`}
+                      ? "bg-green-600 hover:bg-green-700"
+                      : "bg-gray-400 cursor-not-allowed"
+                      }`}
                     onClick={
                       aiStatus?.status === "stopped"
                         ? startControlByAI
@@ -544,11 +550,10 @@ export default function AIControlPage() {
                   <Button
                     size="lg"
                     variant="default"
-                    className={`h-16 w-16 rounded-full ${
-                      aiStatus?.status === "running"
-                        ? "bg-amber-500 hover:bg-amber-600"
-                        : "bg-gray-400 cursor-not-allowed"
-                    }`}
+                    className={`h-16 w-16 rounded-full ${aiStatus?.status === "running"
+                      ? "bg-amber-500 hover:bg-amber-600"
+                      : "bg-gray-400 cursor-not-allowed"
+                      }`}
                     onClick={pauseControl}
                     disabled={aiStatus?.status !== "running"}
                     title="Pause AI control"
@@ -560,11 +565,10 @@ export default function AIControlPage() {
                   <Button
                     size="lg"
                     variant="default"
-                    className={`h-16 w-16 rounded-full ${
-                      aiStatus?.status !== "stopped"
-                        ? "bg-red-600 hover:bg-red-700"
-                        : "bg-gray-400 cursor-not-allowed"
-                    }`}
+                    className={`h-16 w-16 rounded-full ${aiStatus?.status !== "stopped"
+                      ? "bg-red-600 hover:bg-red-700"
+                      : "bg-gray-400 cursor-not-allowed"
+                      }`}
                     onClick={stopControl}
                     disabled={aiStatus?.status === "stopped"}
                     title="Stop AI control"
