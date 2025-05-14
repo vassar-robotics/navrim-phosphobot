@@ -376,7 +376,7 @@ class RecordingStartRequest(BaseModel):
         None,
         description="Codec to use for the video saving."
         + "If None, defaults to the value set in Admin Configuration.",
-        examples=["mp4v"],
+        examples=["avc1"],
     )
     freq: int | None = Field(
         None,
