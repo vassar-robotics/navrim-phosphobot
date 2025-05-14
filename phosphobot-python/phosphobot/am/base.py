@@ -138,7 +138,7 @@ class TrainingParamsGr00T(BaseModel):
         extra = "forbid"
 
 
-class BaseTrainingRequest(BaseModel):
+class BaseTrainerConfig(BaseModel):
     model_type: Literal["ACT", "gr00t"] = Field(
         ...,
         description="Type of model to train, either 'ACT' or 'gr00t'",
@@ -147,8 +147,8 @@ class BaseTrainingRequest(BaseModel):
         ...,
         description="Dataset repository ID on Hugging Face, should be a public dataset",
     )
-    model_name: str = Field(
-        ...,
+    model_name: Optional[str] = Field(
+        default=None,
         description="Name of the trained model to upload to Hugging Face, should be in the format phospho-app/<model_name> or <model_name>",
     )
     wandb_api_key: Optional[str] = Field(
@@ -161,11 +161,21 @@ class BaseTrainingRequest(BaseModel):
     )
 
 
-class TrainingRequest(BaseTrainingRequest):
+class TrainingRequest(BaseTrainerConfig):
     """Pydantic model for training request validation"""
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_required_fields(cls, data: dict) -> dict:
+        if not data.get("model_name"):
+            raise ValueError("model_name is required for training requests")
+        return data
 
     @field_validator("model_name", mode="before")
     def validate_model_name(cls, model_name: str) -> str:
+        if model_name is None:
+            raise ValueError("model_name is required for training requests")
+
         # We add random characters to the model name to avoid collisions
         random_chars = "".join(
             random.choices(string.ascii_lowercase + string.digits, k=10)

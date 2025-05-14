@@ -4,7 +4,7 @@ import pickle
 import time
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Callable, Dict, Literal, Tuple
+from typing import Any, Callable, Dict, Literal, Tuple, Optional
 import cv2
 import numpy as np
 import zmq
@@ -26,6 +26,8 @@ from phosphobot.am.base import (
     HuggingFaceTokenValidator,
     generate_readme,
     resize_dataset,
+    BaseTrainerConfig,
+    TrainingParamsGr00T,
 )
 
 # Code from: https://github.com/NVIDIA/Isaac-GR00T/blob/main/gr00t/eval/service.py#L111
@@ -831,30 +833,10 @@ class Gr00tN1(ActionModel):
             nb_iter += 1
 
 
-class Gr00tTrainerConfig(BaseModel):
-    dataset_id: str
-    """the Hugging Face id of the dataset to train on"""
-
-    data_dir: str = "data/"
-    """the directory to save the dataset to"""
-
-    output_dir: str = "outputs/"
-    """the directory to save the model to"""
-
-    output_hf_model_id: str | None = None
-    """the Hugging Face id of the model to save the finetuned model to. If not provided, will not save the model to Hugging Face."""
-
-    epochs: int = 10
-    """the number of epochs to train for"""
-
-    batch_size: int = 64
-    """the batch size to train for. Higher is better. Lower if you run out of memory."""
-
-    learning_rate: float = 0.0002
-    """the learning rate to train for"""
-
-    path_to_gr00t_repo: str = "."
-    """the path to the Isaac-GR00T repo. If not provided, will assume we are in the repo."""
+class Gr00tTrainerConfig(BaseTrainerConfig):
+    # Set the value of model_type to "gr00t"
+    model_type: Literal["gr00t"] = "gr00t"
+    training_params: TrainingParamsGr00T
 
 
 def generate_modality_json(data_dir) -> tuple[int, int]:
@@ -994,33 +976,33 @@ class Gr00tTrainer(BaseTrainer):
         self.config = config
 
     def train(self):
-        logger.info(f"Starting training for dataset={self.config.dataset_id}")
+        logger.info(f"Starting training for dataset={self.config.dataset_name}")
 
         # Create output directory
-        data_dir = Path(self.config.data_dir)
-        output_dir = Path(self.config.output_dir)
+        data_dir = Path(self.config.training_params.data_dir)
+        output_dir = Path(self.config.training_params.output_dir)
         os.makedirs(data_dir, exist_ok=True)
         os.makedirs(output_dir, exist_ok=True)
 
         selected_branch = "main"
         print(f"Using branch {selected_branch}")
 
-        if self.config.output_hf_model_id is not None:
+        if self.config.model_name is not None:
             # We check if the user has write access to the model-id
             if not HuggingFaceTokenValidator().has_write_access(
-                hf_model_name=self.config.output_hf_model_id
+                hf_model_name=self.config.model_name
             ):
                 raise ValueError(
-                    f"The provided HF token does not have write access to {self.config.output_hf_model_id}"
+                    f"The provided HF token does not have write access to {self.config.model_name}"
                 )
 
         # Download huggingface dataset with huggingface_hub
-        logger.info(f"Downloading dataset {self.config.dataset_id} to {data_dir}")
+        logger.info(f"Downloading dataset {self.config.dataset_name} to {data_dir}")
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 dataset_path_as_str = snapshot_download(
-                    repo_id=self.config.dataset_id,
+                    repo_id=self.config.dataset_name,
                     repo_type="dataset",
                     revision=selected_branch,
                     local_dir=str(data_dir),
@@ -1028,7 +1010,7 @@ class Gr00tTrainer(BaseTrainer):
                 )
                 DATASET_PATH = Path(dataset_path_as_str)
                 logger.info(
-                    f"Dataset {self.config.dataset_id} downloaded to {DATASET_PATH}"
+                    f"Dataset {self.config.dataset_name} downloaded to {DATASET_PATH}"
                 )
                 break  # Exit the loop if download is successful
             except Exception as e:
@@ -1037,7 +1019,7 @@ class Gr00tTrainer(BaseTrainer):
                     time.sleep(1)  # Wait for 1 second before retrying
                 else:
                     raise RuntimeError(
-                        f"Failed to download dataset {self.config.dataset_id} after {max_retries} attempts, is Hugging Face down ? : {e}"
+                        f"Failed to download dataset {self.config.dataset_name} after {max_retries} attempts, is Hugging Face down ? : {e}"
                     )
 
         resized_successful, _ = resize_dataset(
@@ -1045,9 +1027,9 @@ class Gr00tTrainer(BaseTrainer):
         )
         if not resized_successful:
             raise RuntimeError(
-                f"Resizing dataset {self.config.dataset_id} to 224x224 failed: {resized_successful}"
+                f"Resizing dataset {self.config.dataset_name} to 224x224 failed: {resized_successful}"
             )
-        logger.info(f"Resized dataset {self.config.dataset_id} to 224x224")
+        logger.info(f"Resized dataset {self.config.dataset_name} to 224x224")
 
         # Create the modality json file in meta folder
         logger.info("Generating modality.json file")
@@ -1058,39 +1040,42 @@ class Gr00tTrainer(BaseTrainer):
             info = json.load(f)
             total_frames = info["total_frames"]
 
-        steps = total_frames * self.config.epochs // self.config.batch_size + 1
+        steps = (
+            total_frames
+            * self.config.training_params.epochs
+            // self.config.training_params.batch_size
+            + 1
+        )
 
         logger.info(
-            f"Will train for {self.config.epochs} epochs, which is {steps} steps"
+            f"Will train for {self.config.training_params.epochs} epochs, which is {steps} steps"
         )
 
         asyncio.run(
             run_gr00t_training(
                 data_dir=data_dir,
                 output_dir=output_dir,
-                batch_size=self.config.batch_size,
-                epochs=self.config.epochs,
+                batch_size=self.config.training_params.batch_size,
+                epochs=self.config.training_params.epochs,
                 number_of_robots=number_of_robots,
                 number_of_cameras=number_of_cameras,
-                learning_rate=self.config.learning_rate,
+                learning_rate=self.config.training_params.learning_rate,
                 wandb_enabled=True,
                 timeout_seconds=3 * 60 * 60,
-                gr00t_repo_path=self.config.path_to_gr00t_repo,
+                gr00t_repo_path=self.config.training_params.path_to_gr00t_repo,
             )
         )
         logger.info("Training finished")
         # Upload to Hugging Face if token is provided
-        if self.config.output_hf_model_id is not None:
-            logger.info(
-                f"Uploading model to Hugging Face as {self.config.output_hf_model_id}"
-            )
+        if self.config.model_name is not None:
+            logger.info(f"Uploading model to Hugging Face as {self.config.model_name}")
 
             # Upload using huggingface_hub
             api = HfApi()
             files_directory = output_dir
 
             api.create_repo(
-                repo_id=self.config.output_hf_model_id,
+                repo_id=self.config.model_name,
                 repo_type="model",
                 private=False,
                 exist_ok=True,
@@ -1100,10 +1085,10 @@ class Gr00tTrainer(BaseTrainer):
             for item in files_directory.glob("*"):
                 if item.is_file() and item.name != "README.md":
                     logger.info(
-                        f"Uploading {item} to {self.config.output_hf_model_id} as {item.name}"
+                        f"Uploading {item} to {self.config.model_name} as {item.name}"
                     )
                     api.upload_file(
-                        repo_id=self.config.output_hf_model_id,
+                        repo_id=self.config.model_name,
                         repo_type="model",
                         path_or_fileobj=str(item.resolve()),
                         path_in_repo=item.name,
@@ -1121,15 +1106,15 @@ class Gr00tTrainer(BaseTrainer):
                             repo_type="model",
                             path_or_fileobj=str(item.resolve()),
                             path_in_repo=str(rel_path),
-                            repo_id=self.config.output_hf_model_id,
+                            repo_id=self.config.model_name,
                         )
 
             # Upload README last
             readme = generate_readme(
                 model_type="gr00t",
-                dataset_repo_id=self.config.dataset_id,
-                epochs=self.config.epochs,
-                batch_size=self.config.batch_size,
+                dataset_repo_id=self.config.dataset_name,
+                epochs=self.config.training_params.epochs,
+                batch_size=self.config.training_params.batch_size,
                 return_readme_as_bytes=True,
             )
 
@@ -1137,13 +1122,11 @@ class Gr00tTrainer(BaseTrainer):
                 repo_type="model",
                 path_or_fileobj=readme,
                 path_in_repo="README.md",
-                repo_id=self.config.output_hf_model_id,
+                repo_id=self.config.model_name,
             )
 
             # Get the model URL
-            huggingface_model_url = (
-                f"https://huggingface.co/{self.config.output_hf_model_id}"
-            )
+            huggingface_model_url = f"https://huggingface.co/{self.config.model_name}"
             logger.info(f"Model successfully uploaded to {huggingface_model_url}")
 
             logger.info("Model successfully uploaded to Hugging Face")
