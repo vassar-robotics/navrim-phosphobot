@@ -555,6 +555,7 @@ jobs:
         run: uv cache prune --ci
 
   publish_phospho_python:
+    needs: build
     runs-on: ubuntu-latest
     defaults:
       run:
