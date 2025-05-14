@@ -1,6 +1,6 @@
 [project]
 name = "phosphobot"
-version = "0.2.212"
+version = "0.3.0"
 description = "Teleoperation server for robots"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
@@ -63,14 +63,14 @@ openpi-client = { git = "https://github.com/phospho-app/openpi.git", subdirector
 
 
 [project.scripts]
-teleop = "teleop.main:cli"
+phosphobot = "phosphobot.main:cli"
 
 [build-system]
 requires = ["setuptools>=42", "wheel", "toml"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["teleop", "resources"]
+packages = ["phosphobot", "resources"]
 
 [tool.setuptools.package-data]
 resources = ["*"] # Include all files in the resources directory
