@@ -65,7 +65,7 @@ jobs:
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
         with:
-          working-directory: phosphobot/dashboard
+          working-directory: dashboard
 
       - name: Build dashboard frontend
         env:
@@ -75,11 +75,11 @@ jobs:
 
       - name: Check that the frontend build was successful (dist folder not empty)
         run: |
-          if [ ! -d "phosphobot/dashboard/dist" ]; then
+          if [ ! -d "phosphobot/resources/dist" ]; then
             echo "Dashboard frontend build failed: dist folder not found"
             exit 1
           fi
-          if [ ! "$(ls -A phosphobot/dashboard/dist)" ]; then
+          if [ ! "$(ls -A phosphobot/resources/dist)" ]; then
             echo "Dashboard frontend build failed: dist folder is empty"
             exit 1
           fi
