@@ -80,10 +80,11 @@ requires = ["setuptools>=42", "wheel", "toml"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["phosphobot", "resources"]
+packages = ["phosphobot", "resources", "dashboard"]
 
 [tool.setuptools.package-data]
-resources = ["*"] # Include all files in the resources directory
+resources = ["*"]       # Include all files in the resources directory
+dashboard = ["/dist/*"]
 
 [tool.ruff]
 src = ["app"]
