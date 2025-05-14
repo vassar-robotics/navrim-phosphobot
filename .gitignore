@@ -171,4 +171,11 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Folders to ignore
+Isaac-GR00T/
+data/
+outputs/
+wandb/
+config.yaml
 node_modules

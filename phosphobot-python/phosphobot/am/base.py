@@ -121,13 +121,24 @@ class TrainingParamsGr00T(BaseModel):
         le=1,
     )
 
+    data_dir: str = Field(
+        default="data/", description="The directory to save the dataset to"
+    )
+
+    output_dir: str = Field(
+        default="outputs/", description="The directory to save the model to"
+    )
+
+    path_to_gr00t_repo: str = Field(
+        default=".",
+        description="The path to the Isaac-GR00T repo. If not provided, will assume we are in the repo.",
+    )
+
     class Config:
         extra = "forbid"
 
 
-class TrainingRequest(BaseModel):
-    """Pydantic model for training request validation"""
-
+class BaseTrainerConfig(BaseModel):
     model_type: Literal["ACT", "gr00t"] = Field(
         ...,
         description="Type of model to train, either 'ACT' or 'gr00t'",
@@ -136,8 +147,8 @@ class TrainingRequest(BaseModel):
         ...,
         description="Dataset repository ID on Hugging Face, should be a public dataset",
     )
-    model_name: str = Field(
-        ...,
+    model_name: Optional[str] = Field(
+        default=None,
         description="Name of the trained model to upload to Hugging Face, should be in the format phospho-app/<model_name> or <model_name>",
     )
     wandb_api_key: Optional[str] = Field(
@@ -149,8 +160,22 @@ class TrainingRequest(BaseModel):
         description="Training parameters for the model, if not provided, default parameters will be used",
     )
 
+
+class TrainingRequest(BaseTrainerConfig):
+    """Pydantic model for training request validation"""
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_required_fields(cls, data: dict) -> dict:
+        if not data.get("model_name"):
+            raise ValueError("model_name is required for training requests")
+        return data
+
     @field_validator("model_name", mode="before")
     def validate_model_name(cls, model_name: str) -> str:
+        if model_name is None:
+            raise ValueError("model_name is required for training requests")
+
         # We add random characters to the model name to avoid collisions
         random_chars = "".join(
             random.choices(string.ascii_lowercase + string.digits, k=10)
@@ -401,3 +426,13 @@ def resize_dataset(
     except Exception as e:
         logger.error(f"Error resizing videos: {e}")
         return False, False
+
+
+class BaseTrainer(ABC):
+    """
+    Currently only implemented for gr00t.
+    """
+
+    @abstractmethod
+    def train(self):
+        pass
