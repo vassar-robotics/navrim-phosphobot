@@ -1,6 +1,6 @@
 [project]
 name = "teleop"
-version = "0.2.211"
+version = "0.2.212"
 description = "Teleoperation server for robots"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
