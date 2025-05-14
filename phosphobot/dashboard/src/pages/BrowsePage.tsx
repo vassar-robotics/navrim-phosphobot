@@ -23,6 +23,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -45,7 +47,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useGlobalStore } from "@/lib/hooks";
 import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
-import { ServerStatus } from "@/types";
+import { DatasetInfoResponse, ServerStatus } from "@/types";
 import {
   AlertCircle,
   ArrowUpFromLine,
@@ -60,7 +62,7 @@ import {
   Repeat,
   Trash2,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { redirect, useParams, useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -87,6 +89,171 @@ interface BrowseData {
   episode_paths?: string[];
 }
 
+interface DatasetInfos {
+  [key: string]: DatasetInfoResponse | null;
+}
+interface MergeDialogProps {
+  selectedItems: string[];
+  datasetInfos: DatasetInfos;
+  setMergeModalOpen: (open: boolean) => void;
+  mergeMultipleDatasets: (mergedName: string, imageKeyMappings: Record<string, string>) => void;
+}
+
+const MergeDialog: React.FC<MergeDialogProps> = ({
+  selectedItems,
+  datasetInfos,
+  setMergeModalOpen,
+  mergeMultipleDatasets,
+}) => {
+  const [mergedDatasetName, setMergedDatasetName] = useState('');
+
+  // Create state to track image key mappings
+  const [imageKeyMappings, setImageKeyMappings] = useState<Record<string, string>>({});
+
+  // Get source dataset image keys
+  const sourceDatasetImageKeys = datasetInfos[selectedItems[0]]?.image_keys || [];
+  // Get target dataset image keys
+  const targetDatasetImageKeys = datasetInfos[selectedItems[1]]?.image_keys || [];
+
+  // Handle image key selection change
+  const handleImageKeyChange = (sourceKey: string, targetKey: string) => {
+    setImageKeyMappings(prev => ({
+      ...prev,
+      [sourceKey]: targetKey
+    }));
+  };
+
+  const handleMerge = () => {
+    // Pass both the dataset name and the image key mappings
+    mergeMultipleDatasets(mergedDatasetName, imageKeyMappings);
+  };
+
+  const allKeysMapped = sourceDatasetImageKeys.length > 0 &&
+    sourceDatasetImageKeys.every(key => !!imageKeyMappings[key]);
+
+  return (
+    <DialogContent className="sm:max-w-2xl max-h-[110vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Merge Datasets</DialogTitle>
+      </DialogHeader>
+
+      <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="mergedDatasetName">New Dataset Name</Label>
+          <Input
+            id="mergedDatasetName"
+            value={mergedDatasetName}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow only characters that are not whitespace or "/"
+              if (/^[^\s/]*$/.test(value)) {
+                setMergedDatasetName(value);
+              }
+            }}
+            placeholder="Enter a name for the merged dataset"
+            className="w-full"
+          />
+        </div>
+
+        {sourceDatasetImageKeys.length > 0 && (
+          <p className="text-sm text-gray-500">
+            Map all image keys from dataset <code>{selectedItems[0]}</code> to their corresponding keys in dataset <code>{selectedItems[1]}</code>.
+            {!allKeysMapped && sourceDatasetImageKeys.length > 0 && (
+              <span className="text-amber-500 ml-1">All image keys must be mapped before merging.</span>
+            )}
+          </p>
+        )}
+
+        <div className="space-y-4">
+          {sourceDatasetImageKeys.length > 0 && targetDatasetImageKeys.length > 0 &&
+            sourceDatasetImageKeys.map((sourceKey) => (
+              <div key={sourceKey} className="grid gap-2">
+                <Label className="text-sm">
+                  Match <code>{sourceKey}</code> from dataset <code>{selectedItems[0]}</code>
+                </Label>
+
+                <div className="flex gap-3 items-center">
+                  {/* Source image preview */}
+                  <div className="border rounded-md p-2 flex-shrink-0 w-32">
+                    <p className="text-xs mb-1">Source:</p>
+                    <div className="h-20 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={`data:image/jpeg;base64,${datasetInfos[selectedItems[0]]?.image_frames?.[sourceKey] ?? ''}`}
+                        alt={`Preview of ${sourceKey}`}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                    <p className="text-xs mt-1 truncate">{sourceKey}</p>
+                  </div>
+
+                  <div className="text-center text-sm">→</div>
+
+                  {/* Target image preview (only shows when selected) */}
+                  {imageKeyMappings[sourceKey] ? (
+                    <div className="border rounded-md p-2 flex-shrink-0 w-32">
+                      <p className="text-xs mb-1">Target:</p>
+                      <div className="h-20 flex items-center justify-center overflow-hidden">
+                        <img
+                          src={`data:image/jpeg;base64,${datasetInfos[selectedItems[1]]?.image_frames?.[imageKeyMappings[sourceKey]] ?? ''}`}
+                          alt={`Preview of ${imageKeyMappings[sourceKey]}`}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      </div>
+                      <p className="text-xs mt-1 truncate">{imageKeyMappings[sourceKey]}</p>
+                    </div>
+                  ) : (
+                    <div className="border border-dashed rounded-md p-2 flex-shrink-0 w-32 flex items-center justify-center h-28">
+                      <p className="text-xs text-gray-400">Select target image</p>
+                    </div>
+                  )}
+
+                  <div className="flex-grow">
+                    <Select onValueChange={(value) => handleImageKeyChange(sourceKey, value)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select matching image key" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60 overflow-y-auto">
+                        {targetDatasetImageKeys.map((targetKey) => (
+                          <SelectItem key={targetKey} value={targetKey} className="py-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-12 h-9 flex items-center justify-center overflow-hidden rounded">
+                                <img
+                                  src={`data:image/jpeg;base64,${datasetInfos[selectedItems[1]]?.image_frames?.[targetKey] ?? ''}`}
+                                  alt={`Preview of ${targetKey}`}
+                                  className="max-h-full max-w-full object-contain"
+                                />
+                              </div>
+                              <span className="truncate text-sm">{targetKey}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={() => setMergeModalOpen(false)}>
+          Cancel
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={handleMerge}
+          disabled={!mergedDatasetName.trim() || !allKeysMapped}
+        >
+          Merge
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+};
+
+
 export default function FileBrowser() {
   const params = useParams();
   const [searchParams] = useSearchParams();
@@ -105,6 +272,8 @@ export default function FileBrowser() {
     (state) => state.leaderArmSerialIds,
   );
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [datasetInfos, setDatasetInfos] = useState<Record<string, DatasetInfoResponse | null>>({});
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
 
 
   // Loading state for episode deletion
@@ -117,6 +286,35 @@ export default function FileBrowser() {
       refreshInterval: 5000,
     },
   );
+
+  const fetchDatasetInfo = async (path: string): Promise<DatasetInfoResponse | null> => {
+    const response = await fetchWithBaseUrl(
+      `/dataset/info?path=${encodeURIComponent(path)}`,
+      "POST",
+    );
+    if (response.status !== "ok") {
+      return null;
+    }
+    return response as DatasetInfoResponse;
+  };
+
+  useEffect(() => {
+    const fetchInfos = async () => {
+      if (!data || !data.items) return;
+
+      const infos: Record<string, DatasetInfoResponse | null> = {};
+      await Promise.all(
+        data.items.filter((item) => item.is_dataset_dir).map(async (item) => {
+          const info = await fetchDatasetInfo(item.path);
+          infos[item.path] = info;
+        }),
+      );
+      setDatasetInfos(infos);
+    };
+
+    fetchInfos();
+  }, [data]);
+
 
   const isRobotConnected = useMemo(() => {
     return serverStatus?.robots && serverStatus.robots.length > 0;
@@ -166,24 +364,46 @@ export default function FileBrowser() {
     mutate();
   };
 
-  const mergeMultipleDatasets = async () => {
-    if (selectedItems.length === 0) {
-      toast.error("No datasets selected for merging");
+  const handleMergeCheck = async () => {
+    if (selectedItems.length !== 2) {
+      toast.error("Please select exactly 2 datasets to merge");
       return;
     }
-    fetchWithBaseUrl(
-      `/dataset/merge`,
-      "POST",
-      { datasets: selectedItems }
-    ).then((response) => {
+
+    if (datasetInfos[selectedItems[0]]?.robot_type !== datasetInfos[selectedItems[1]]?.robot_type) {
+      toast.error("Datasets have different robot types. Cannot merge.");
+      return;
+    }
+
+    if (datasetInfos[selectedItems[0]]?.robot_dof !== datasetInfos[selectedItems[1]]?.robot_dof) {
+      toast.error("Datasets have different DOF. Cannot merge.");
+      return;
+    }
+
+    if (datasetInfos[selectedItems[0]]?.image_keys?.length !== datasetInfos[selectedItems[1]]?.image_keys?.length) {
+      toast.error("Datasets have different number of image keys. Cannot merge.");
+      return;
+    }
+
+    setMergeModalOpen(true);
+  }
+
+  const mergeMultipleDatasets = async (newDatasetName: string, imageKeyMappings?: Record<string, string>) => {
+    fetchWithBaseUrl(`/dataset/merge`, "POST", {
+      first_dataset: selectedItems[0],
+      second_dataset: selectedItems[1],
+      new_dataset_name: newDatasetName,
+      image_key_mappings: imageKeyMappings,
+    }).then((response) => {
       if (response.status !== "ok") {
         toast.error("Failed to merge datasets");
       } else {
-        toast.success("Datasets merged successfully");
+        toast.success("Episode merged successfully");
         mutate();
         redirect(path);
       }
     });
+    setMergeModalOpen(true);
   };
 
   const handleDeleteEpisode = async () => {
@@ -276,6 +496,16 @@ export default function FileBrowser() {
           <TableRow>
             <TableCell className="w-[50px]" />
             <TableCell>Name</TableCell>
+            {
+              path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1") ? (
+                <>
+                  <TableCell className="text-muted-foreground">Robot Type</TableCell>
+                  <TableCell className="text-muted-foreground">DOF</TableCell>
+                  <TableCell className="text-muted-foreground">Episodes</TableCell>
+                  <TableCell className="text-muted-foreground">Image Keys</TableCell>
+                </>
+              ) : null
+            }
             <TableCell></TableCell>
           </TableRow>
         </TableHeader>
@@ -305,6 +535,26 @@ export default function FileBrowser() {
                   )}
                   {item.name}
                 </Link>
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {datasetInfos[item.path]?.robot_type && (
+                  datasetInfos[item.path]?.robot_type
+                )}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {datasetInfos[item.path]?.robot_dof && (
+                  datasetInfos[item.path]?.robot_dof
+                )}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {datasetInfos[item.path]?.number_of_episodes && (
+                  datasetInfos[item.path]?.number_of_episodes
+                )}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {datasetInfos[item.path]?.image_keys && (
+                  datasetInfos[item.path]?.image_keys?.length
+                )}
               </TableCell>
               <TableCell>
                 <div className="flex space-x-2 justify-end">
@@ -440,7 +690,7 @@ export default function FileBrowser() {
           <Button
             className="mb-4 mt-6"
             variant="outline"
-            onClick={() => mergeMultipleDatasets()}
+            onClick={() => handleMergeCheck()}
           >
             <Repeat className="mr-2 h-4 w-3" />
             Merge Selected Datasets
@@ -530,6 +780,16 @@ export default function FileBrowser() {
             </Button>
           </DialogFooter>
         </DialogContent>
+      </Dialog>
+
+      {/* Merge modal */}
+      <Dialog open={mergeModalOpen} onOpenChange={setMergeModalOpen}>
+        <MergeDialog
+          selectedItems={selectedItems}
+          datasetInfos={datasetInfos}
+          setMergeModalOpen={setMergeModalOpen}
+          mergeMultipleDatasets={mergeMultipleDatasets}
+        />
       </Dialog>
     </div >
   );

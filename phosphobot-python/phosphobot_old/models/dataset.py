@@ -763,9 +763,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(0)
-            assert (
-                step.action is not None
-            ), "The action must be set for each step before saving"
+            assert step.action is not None, (
+                "The action must be set for each step before saving"
+            )
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -1607,6 +1607,49 @@ It's compatible with LeRobot and RLDS.
 
         except Exception as e:
             logger.error(f"An error occurred: {e}")
+
+    def merge_datasets(self, second_dataset: "Dataset", new_dataset_name: str) -> None:
+        """
+        Merge multiple datasets into one.
+        This will create a new dataset with the merged data.
+        """
+        # Check that all datasets have the same format
+        if second_dataset.episode_format != self.episode_format:
+            raise ValueError(
+                f"Dataset {second_dataset.dataset_name} has a different format: {second_dataset.episode_format}"
+            )
+
+        path_result_dataset = os.path.join(
+            os.path.dirname(self.folder_full_path),
+            new_dataset_name,
+        )
+        # If the dataset already exists, raise an error
+        if os.path.exists(path_result_dataset):
+            raise ValueError(
+                f"Dataset {new_dataset_name} already exists in {path_result_dataset}"
+            )
+        os.makedirs(path_result_dataset, exist_ok=True)
+
+        ### VIDEOS
+
+        # Start by moving videos to the new dataset
+        for video_folder in os.listdir(self.videos_folder_full_path):
+            if "image" in video_folder:
+                # Move the video folder to the new dataset
+                shutil.copytree(
+                    os.path.join(self.videos_folder_full_path, video_folder),
+                    os.path.join(path_result_dataset, video_folder),
+                )
+
+        # Count the number of videos in the first video folder
+        video_folder = os.listdir(self.videos_folder_full_path)[0]
+        video_folder_full_path = os.path.join(
+            self.videos_folder_full_path, video_folder
+        )
+        video_files = [
+            f for f in os.listdir(video_folder_full_path) if f.endswith(".mp4")
+        ]
+        nb_videos = len(video_files)
 
 
 class Stats(BaseModel):

@@ -152,8 +152,8 @@ def get_base_path() -> Path:
     Return the base path of the app.
     This is used to load bundled resources.
 
-    teleop/    <-- base path
-        teleop/
+    phosphobot/    <-- base path
+        phosphobot/
 
             main.py
             ...
@@ -169,8 +169,8 @@ def get_resources_path() -> Path:
     Return the path of the resources directory.
     This is used to load bundled resources.
 
-    teleop/
-        teleop/
+    phosphobot/
+        phosphobot/
 
             main.py
             ...

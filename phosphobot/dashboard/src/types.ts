@@ -18,6 +18,15 @@ export type SingleCameraStatus = {
   fps: number;
 };
 
+export type DatasetInfoResponse = {
+  status: "ok" | "error";
+  robot_type?: string;
+  robot_dof?: number;
+  number_of_episodes?: number;
+  image_keys?: string[];
+  image_frames?: Record<string, string>;
+};
+
 export type AllCamerasStatus = {
   cameras_status: SingleCameraStatus[];
   is_stereo_camera_available: boolean;
