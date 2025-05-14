@@ -12,11 +12,11 @@ from huggingface_hub import HfApi
 from loguru import logger
 from pydantic import BaseModel, field_validator, model_validator
 
-from phosphobot_old.am.base import ActionModel
-from phosphobot_old.camera import AllCameras
-from phosphobot_old.control_signal import AIControlSignal
-from phosphobot_old.models.dataset import BaseRobot
-from phosphobot_old.utils import background_task_log_exceptions, get_hf_token
+from phosphobot.am.base import ActionModel
+from phosphobot.camera import AllCameras
+from phosphobot.control_signal import AIControlSignal
+from phosphobot.models.dataset import BaseRobot
+from phosphobot.utils import background_task_log_exceptions, get_hf_token
 
 
 class InputFeature(BaseModel):

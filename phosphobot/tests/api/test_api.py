@@ -21,7 +21,7 @@ import requests  # type: ignore
 from dotenv import load_dotenv
 from huggingface_hub import HfApi, login
 from loguru import logger
-from phosphobot_old.utils import get_home_app_path, parse_hf_username_or_orgid
+from phosphobot.utils import get_home_app_path, parse_hf_username_or_orgid
 
 BASE_URL = "http://127.0.0.1:8080"
 load_dotenv()  # take environment variables from .env

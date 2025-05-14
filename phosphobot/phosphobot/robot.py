@@ -2,13 +2,13 @@ import time
 from dataclasses import dataclass
 from typing import List, Optional, Set
 
-from fastapi import HTTPException
 import pybullet as p  # type: ignore
+from fastapi import HTTPException
 from loguru import logger
-from phosphobot_old.configs import config
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
+from phosphobot.configs import config
 from phosphobot.hardware import (
     BaseRobot,
     KochHardware,

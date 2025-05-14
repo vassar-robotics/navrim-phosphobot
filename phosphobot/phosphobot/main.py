@@ -64,8 +64,8 @@ from typing import Annotated
 
 import typer
 import uvicorn
-from phosphobot_old.configs import config
-from phosphobot_old.types import SimulationMode
+from phosphobot.configs import config
+from phosphobot.types import SimulationMode
 
 
 def init_telemetry() -> None:
@@ -157,7 +157,7 @@ def info(
 
     if servos:
         from phosphobot.hardware.motors.feetech import dump_servo_states_to_file  # type: ignore
-        from phosphobot_old.utils import get_home_app_path
+        from phosphobot.utils import get_home_app_path
 
         # Diagnose SO-100 servos
         for port in ports:

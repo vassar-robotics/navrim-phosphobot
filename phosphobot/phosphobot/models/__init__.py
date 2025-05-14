@@ -1,9 +1,35 @@
-import numpy as np
-from phosphobot._version import __version__
-from phosphobot_old.types import VideoCodecs
-from phosphobot_old.models import AllCamerasStatus
 from typing import Dict, List, Literal, Optional
+
+import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
+
+from phosphobot._version import __version__
+from phosphobot.models.camera import AllCamerasStatus, SingleCameraStatus
+from phosphobot.models.dataset import (
+    BaseRobot,
+    BaseRobotConfig,
+    BaseRobotInfo,
+    BaseRobotPIDGains,
+    Dataset,
+    Episode,
+    EpisodesFeatures,
+    EpisodesModel,
+    EpisodesStatsFeatutes,
+    EpisodesStatsModel,
+    FeatureDetails,
+    InfoFeatures,
+    InfoModel,
+    LeRobotEpisodeModel,
+    Observation,
+    Stats,
+    StatsModel,
+    Step,
+    TasksFeatures,
+    TasksModel,
+    VideoFeatureDetails,
+    VideoInfo,
+)
+from phosphobot.types import VideoCodecs
 
 
 class RobotConfigStatus(BaseModel):

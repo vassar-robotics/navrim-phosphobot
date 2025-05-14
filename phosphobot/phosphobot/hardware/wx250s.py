@@ -1,8 +1,10 @@
 from typing import Optional
-from phosphobot.hardware.koch11 import KochHardware
+
 import numpy as np
-from importlib.resources import files
 from serial.tools.list_ports_common import ListPortInfo
+
+from phosphobot.hardware.koch11 import KochHardware
+from phosphobot.utils import get_resources_path
 
 
 class WX250SHardware(KochHardware):
@@ -15,7 +17,7 @@ class WX250SHardware(KochHardware):
 
     # URDF and Configuration
     URDF_FILE_PATH = str(
-        files("phosphobot_old") / "urdf" / "wx-250s" / "urdf" / "wx250s.urdf"
+        get_resources_path() / "urdf" / "wx-250s" / "urdf" / "wx250s.urdf"
     )
 
     REGISTERED_SERIAL_ID: list[str] = ["FT94W6U7"]

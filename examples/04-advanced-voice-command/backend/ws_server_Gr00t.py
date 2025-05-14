@@ -16,9 +16,9 @@ from backend.modules.mic import record_audio
 from backend.modules.llm import get_llm_response
 from backend.modules.whisper_transcriber import transcribe_audio
 from backend.modules.tts import speak_streaming
-from phosphobot_old.camera import AllCameras
-from phosphobot_old.api.client import PhosphoApi
-from phosphobot_old.am import Gr00tN1
+from phosphobot.camera import AllCameras
+from phosphobot.api.client import PhosphoApi
+from phosphobot.am import Gr00tN1
 
 # ===== SHARED STATE =====
 SHARED_STATE_PATH = "shared_state.json"

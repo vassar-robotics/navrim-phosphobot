@@ -1,23 +1,24 @@
 import time
-from loguru import logger
-from supabase import AsyncClient
+
 from fastapi import APIRouter, HTTPException
-from phosphobot.supabase import (
-    get_client,
-    delete_session,
-    save_session,
-    Session,
+from loguru import logger
+
+from phosphobot.models import (
+    AuthResponse,
+    ConfirmRequest,
+    ForgotPasswordRequest,
+    LoginCredentialsRequest,
+    ResetPasswordRequest,
+    SessionReponse,
+    StatusResponse,
 )
 from phosphobot.posthog import add_email_to_posthog
 from phosphobot.sentry import add_email_to_sentry
-from phosphobot.models import (
-    ResetPasswordRequest,
-    LoginCredentialsRequest,
-    ConfirmRequest,
-    ForgotPasswordRequest,
-    StatusResponse,
-    SessionReponse,
-    AuthResponse,
+from phosphobot.supabase import (
+    Session,
+    delete_session,
+    get_client,
+    save_session,
 )
 
 router = APIRouter(tags=["auth"])

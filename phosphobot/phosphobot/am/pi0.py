@@ -1,4 +1,4 @@
-from phosphobot_old.am.base import ActionModel
+from phosphobot.am.base import ActionModel
 from typing import List
 import numpy as np
 

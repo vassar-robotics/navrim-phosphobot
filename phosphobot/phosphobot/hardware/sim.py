@@ -14,7 +14,7 @@ def simulation_init():
     """
     Initialize the pybullet simulation environment based on the configuration.
     """
-    from phosphobot_old.configs import config
+    from phosphobot.configs import config
 
     if config.SIM_MODE == "headless":
         p.connect(p.DIRECT)
@@ -46,7 +46,7 @@ def simulation_stop():
     """
     Cleanup the simulation environment.
     """
-    from phosphobot_old.configs import config
+    from phosphobot.configs import config
 
     if p.isConnected():
         p.disconnect()

@@ -5,11 +5,10 @@ import time
 from fastapi import HTTPException
 from gotrue.errors import AuthRetryableError
 from loguru import logger
-from phosphobot_old.utils import get_home_app_path
 from supabase import AsyncClient, acreate_client
 
 from phosphobot.models import Session
-from phosphobot.utils import get_tokens
+from phosphobot.utils import get_home_app_path, get_tokens
 
 AUTH_TOKEN = get_home_app_path() / "auth.token"
 

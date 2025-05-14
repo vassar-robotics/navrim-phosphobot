@@ -6,8 +6,8 @@ from gr00t.experiment.data_config import (
     ConfigGeneratorFromNames,  # type: ignore
 )
 from gr00t.model.policy import Gr00tPolicy  # type: ignore
-from phosphobot_old.am.gr00t import RobotInferenceServer
-from phosphobot_old.am.gr00t import Gr00tN1, Gr00tSpawnConfig
+from phosphobot.am.gr00t import RobotInferenceServer
+from phosphobot.am.gr00t import Gr00tN1, Gr00tSpawnConfig
 from loguru import logger
 
 

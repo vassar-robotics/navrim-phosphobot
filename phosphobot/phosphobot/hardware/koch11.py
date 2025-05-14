@@ -1,4 +1,3 @@
-from importlib.resources import files
 from typing import Optional
 
 import numpy as np
@@ -17,12 +16,13 @@ from loguru import logger
 from serial.tools.list_ports_common import ListPortInfo
 
 from phosphobot.hardware.base import BaseRobot
+from phosphobot.utils import get_resources_path
 
 
 class KochHardware(BaseRobot):
     name: str = "koch-v1.1"
 
-    URDF_FILE_PATH = str(files("phosphobot_old") / "urdf" / "koch" / "robot.urdf")
+    URDF_FILE_PATH = str(get_resources_path() / "urdf" / "koch" / "robot.urdf")
 
     DEVICE_PID = 21971
 
