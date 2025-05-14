@@ -60,7 +60,7 @@ clean_build:
 
 build_frontend:
 	cd ./dashboard && npm i && npm run build && \
-	cp -r ./dist/* ../phosphobot/dashboard/dist/
+	cp -r ./dist/* ../phosphobot/resources/dist/
 
 # Clean up
 stop:
