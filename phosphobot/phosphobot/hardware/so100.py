@@ -1,6 +1,5 @@
 import asyncio
 import time
-from importlib.resources import files
 from typing import Optional
 
 import numpy as np
@@ -11,14 +10,14 @@ from serial.tools.list_ports_common import ListPortInfo
 
 from phosphobot.hardware.base import BaseRobot
 from phosphobot.hardware.motors.feetech import FeetechMotorsBus  # type: ignore
-from phosphobot.utils import step_simulation
+from phosphobot.utils import step_simulation, get_resources_path
 
 
 class SO100Hardware(BaseRobot):
     name = "so-100"
 
     URDF_FILE_PATH = str(
-        files("phosphobot") / "urdf" / "so-100" / "urdf" / "so-100.urdf"
+        get_resources_path() / "urdf" / "so-100" / "urdf" / "so-100.urdf"
     )
 
     DEVICE_PID: int = 21971

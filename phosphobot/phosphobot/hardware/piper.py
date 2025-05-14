@@ -1,6 +1,5 @@
 import time
 import subprocess
-from importlib.resources import files
 from typing import Any, List, Literal, Optional, Union
 
 import numpy as np
@@ -17,7 +16,9 @@ from phosphobot.utils import is_running_on_linux, get_resources_path
 class PiperHardware(BaseRobot):
     name = "agilex-piper"
 
-    URDF_FILE_PATH = str(files("phosphobot") / "urdf" / "piper" / "urdf" / "piper.urdf")
+    URDF_FILE_PATH = str(
+        get_resources_path() / "urdf" / "piper" / "urdf" / "piper.urdf"
+    )
 
     AXIS_ORIENTATION = [0, 0, 0, 1]  # TODO : Verify the axis orientation
 

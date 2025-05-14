@@ -513,7 +513,6 @@ jobs:
             --name "$env:OUTPUT_FILENAME" `
             --onefile `
             --add-data "resources:resources" `
-            --add-data "urdf:phosphobot/urdf" `
             --add-data "dashboard/dist:dashboard/dist" `
             --hidden-import phosphobot `
             --collect-all phosphobot `
