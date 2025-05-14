@@ -326,8 +326,8 @@ jobs:
           Version: ${VERSION}
           Architecture: ${{ matrix.architecture }}
           Maintainer: ${MAINTAINER}
-          Description: Phosphobot phosphobot application
-           This package contains the Phosphobot phosphobot binary for robot control.
+          Description: Phosphobot teleop application
+           This package contains the Phosphobot teleop binary for robot control.
           EOF
           cp phosphobot/${{ env.OUTPUT_FILENAME }} debian-package/usr/local/bin/${PACKAGE_NAME}
           chmod +x debian-package/usr/local/bin/${PACKAGE_NAME}
@@ -634,7 +634,7 @@ jobs:
         run: |
           cat > homebrew-tap/Formula/${{ env.FORMULA_NAME }}.rb << EOF
           class Phosphobot < Formula
-            desc "Phosphobot phosphobot application for robot control"
+            desc "Phosphobot teleop application for robot control"
             homepage "https://github.com/phospho-app/phosphobot"
             license "MIT"
             version "${{ env.VERSION }}"

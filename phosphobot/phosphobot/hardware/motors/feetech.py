@@ -9,7 +9,7 @@ from copy import deepcopy
 
 import numpy as np
 import tqdm
-from phosphobot_old.hardware.motors.motor_utils import (
+from phosphobot.hardware.motors.motor_utils import (
     RobotDeviceAlreadyConnectedError,
     RobotDeviceNotConnectedError,
     capture_timestamp_utc,

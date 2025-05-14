@@ -1,5 +1,5 @@
 import numpy as np
-from phosphobot_old.hardware.base import BaseRobot
+from phosphobot.hardware.base import BaseRobot
 from phosphobot_old.utils import step_simulation
 
 

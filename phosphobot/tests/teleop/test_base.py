@@ -19,8 +19,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from phosphobot_old.configs import config
 from phosphobot_old.types import SimulationMode
-from phosphobot_old.hardware import KochHardware, SO100Hardware, simulation_init
-from phosphobot_old.hardware.base import BaseRobot
+from phosphobot.hardware import KochHardware, SO100Hardware, simulation_init
+from phosphobot.hardware.base import BaseRobot
 
 
 # Create robot pytest fixture
