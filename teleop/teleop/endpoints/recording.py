@@ -49,7 +49,7 @@ async def start_recording_episode(
 
     # Remove .DS_Store files from the dataset folder
     dataset_path = os.path.join(
-        get_home_app_path(), "recordings", "lerobot_v2", dataset_name
+        get_home_app_path(), "recordings", recorder.episode_format, dataset_name
     )
     Dataset.remove_ds_store_files(dataset_path)
 
@@ -113,39 +113,42 @@ async def start_recording_episode(
             detail="No robots to record. You should have at least one robot connected to start recording.",
         )
 
-    try:
-        info_model = InfoModel.from_json(
-            meta_folder_path=os.path.join(dataset_path, "meta"),
-        )
-        number_of_cameras_in_dataset = len(info_model.features.observation_images)
-
-        # If we are in the github action, we add 2 simulated cameras
-        if is_github_actions() and number_of_connected_cameras == 0:
-            number_of_connected_cameras += 2
-
-        # Our robots are 6 DOF, so we divide the number of actions by 6
-        number_of_robots_in_dataset = info_model.features.action.shape[0] // 6
-
-        if number_of_connected_cameras != number_of_cameras_in_dataset:
-            raise KeyError(
-                f"Dataset {dataset_name} has {number_of_cameras_in_dataset} cameras but you have {number_of_connected_cameras} connected. Create a new dataset by changing the dataset name in Admin Settings."
+    format = query.episode_format or config.DEFAULT_EPISODE_FORMAT
+    if format != "json":
+        try:
+            info_model = InfoModel.from_json(
+                meta_folder_path=os.path.join(dataset_path, "meta"),
+                format=format,
             )
-        if number_of_connected_robots != number_of_robots_in_dataset:
-            raise KeyError(
-                f"Dataset {dataset_name} has {number_of_robots_in_dataset} robots but you have {number_of_connected_robots} connected. Create a new dataset by changing the dataset name in Admin Settings."
+            number_of_cameras_in_dataset = len(info_model.features.observation_images)
+
+            # If we are in the github action, we add 2 simulated cameras
+            if is_github_actions() and number_of_connected_cameras == 0:
+                number_of_connected_cameras += 2
+
+            # Our robots are 6 DOF, so we divide the number of actions by 6
+            number_of_robots_in_dataset = info_model.features.action.shape[0] // 6
+
+            if number_of_connected_cameras != number_of_cameras_in_dataset:
+                raise KeyError(
+                    f"Dataset {dataset_name} has {number_of_cameras_in_dataset} cameras but you have {number_of_connected_cameras} connected. Create a new dataset by changing the dataset name in Admin Settings."
+                )
+            if number_of_connected_robots != number_of_robots_in_dataset:
+                raise KeyError(
+                    f"Dataset {dataset_name} has {number_of_robots_in_dataset} robots but you have {number_of_connected_robots} connected. Create a new dataset by changing the dataset name in Admin Settings."
+                )
+        except ValueError:
+            # This means the dataset does not exist yet
+            pass
+        except KeyError as e:
+            # This means the dataset exists but the number of cameras or robots is not consistent
+            logger.warning(
+                "Number of cameras or robots is not consistent with the existing dataset. Create a new dataset by changing the dataset name in Admin Settings."
             )
-    except ValueError:
-        # This means the dataset does not exist yet
-        pass
-    except KeyError as e:
-        # This means the dataset exists but the number of cameras or robots is not consistent
-        logger.warning(
-            "Number of cameras or robots is not consistent with the existing dataset. Create a new dataset by changing the dataset name in Admin Settings."
-        )
-        raise HTTPException(
-            status_code=400,
-            detail=str(e),
-        )
+            raise HTTPException(
+                status_code=400,
+                detail=str(e),
+            )
 
     # Check if the recorder is not currently saving
     if recorder.is_saving:
@@ -229,7 +232,7 @@ async def play_recording(
                 status_code=400,
                 detail=f"Episode path {query.episode_path} does not exist.",
             )
-        episode = Episode.load(query.episode_path)
+        episode = Episode.load(query.episode_path, format=recorder.episode_format)
     elif query.dataset_name is not None and query.episode_id is None:
         # Load the latest episode
         dataset_path = os.path.join(

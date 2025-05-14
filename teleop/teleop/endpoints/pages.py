@@ -129,7 +129,7 @@ async def files(query: BrowserFilesRequest):
 
     parts = PurePath(safe_path).parts
 
-    if len(parts) > 1 and parts[-2] in {"json", "lerobot_v2"}:
+    if len(parts) > 1 and parts[-2] in {"json", "lerobot_v2", "lerobot_v2.1"}:
         data_dir = root / safe_path / "data"
         # look for chunk folders
         chunk0 = data_dir / "chunk-000"
@@ -272,8 +272,8 @@ async def delete_dataset(request: Request, path: str):
     if not os.path.exists(dataset_path) or not os.path.isdir(dataset_path):
         raise HTTPException(status_code=404, detail=f"Dataset {path} not found")
 
-    # Test that the path contains "lerobot_v2" or "json" to prevent accidental deletion
-    if "json" not in path and "lerobot_v2" not in path:
+    # Test that the path contains "lerobot" or "json" to prevent accidental deletion
+    if "json" not in path and "lerobot_v2" not in path and "lerobot_v2.1" not in path:
         raise HTTPException(
             status_code=400,
             detail="Invalid dataset path. Please use the delete button provided in the admin page to delete dataset.",
@@ -290,16 +290,25 @@ async def list_datasets():
     """
     List all datasets that are both in Hugging Face and locally.
     """
-    root = os.path.join(ROOT_DIR, "lerobot_v2")
+    root_v2 = os.path.join(ROOT_DIR, "lerobot_v2")
+    root_v2_1 = os.path.join(ROOT_DIR, "lerobot_v2.1")
     # if the folder does not exist, return an empty list
-    if not os.path.exists(root) or not os.path.isdir(root):
+    if (
+        not os.path.exists(root_v2)
+        or not os.path.isdir(root_v2)
+        or not os.path.exists(root_v2_1)
+        or not os.path.isdir(root_v2_1)
+    ):
         return DatasetListResponse(
             pushed_datasets=[],
             local_datasets=[],
         )
     # List all folders in the root directory. Keep only the directory names
     datasets_folders = [
-        f for f in os.listdir(root) if os.path.isdir(os.path.join(root, f))
+        f for f in os.listdir(root_v2) if os.path.isdir(os.path.join(root_v2, f))
+    ]
+    datasets_folders += [
+        f for f in os.listdir(root_v2_1) if os.path.isdir(os.path.join(root_v2_1, f))
     ]
     # Keep only directories
     api = HfApi()

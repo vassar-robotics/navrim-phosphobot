@@ -350,43 +350,6 @@ async def move_sleep(
     return StatusResponse()
 
 
-# @router.post(
-#     "/move/emotes",
-#     response_model=StatusResponse,
-#     summary="Do an Emote with the robot",
-#     description="Play one of the three pre-recorded movement with yor robot.",
-# )
-# async def move_emotes(
-#     emote: EmoteRequest,
-#     robot_id: int = 0,
-#     rcm: RobotConnectionManager = Depends(get_rcm),
-# ) -> StatusResponse | HTTPException:
-#     """
-#     Play one of the three pre-recorded movement with yor robot.
-#     """
-#     if len(rcm.robots) == 0:
-#         raise HTTPException(status_code=400, detail="No robot connected")
-
-#     robot = rcm.get_robot(robot_id)
-#     if not isinstance(robot, SO100Hardware):
-#         raise HTTPException(
-#             status_code=400, detail="Emotes are only implemented for SO-100 robot"
-#         )
-
-#     if emote.emote_name in ["wave", "dance", "bow"]:
-#         # TODO: DO NOT HARD CODE THE PATH
-#         emote_episode_path = f"/Users/adle/Downloads/robots/teleop/resources/emotes/lerobot_v2/{emote.emote_name}_episode/episode_000000.parquet"
-#         episode = Episode.load(episode_data_path=emote_episode_path)
-#         # the episode cannot be None since episode_path is for the emotes
-#         await episode.play(  # type: ignore
-#             robot=robot,  # type: ignore
-#         )
-#     else:
-#         raise HTTPException(status_code=400, detail="Invalid emote")
-
-#     return StatusResponse()
-
-
 @router.post(
     "/end-effector/read",
     response_model=EndEffectorPosition,

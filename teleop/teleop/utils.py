@@ -373,7 +373,7 @@ def list_directory_items(path: str, root_dir: str = "") -> List[ItemInfo]:
     items_info = []
     username_or_org_id = None
     api = None
-    if path.endswith("lerobot_v2"):
+    if path.endswith("lerobot_v2") or path.endswith("lerobot_v2.1"):
         try:
             api = HfApi()
             user_info = api.whoami()
@@ -405,12 +405,16 @@ def list_directory_items(path: str, root_dir: str = "") -> List[ItemInfo]:
                 )
 
             # Only add the delete button if the dataset's path ends with "json" or "lerobot_v2"
-            if path.endswith("json") or path.endswith("lerobot_v2"):
+            if (
+                path.endswith("json")
+                or path.endswith("lerobot_v2")
+                or path.endswith("lerobot_v2.1")
+            ):
                 info.canDeleteDataset = True
                 info.deleteDatasetAction = "/dataset/delete"
 
         # Check if this is a dataset: it's a directory and the parent is lerobot_v2
-        if is_dir and path.endswith("lerobot_v2"):
+        if is_dir and (path.endswith("lerobot_v2") or path.endswith("lerobot_v2.1")):
             info.is_dataset_dir = True
 
         items_info.append(info)

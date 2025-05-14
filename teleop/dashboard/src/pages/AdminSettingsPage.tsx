@@ -297,6 +297,7 @@ export default function AdminPage() {
                   <SelectValue placeholder="Select format" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="lerobot_v2.1">lerobot_v2.1</SelectItem>
                   <SelectItem value="lerobot_v2">lerobot_v2</SelectItem>
                   <SelectItem value="json">json</SelectItem>
                 </SelectContent>

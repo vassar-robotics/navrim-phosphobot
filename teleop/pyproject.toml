@@ -79,3 +79,4 @@ resources = ["*"] # Include all files in the resources directory
 src = ["app"]
 
 [tool.mypy]
+
