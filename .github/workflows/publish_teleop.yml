@@ -152,6 +152,7 @@ jobs:
         with:
           enable-cache: true
           cache-local-path: /tmp/.uv-cache
+          cache-dependency-glob: "teleop/pyproject.toml"
 
       - name: Clean uv cache
         if: ${{ github.event.inputs.clean_cache == 'true' }}
@@ -435,6 +436,7 @@ jobs:
         with:
           enable-cache: true
           cache-local-path: /tmp/.uv-cache
+          cache-dependency-glob: "teleop/pyproject.toml"
 
       - name: Clean uv cache
         if: ${{ github.event.inputs.clean_cache == 'true' }}
