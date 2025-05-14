@@ -121,13 +121,24 @@ class TrainingParamsGr00T(BaseModel):
         le=1,
     )
 
+    data_dir: str = Field(
+        default="data/", description="The directory to save the dataset to"
+    )
+
+    output_dir: str = Field(
+        default="outputs/", description="The directory to save the model to"
+    )
+
+    path_to_gr00t_repo: str = Field(
+        default=".",
+        description="The path to the Isaac-GR00T repo. If not provided, will assume we are in the repo.",
+    )
+
     class Config:
         extra = "forbid"
 
 
-class TrainingRequest(BaseModel):
-    """Pydantic model for training request validation"""
-
+class BaseTrainingRequest(BaseModel):
     model_type: Literal["ACT", "gr00t"] = Field(
         ...,
         description="Type of model to train, either 'ACT' or 'gr00t'",
@@ -148,6 +159,10 @@ class TrainingRequest(BaseModel):
         default=None,
         description="Training parameters for the model, if not provided, default parameters will be used",
     )
+
+
+class TrainingRequest(BaseTrainingRequest):
+    """Pydantic model for training request validation"""
 
     @field_validator("model_name", mode="before")
     def validate_model_name(cls, model_name: str) -> str:
