@@ -319,6 +319,7 @@ def check_episodes_stats_file(path: Path):
     stats: dict = episodes_stats_parsed["stats"]
 
     logger.debug(f"Stats keys: {stats.keys()}")
+    print(f"Stats: {stats}")
 
     # Check the episodes stats file has the expected keys
     required_keys = [
