@@ -83,12 +83,15 @@ def send_udp_and_receive(host: str, port: int, payload: dict):
 def generate_payload(index: int):
     # Randomize values and timestamp
     payload = {
-        "x": random.uniform(-1, 1),
-        "y": random.uniform(-1, 1),
-        "z": random.uniform(-1, 1),
-        "rx": random.uniform(-10, 10),
-        "ry": random.uniform(-10, 10),
-        "rz": random.uniform(-10, 10),
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0,
+        # "rx": random.uniform(-10, 10),
+        # "ry": random.uniform(-10, 10),
+        # "rz": random.uniform(-10, 10),
         "open": random.choice([0.0, 1.0]),
         "source": random.choice(["right"]),
         "timestamp": time.time() + index * 0.001,
@@ -101,7 +104,7 @@ def main():
 
     # Prepare randomized payload list
     payloads = [generate_payload(i) for i in range(TOTAL_MESSAGES)]
-    random.shuffle(payloads)
+    # random.shuffle(payloads)
 
     print(f"Sending {TOTAL_MESSAGES} messages with {NUM_WORKERS} workers...")
     start_all = time.perf_counter()

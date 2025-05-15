@@ -3,6 +3,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
+import time
 from typing import Dict, Literal, Optional, Tuple, cast
 
 import numpy as np
@@ -29,6 +30,7 @@ class TeleopManager:
     action_counter: int
     last_report: datetime
     MOVE_TIMEOUT: float = 1.0  # seconds
+    MAX_INSTRUCTIONS_PER_SEC: int = 120
 
     def __init__(self, rcm: RobotConnectionManager, robot_id: int | None = None):
         self.rcm = rcm
@@ -39,6 +41,22 @@ class TeleopManager:
         self.action_counter = 0
         self.last_report = datetime.now()
         self.robot_id = robot_id
+
+        # rate limiting window
+        self._window_start: datetime = datetime.now()
+        self._instr_in_window: int = 0
+
+    def allow_instruction(self) -> bool:
+        """Simple 1-second sliding window rate limiter."""
+        now = datetime.now()
+        if (now - self._window_start).total_seconds() >= 1.0:
+            self._window_start = now
+            self._instr_in_window = 0
+
+        if self._instr_in_window < self.MAX_INSTRUCTIONS_PER_SEC:
+            self._instr_in_window += 1
+            return True
+        return False
 
     def get_robot(self, source: str) -> Optional[BaseRobot]:
         """Get the appropriate robot based on source"""
@@ -111,6 +129,14 @@ class TeleopManager:
             np.deg2rad(target_orient_deg) + robot.initial_effector_orientation_rad
         )
         target_position = robot.initial_effector_position + target_pos
+
+        # if robot.is_moving, wait for it to stop
+        start_wait_time = time.perf_counter()
+        while (
+            robot.is_moving
+            and time.perf_counter() - start_wait_time < self.MOVE_TIMEOUT
+        ):
+            await asyncio.sleep(0.0001)
 
         loop = asyncio.get_event_loop()
         try:
@@ -194,6 +220,15 @@ class _TeleopProtocol(asyncio.DatagramProtocol):
         if self.transport is None:
             logger.error("Transport is None, cannot handle datagram")
             return
+
+        if not self.manager.allow_instruction():
+            err = {
+                "error": "rate_limited",
+                "detail": f"Exceeded {self.manager.MAX_INSTRUCTIONS_PER_SEC} msgs/sec",
+            }
+            self.transport.sendto(json.dumps(err).encode("utf-8"), addr)
+            return
+
         # 1) decode
         try:
             text = data.decode("utf-8")
