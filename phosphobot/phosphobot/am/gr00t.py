@@ -527,22 +527,20 @@ class Gr00tN1(ActionModel):
         return concatenated_actions
 
     @classmethod
-    def fetch_config(cls, model_id_or_path: str) -> HuggingFaceModelConfig:
+    def fetch_config(cls, model_id: str) -> HuggingFaceModelConfig:
         """
         Fetch the model config from Hugging Face Hub.
         If the model is not found on Hugging Face Hub, it will be loaded from the given path.
         """
         try:
             api = HfApi(token=get_hf_token())
-            model_info = api.model_info(model_id_or_path)
+            model_info = api.model_info(model_id)
             if model_info is None:
-                raise Exception(
-                    f"Model {model_id_or_path} not found on Hugging Face Hub."
-                )
+                raise Exception(f"Model {model_id} not found on Hugging Face Hub.")
             else:
                 # Download file from the model repo
                 config_path = api.hf_hub_download(
-                    repo_id=model_id_or_path,
+                    repo_id=model_id,
                     filename="experiment_cfg/metadata.json",
                     force_download=True,
                 )
@@ -553,12 +551,12 @@ class Gr00tN1(ActionModel):
             hf_model_config = HuggingFaceModelConfig.model_validate_json(config_content)
         except Exception as e:
             logger.info(
-                f"Couldn't load model {model_id_or_path} from Hugging Face Hub. Trying from local path."
+                f"Couldn't load model {model_id} from Hugging Face Hub. Trying from local path."
             )
             # We now assume it is a local path
             # remove possible trailing slash
-            model_id_or_path = model_id_or_path.rstrip("/")
-            config_path = f"{model_id_or_path}/experiment_cfg/metadata.json"
+            local_path = model_id.rstrip("/")
+            config_path = os.path.join(local_path, "experiment_cfg", "metadata.json")
 
             # Read the file
             with open(config_path, "r") as f:
@@ -569,8 +567,8 @@ class Gr00tN1(ActionModel):
         return hf_model_config
 
     @classmethod
-    def fetch_spawn_config(cls, model_id_or_path: str) -> Gr00tSpawnConfig:
-        hf_model_config = cls.fetch_config(model_id_or_path=model_id_or_path)
+    def fetch_spawn_config(cls, model_id: str) -> Gr00tSpawnConfig:
+        hf_model_config = cls.fetch_config(model_id=model_id)
 
         video_keys = [
             "video." + key for key in hf_model_config.embodiment.modalities.video.keys()

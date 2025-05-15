@@ -35,7 +35,7 @@ def main(config: Config):
 
     # Get the model specifics
     model_specifics: Gr00tSpawnConfig = Gr00tN1.fetch_spawn_config(
-        model_id_or_path=config.output_dir,
+        model_id=config.output_dir,
     )
 
     args = Namespace(

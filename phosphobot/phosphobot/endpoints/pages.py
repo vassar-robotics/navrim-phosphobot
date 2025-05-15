@@ -32,7 +32,7 @@ from phosphobot.models import (
     InfoModel,
 )
 from phosphobot.utils import (
-    get_dashboard_path,
+    get_resources_path,
     get_home_app_path,
     is_running_on_pi,
     login_to_hf,
@@ -45,7 +45,7 @@ router = APIRouter(tags=["pages"])
 
 # Root directory for the file browser
 ROOT_DIR = str(get_home_app_path() / "recordings")
-INDEX_PATH = str(get_dashboard_path() / "dist" / "index.html")
+INDEX_PATH = str(get_resources_path() / "dist" / "index.html")
 
 
 # Optionally, if you want the dashboard to be served at the root endpoint:
