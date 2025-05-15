@@ -398,6 +398,7 @@ class Episode(BaseModel):
                     episodes_path=str(self.episodes_path),
                     episode_index=episode_index,
                     last_frame_index=last_frame_index,
+                    task_index=self.metadata.get("task_index", 0),
                 )
             )
             lerobot_episode_parquet.to_parquet(str(self.parquet_path))
@@ -726,6 +727,7 @@ class Episode(BaseModel):
         episodes_path: str,  # We need the episodes path to load the value of the last frame index
         episode_index: int = 0,
         last_frame_index: int = 0,
+        task_index: int = 0,
     ):
         """
         Convert a dataset to the LeRobot format
@@ -762,7 +764,7 @@ class Episode(BaseModel):
             )
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
-            episode_data["task_index"].append(0)
+            episode_data["task_index"].append(task_index)
             assert step.action is not None, (
                 "The action must be set for each step before saving"
             )
@@ -1887,10 +1889,12 @@ class Stats(BaseModel):
             return
 
         self.mean = self.sum / self.count
-        if (self.square_sum / self.count - self.mean**2 < 0).any():
-            logger.warning(
-                f"Negative value in the square sum. Replacing the negative values of std with 0.\nsquare_sum={self.square_sum}\ncount={self.count}\nmean={self.mean**2}"
-            )
+        compute_diff = self.square_sum / self.count - self.mean**2
+        if (compute_diff < 0).any():
+            if (compute_diff < -2).any():
+                logger.warning(
+                    f"Negative value in the square sum. Replacing the negative values of std with 0.\nsquare_sum={self.square_sum}\ncount={self.count}\nmean={self.mean**2}"
+                )
             variance = self.square_sum / self.count - self.mean**2
             variance[variance <= 0] = 0
             self.std = np.sqrt(variance)
@@ -3038,7 +3042,12 @@ class InfoModel(BaseModel):
 
         self.total_videos = total_videos
         self.splits = {"train": f"0:{self.total_episodes}"}
-        # TODO: Handle multiple language instructions
+
+        # Handle task index
+        task_index = episode.metadata.get("task_index", 0)
+        if task_index >= self.total_tasks:
+            self.total_tasks = task_index + 1
+
         # TODO: Implement support for multiple chunks
 
     def save(

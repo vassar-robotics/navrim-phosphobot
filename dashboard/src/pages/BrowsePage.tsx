@@ -131,6 +131,22 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
   const allKeysMapped = sourceDatasetImageKeys.length > 0 &&
     sourceDatasetImageKeys.every(key => !!imageKeyMappings[key]);
 
+  const previewImageComponent = (imageKey: string, datasetInfos: DatasetInfos, sourceOrTarget: "Source" | "Target") => {
+
+    return (
+      <div className="border rounded-md p-2 w-32">
+        <p className="text-xs mb-1">{sourceOrTarget}</p>
+        <div className="h-20 flex items-center justify-center">
+          <img
+            src={`data:image/jpeg;base64,${datasetInfos[selectedItems[0]]?.image_frames?.[imageKey] ?? ''}`}
+            alt={`Preview of ${imageKey}`}
+            className="max-h-full max-w-full object-contain"
+          />
+        </div>
+        <p className="text-xs mt-1 truncate">{imageKey}</p>
+      </div>)
+  }
+
   return (
     <DialogContent className="sm:max-w-2xl max-h-[110vh] overflow-y-auto">
       <DialogHeader>
@@ -156,10 +172,10 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
         </div>
 
         {sourceDatasetImageKeys.length > 0 && (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Map all image keys from dataset <code>{selectedItems[0]}</code> to their corresponding keys in dataset <code>{selectedItems[1]}</code>.
             {!allKeysMapped && sourceDatasetImageKeys.length > 0 && (
-              <span className="text-amber-500 ml-1">All image keys must be mapped before merging.</span>
+              <span className="text-accent ml-1">All image keys must be mapped before merging.</span>
             )}
           </p>
         )}
@@ -174,36 +190,19 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
 
                 <div className="flex gap-3 items-center">
                   {/* Source image preview */}
-                  <div className="border rounded-md p-2 flex-shrink-0 w-32">
-                    <p className="text-xs mb-1">Source:</p>
-                    <div className="h-20 flex items-center justify-center overflow-hidden">
-                      <img
-                        src={`data:image/jpeg;base64,${datasetInfos[selectedItems[0]]?.image_frames?.[sourceKey] ?? ''}`}
-                        alt={`Preview of ${sourceKey}`}
-                        className="max-h-full max-w-full object-contain"
-                      />
-                    </div>
-                    <p className="text-xs mt-1 truncate">{sourceKey}</p>
-                  </div>
+                  {previewImageComponent(sourceKey, datasetInfos, "Source")}
+
 
                   <div className="text-center text-sm">→</div>
 
                   {/* Target image preview (only shows when selected) */}
                   {imageKeyMappings[sourceKey] ? (
-                    <div className="border rounded-md p-2 flex-shrink-0 w-32">
-                      <p className="text-xs mb-1">Target:</p>
-                      <div className="h-20 flex items-center justify-center overflow-hidden">
-                        <img
-                          src={`data:image/jpeg;base64,${datasetInfos[selectedItems[1]]?.image_frames?.[imageKeyMappings[sourceKey]] ?? ''}`}
-                          alt={`Preview of ${imageKeyMappings[sourceKey]}`}
-                          className="max-h-full max-w-full object-contain"
-                        />
-                      </div>
-                      <p className="text-xs mt-1 truncate">{imageKeyMappings[sourceKey]}</p>
-                    </div>
+                    <>
+                      {previewImageComponent(imageKeyMappings[sourceKey], datasetInfos, "Target")}
+                    </>
                   ) : (
-                    <div className="border border-dashed rounded-md p-2 flex-shrink-0 w-32 flex items-center justify-center h-28">
-                      <p className="text-xs text-gray-400">Select target image</p>
+                    <div className="border border-dashed rounded-md p-2 h-32 w-32 flex items-center justify-center ">
+                      <p className="text-xs text-muted ">Select target image</p>
                     </div>
                   )}
 
@@ -687,14 +686,16 @@ export default function FileBrowser() {
 
       {selectedItems.length > 0 && (path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1")) && (
         <div className="flex flex-row">
-          <Button
-            className="mb-4 mt-6"
-            variant="outline"
-            onClick={() => handleMergeCheck()}
-          >
-            <Repeat className="mr-2 h-4 w-3" />
-            Merge Selected Datasets
-          </Button>
+          {path.endsWith("lerobot_v2.1") && (
+            <Button
+              className="mb-4 mt-6"
+              variant="outline"
+              onClick={() => handleMergeCheck()}
+            >
+              <Repeat className="mr-2 h-4 w-3" />
+              Merge Selected Datasets
+            </Button>
+          )}
           <Button
             className="mb-4 mt-6 ml-2"
             variant="destructive"

@@ -169,7 +169,7 @@ async def start_recording_episode(
         target_size=query.target_video_size
         or (config.DEFAULT_VIDEO_SIZE[0], config.DEFAULT_VIDEO_SIZE[1]),
         cameras_ids_to_record=cameras_ids_to_record,
-        instruction=query.instruction,
+        instruction=query.instruction or config.DEFAULT_TASK_INSTRUCTION,
     )
     return StatusResponse()
 

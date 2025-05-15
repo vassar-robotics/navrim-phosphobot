@@ -221,6 +221,20 @@ class Recorder:
                 meta_folder_path=self.meta_folder_path
             )
 
+            # Pass the task index to the episode
+            for task in self.tasks_model.tasks:
+                if task.task == instruction:
+                    self.episode.metadata["task_index"] = task.task_index
+                    break
+            else:
+                self.episode.metadata["task_index"] = len(self.tasks_model.tasks)
+            logger.debug(
+                f"Task index: {self.episode.metadata['task_index']}, Task: {instruction}"
+            )
+            logger.debug(
+                f"Tasks model: {self.tasks_model.tasks}, Episode index: {self.episode.index}"
+            )
+
             self.global_index = self.info_model.total_frames
 
         background_tasks.add_task(
@@ -467,19 +481,19 @@ class Recorder:
             self.episode.add_step(step)
             if self.episode_format.startswith("lerobot"):
                 if self.episode_format == "lerobot_v2.1":
-                    assert (
-                        self.episodes_stats_model is not None
-                    ), "Episodes stats model is not initialized. Call start() first"
+                    assert self.episodes_stats_model is not None, (
+                        "Episodes stats model is not initialized. Call start() first"
+                    )
                 elif self.episode_format == "lerobot_v2":
-                    assert (
-                        self.stats_model is not None
-                    ), "Stats model is not initialized. Call start() first"
-                assert (
-                    self.episodes_model is not None
-                ), "Episodes model is not initialized. Call start() first"
-                assert (
-                    self.tasks_model is not None
-                ), "Tasks model is not initialized. Call start() first"
+                    assert self.stats_model is not None, (
+                        "Stats model is not initialized. Call start() first"
+                    )
+                assert self.episodes_model is not None, (
+                    "Episodes model is not initialized. Call start() first"
+                )
+                assert self.tasks_model is not None, (
+                    "Tasks model is not initialized. Call start() first"
+                )
                 # Update the models
 
                 # We pass the step count to update frame index properly
