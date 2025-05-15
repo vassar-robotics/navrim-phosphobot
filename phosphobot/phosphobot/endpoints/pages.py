@@ -425,8 +425,6 @@ async def merge_datasets(merge_request: MergeDatasetsRequest):
     # 2 - Check that the datasets are not empty
     # 3 - Check that the datasets have the same number of cameras and same robots
 
-    logger.info(f"Merge request: {merge_request}")
-
     # 1
     first_datatype = merge_request.first_dataset.split("/")[0]
     second_datatype = merge_request.second_dataset.split("/")[0]

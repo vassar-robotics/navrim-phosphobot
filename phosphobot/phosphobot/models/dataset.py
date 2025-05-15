@@ -1672,8 +1672,6 @@ It's compatible with LeRobot and RLDS.
                     os.path.join(path_to_videos, video_folder),
                 )
 
-                # Count the number of videos in the video folder
-                video_folder = os.listdir(self.videos_folder_full_path)[0]
                 video_folder_full_path = os.path.join(
                     self.videos_folder_full_path, video_folder
                 )
@@ -1712,7 +1710,7 @@ It's compatible with LeRobot and RLDS.
         second_tasks = TasksModel.from_jsonl(
             meta_folder_path=second_dataset.meta_folder_full_path
         )
-        tasks_mapping_second_to_first = initial_tasks.merge_with(
+        tasks_mapping_second_to_first, new_number_of_tasks = initial_tasks.merge_with(
             second_task_model=second_tasks,
             meta_folder_to_save_to=meta_folder_path,
         )
@@ -1746,7 +1744,7 @@ It's compatible with LeRobot and RLDS.
         first_info.merge_with(
             second_info_model=second_info,
             meta_folder_to_save_to=meta_folder_path,
-            new_nb_tasks=len(tasks_mapping_second_to_first),
+            new_nb_tasks=new_number_of_tasks,
         )
 
         #### Stats model
@@ -2436,7 +2434,6 @@ class EpisodesStatsFeatutes(BaseModel):
         model_dict.pop("observation.images")
 
         # Add the episode index
-        logger.debug(f"Model dict keys: {model_dict.keys()}")
         result_dict = {"episode_index": self.episode_index, "stats": model_dict}
 
         # Convert to JSON string
@@ -3208,7 +3205,7 @@ class TasksModel(BaseModel):
 
     def merge_with(
         self, second_task_model: "TasksModel", meta_folder_to_save_to: str
-    ) -> dict[int, int]:
+    ) -> tuple[dict[int, int], int]:
         """
         Will merge the tasks.jsonl file with another one and save it to the new meta folder.
         Returns a task mapping of the old task index to the new one.
@@ -3216,20 +3213,26 @@ class TasksModel(BaseModel):
         # Create a mapping of the old task index to the new one
         old_index_to_new_index: Dict[int, int] = {}
 
-        # Merge the tasks
-        self.tasks.extend(second_task_model.tasks)
+        for i, task_model in enumerate(second_task_model.tasks):
+            # Check if the task is already in the first task model
+            if task_model.task not in [t.task for t in self.tasks]:
+                # If not, add it to the first task model
+                old_index_to_new_index[task_model.task_index] = len(self.tasks)
+                self.tasks.append(
+                    TasksFeatures(task_index=len(self.tasks), task=task_model.task)
+                )
+            else:
+                # If it is, update the mapping
+                old_index_to_new_index[task_model.task_index] = [
+                    t.task for t in self.tasks
+                ].index(task_model.task)
 
-        # Remove duplicates
-        self.tasks = list({task.task: task for task in self.tasks}.values())
-
-        # Update the task indexes
-        for i, task in enumerate(self.tasks):
-            old_index_to_new_index[task.task_index] = i
+        new_number_of_tasks = len(self.tasks)
 
         # Save the tasks.jsonl file
         self.to_jsonl(meta_folder_path=meta_folder_to_save_to, save_mode="overwrite")
 
-        return old_index_to_new_index
+        return old_index_to_new_index, new_number_of_tasks
 
 
 class EpisodesFeatures(BaseModel):
