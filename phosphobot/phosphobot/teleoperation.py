@@ -169,26 +169,49 @@ class TeleopManager:
         return updates
 
 
-# UDP server implementation
 class UDPServer:
     def __init__(self, rcm: RobotConnectionManager):
         self.rcm = rcm
         self.manager = TeleopManager(rcm)
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(("0.0.0.0", 5055))
-        self.sock.setblocking(False)
         self.running = False
+        self.sock: socket.socket | None = None
 
-    async def start(self):
+    async def init(self, port: int | None = None):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        if port is not None:
+            self.sock.bind(("0.0.0.0", port))
+        else:
+            # Try to bind to a random port between 5550 and 6000
+            for port in range(5000, 6000):
+                try:
+                    self.sock.bind(("0.0.0.0", port))
+                    logger.info(f"Bound to port {port}")
+                    break
+                except OSError:
+                    logger.warning(f"Port {port} is already in use, trying next")
+                    continue
+            raise RuntimeError(f"Could not bind to any port between 5000 and 6000")
+
+        self.sock.setblocking(False)
+
+    async def start(self, port: int | None = None):
+        """
+        Start the UDP server and listen for incoming data.
+        """
+        if self.sock is None:
+            await self.init(port=port)
+        if self.sock is None:
+            raise RuntimeError("Socket is not initialized")
+
         self.running = True
-        logger.info("Starting UDP server on port 5005")
         loop = asyncio.get_event_loop()
 
         while self.running:
             try:
-                data, addr = await loop.sock_recv(self.sock, 1024)
+                data, addr = await loop.sock_recvfrom(self.sock, 1024)
                 try:
-                    control_data = AppControlData.model_validate_json(data)
+                    text = data.decode("utf-8")
+                    control_data = AppControlData.model_validate_json(text)
                     await self.manager.process_control_data(control_data)
                     # Generate status updates and send back to client
                     updates = await self.manager.send_status_updates()
@@ -203,4 +226,6 @@ class UDPServer:
 
     def stop(self):
         self.running = False
-        self.sock.close()
+        if self.sock is not None:
+            self.sock.close()
+        self.sock = None

@@ -71,12 +71,7 @@ async def lifespan(app: FastAPI):
     # Initialize cameras
     cameras = get_all_cameras()
     rcm = get_rcm()
-    try:
-        udp_server = UDPServer(get_rcm())
-        server_task = asyncio.create_task(udp_server.start())
-    except Exception as e:
-        logger.debug(f"Failed to start UDP server: {e}")
-        udp_server = None
+    udp_server = UDPServer(get_rcm())
 
     try:
         login_to_hf()
@@ -91,7 +86,6 @@ async def lifespan(app: FastAPI):
         yield
         if udp_server is not None:
             udp_server.stop()
-            server_task.cancel()
     finally:
         # We shutdown posthog and flush sentry to make sure all logs are properly sent
         if cameras:
