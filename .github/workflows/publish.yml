@@ -622,17 +622,17 @@ jobs:
 
       - name: Install built wheel
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
+          python -m venv .testvenv
+          source .testvenv/bin/activate
           pip install phosphobot/dist/phosphobot-*.whl
 
       - name: Run installed app
         run: |
-          source .venv/bin/activate
+          source .testvenv/bin/activate
+          # Run in a different directory to avoid conflicts
+          cd docs
           python -m phosphobot --version
           python -m phosphobot run --no-telemetry --simulation=headless --simulate-cameras --port=8080 --host=127.0.0.1 &
-        # Run in the docs directory to avoid name conflicts
-        working-directory: docs
 
       - name: Wait for server
         run: |
