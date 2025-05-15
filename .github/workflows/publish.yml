@@ -650,6 +650,32 @@ jobs:
             fi
           done
 
+      - name: Create lerobot folder
+        run: |
+          if [ ! -d "lerobot" ]; then
+            mkdir lerobot
+          fi
+
+      - name: Create pyproject.toml file in lerobot folder
+        run: |
+          if [ ! -f "lerobot/pyproject.toml" ]; then
+            cat > lerobot/pyproject.toml << EOF
+          [build-system]
+          requires = ["hatchling"]
+          build-backend = "hatchling.build"
+
+          [project]
+          name = "lerobot"
+          version = "0.1.0"
+          description = "Lerobot package"
+          requires-python = ">=3.10"
+
+          [tool.hatch.build.targets.wheel]
+          packages = ["lerobot"]
+          EOF
+            touch lerobot/__init__.py
+          fi
+
       - name: Run integration tests
         run: |
           cd phosphobot
