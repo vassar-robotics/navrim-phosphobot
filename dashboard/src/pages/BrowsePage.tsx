@@ -8,6 +8,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -20,9 +21,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -45,7 +47,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useGlobalStore } from "@/lib/hooks";
 import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
-import { ServerStatus } from "@/types";
+import { DatasetInfoResponse, ServerStatus } from "@/types";
 import {
   AlertCircle,
   ArrowUpFromLine,
@@ -60,7 +62,7 @@ import {
   Repeat,
   Trash2,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { redirect, useParams, useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -87,19 +89,169 @@ interface BrowseData {
   episode_paths?: string[];
 }
 
-// const handleRevealInFinder = (path: string) => {
-//   // `item.path` should be the absolute path to the file or directory on the user's local system
-//   // If it's a file, extract the containing directory; if it's a directory, use it directly
-//   const directoryPath = path.endsWith("/")
-//     ? path
-//     : path.substring(0, path.lastIndexOf("/"));
+interface DatasetInfos {
+  [key: string]: DatasetInfoResponse | null;
+}
+interface MergeDialogProps {
+  selectedItems: string[];
+  datasetInfos: DatasetInfos;
+  setMergeModalOpen: (open: boolean) => void;
+  mergeMultipleDatasets: (mergedName: string, imageKeyMappings: Record<string, string>) => void;
+}
 
-//   // Construct the file:// URL for the directory
-//   const fileUrl = `file://${directoryPath}`;
+const MergeDialog: React.FC<MergeDialogProps> = ({
+  selectedItems,
+  datasetInfos,
+  setMergeModalOpen,
+  mergeMultipleDatasets,
+}) => {
+  const [mergedDatasetName, setMergedDatasetName] = useState('');
 
-//   // Open the URL in a new tab/window, which may trigger the file explorer
-//   window.open(fileUrl, "_blank");
-// };
+  // Create state to track image key mappings
+  const [imageKeyMappings, setImageKeyMappings] = useState<Record<string, string>>({});
+
+  // Get source dataset image keys
+  const sourceDatasetImageKeys = datasetInfos[selectedItems[0]]?.image_keys || [];
+  // Get target dataset image keys
+  const targetDatasetImageKeys = datasetInfos[selectedItems[1]]?.image_keys || [];
+
+  // Handle image key selection change
+  const handleImageKeyChange = (sourceKey: string, targetKey: string) => {
+    setImageKeyMappings(prev => ({
+      ...prev,
+      [sourceKey]: targetKey
+    }));
+  };
+
+  const handleMerge = () => {
+    // Pass both the dataset name and the image key mappings
+    mergeMultipleDatasets(mergedDatasetName, imageKeyMappings);
+  };
+
+  const allKeysMapped = sourceDatasetImageKeys.length > 0 &&
+    sourceDatasetImageKeys.every(key => !!imageKeyMappings[key]);
+
+  const previewImageComponent = (imageKey: string, datasetInfos: DatasetInfos, sourceOrTarget: "Source" | "Target") => {
+
+    return (
+      <div className="border rounded-md p-2 w-32">
+        <p className="text-xs mb-1">{sourceOrTarget}</p>
+        <div className="h-20 flex items-center justify-center">
+          <img
+            src={`data:image/jpeg;base64,${datasetInfos[selectedItems[0]]?.image_frames?.[imageKey] ?? ''}`}
+            alt={`Preview of ${imageKey}`}
+            className="max-h-full max-w-full object-contain"
+          />
+        </div>
+        <p className="text-xs mt-1 truncate">{imageKey}</p>
+      </div>)
+  }
+
+  return (
+    <DialogContent className="sm:max-w-2xl max-h-[110vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Merge Datasets</DialogTitle>
+      </DialogHeader>
+
+      <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="mergedDatasetName">New Dataset Name</Label>
+          <Input
+            id="mergedDatasetName"
+            value={mergedDatasetName}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow only characters that are not whitespace or "/"
+              if (/^[^\s/]*$/.test(value)) {
+                setMergedDatasetName(value);
+              }
+            }}
+            placeholder="Enter a name for the merged dataset"
+            className="w-full"
+          />
+        </div>
+
+        {sourceDatasetImageKeys.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            Map all image keys from dataset <code>{selectedItems[0]}</code> to their corresponding keys in dataset <code>{selectedItems[1]}</code>.
+            {!allKeysMapped && sourceDatasetImageKeys.length > 0 && (
+              <span className="text-accent ml-1">All image keys must be mapped before merging.</span>
+            )}
+          </p>
+        )}
+
+        <div className="space-y-4">
+          {sourceDatasetImageKeys.length > 0 && targetDatasetImageKeys.length > 0 &&
+            sourceDatasetImageKeys.map((sourceKey) => (
+              <div key={sourceKey} className="grid gap-2">
+                <Label className="text-sm">
+                  Match <code>{sourceKey}</code> from dataset <code>{selectedItems[0]}</code>
+                </Label>
+
+                <div className="flex gap-3 items-center">
+                  {/* Source image preview */}
+                  {previewImageComponent(sourceKey, datasetInfos, "Source")}
+
+
+                  <div className="text-center text-sm">→</div>
+
+                  {/* Target image preview (only shows when selected) */}
+                  {imageKeyMappings[sourceKey] ? (
+                    <>
+                      {previewImageComponent(imageKeyMappings[sourceKey], datasetInfos, "Target")}
+                    </>
+                  ) : (
+                    <div className="border border-dashed rounded-md p-2 h-32 w-32 flex items-center justify-center ">
+                      <p className="text-xs text-muted ">Select target image</p>
+                    </div>
+                  )}
+
+                  <div className="flex-grow">
+                    <Select onValueChange={(value) => handleImageKeyChange(sourceKey, value)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select matching image key" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60 overflow-y-auto">
+                        {targetDatasetImageKeys.map((targetKey) => (
+                          <SelectItem key={targetKey} value={targetKey} className="py-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-12 h-9 flex items-center justify-center overflow-hidden rounded">
+                                <img
+                                  src={`data:image/jpeg;base64,${datasetInfos[selectedItems[1]]?.image_frames?.[targetKey] ?? ''}`}
+                                  alt={`Preview of ${targetKey}`}
+                                  className="max-h-full max-w-full object-contain"
+                                />
+                              </div>
+                              <span className="truncate text-sm">{targetKey}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={() => setMergeModalOpen(false)}>
+          Cancel
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={handleMerge}
+          disabled={!mergedDatasetName.trim() || !allKeysMapped}
+        >
+          Merge
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+};
+
 
 export default function FileBrowser() {
   const params = useParams();
@@ -108,17 +260,20 @@ export default function FileBrowser() {
 
   const { data, error, mutate } = useSWR<BrowseData>(
     ["/files", path],
-    ([url]) => fetcher(url, "POST", { path }),
+    ([url]) => fetcher(url, "POST", { path })
   );
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmEpisodeDeleteOpen, setConfirmEpisodeDeleteOpen] =
     useState(false);
-  const [selectedItem, setSelectedItem] = useState<FileItem | null>(null);
   const [selectedEpisode, setSelectedEpisode] = useState("");
   const leaderArmSerialIds = useGlobalStore(
     (state) => state.leaderArmSerialIds,
   );
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [datasetInfos, setDatasetInfos] = useState<Record<string, DatasetInfoResponse | null>>({});
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
+
 
   // Loading state for episode deletion
   const [loadingDeleteEpisode, setLoadingDeleteEpisode] = useState(false);
@@ -130,6 +285,35 @@ export default function FileBrowser() {
       refreshInterval: 5000,
     },
   );
+
+  const fetchDatasetInfo = async (path: string): Promise<DatasetInfoResponse | null> => {
+    const response = await fetchWithBaseUrl(
+      `/dataset/info?path=${encodeURIComponent(path)}`,
+      "POST",
+    );
+    if (response.status !== "ok") {
+      return null;
+    }
+    return response as DatasetInfoResponse;
+  };
+
+  useEffect(() => {
+    const fetchInfos = async () => {
+      if (!data || !data.items) return;
+
+      const infos: Record<string, DatasetInfoResponse | null> = {};
+      await Promise.all(
+        data.items.filter((item) => item.is_dataset_dir).map(async (item) => {
+          const info = await fetchDatasetInfo(item.path);
+          infos[item.path] = info;
+        }),
+      );
+      setDatasetInfos(infos);
+    };
+
+    fetchInfos();
+  }, [data]);
+
 
   const isRobotConnected = useMemo(() => {
     return serverStatus?.robots && serverStatus.robots.length > 0;
@@ -146,9 +330,79 @@ export default function FileBrowser() {
 
   if (!data) return <LoadingPage />;
 
-  const handleDeleteDataset = (item: FileItem) => {
-    setSelectedItem(item);
-    setConfirmDeleteOpen(true);
+  const handleSelectItem = (path: string) => {
+    setSelectedItems((prev) => {
+      if (prev.includes(path)) {
+        return prev.filter((item) => item !== path);
+      } else {
+        return [...prev, path];
+      }
+    }
+    );
+  };
+
+  const handleDeleteMultipleDatasets = async () => {
+    if (selectedItems.length === 0) {
+      toast.error("No datasets selected for deletion");
+      return;
+    }
+    const deletePromises = selectedItems.map(async (item) => {
+      const resp = await fetchWithBaseUrl(
+        `/dataset/delete?path=${encodeURIComponent(item)}`,
+        "POST",
+      );
+      if (resp.status !== "ok") {
+        toast.error(`Failed to delete dataset: ${item}`);
+        return;
+      }
+      toast.success(`Dataset deleted successfully: ${item}`);
+    });
+    await Promise.all(deletePromises);
+    setConfirmDeleteOpen(false);
+    setSelectedItems([]);
+    mutate();
+  };
+
+  const handleMergeCheck = async () => {
+    if (selectedItems.length !== 2) {
+      toast.error("Please select exactly 2 datasets to merge");
+      return;
+    }
+
+    if (datasetInfos[selectedItems[0]]?.robot_type !== datasetInfos[selectedItems[1]]?.robot_type) {
+      toast.error("Datasets have different robot types. Cannot merge.");
+      return;
+    }
+
+    if (datasetInfos[selectedItems[0]]?.robot_dof !== datasetInfos[selectedItems[1]]?.robot_dof) {
+      toast.error("Datasets have different DOF. Cannot merge.");
+      return;
+    }
+
+    if (datasetInfos[selectedItems[0]]?.image_keys?.length !== datasetInfos[selectedItems[1]]?.image_keys?.length) {
+      toast.error("Datasets have different number of image keys. Cannot merge.");
+      return;
+    }
+
+    setMergeModalOpen(true);
+  }
+
+  const mergeMultipleDatasets = async (newDatasetName: string, imageKeyMappings?: Record<string, string>) => {
+    fetchWithBaseUrl(`/dataset/merge`, "POST", {
+      first_dataset: selectedItems[0],
+      second_dataset: selectedItems[1],
+      new_dataset_name: newDatasetName,
+      image_key_mappings: imageKeyMappings,
+    }).then((response) => {
+      if (response.status !== "ok") {
+        toast.error("Failed to merge datasets");
+      } else {
+        toast.success("Episode merged successfully");
+        mutate();
+        redirect(path);
+      }
+    });
+    setMergeModalOpen(false);
   };
 
   const handleDeleteEpisode = async () => {
@@ -177,43 +431,6 @@ export default function FileBrowser() {
       episode_path,
       robot_serials_to_ignore,
     });
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!selectedItem) return;
-
-    try {
-      const resp = await fetchWithBaseUrl(
-        `/dataset/delete?path=${encodeURIComponent(selectedItem.path)}`,
-        "POST",
-      );
-
-      if (resp.status !== "ok") {
-        toast.error("Failed to delete dataset");
-        return;
-      }
-
-      toast.success("Dataset deleted successfully");
-      mutate();
-      setConfirmDeleteOpen(false);
-      setSelectedItem(null);
-
-      // split on both "/" and "\\" so it works on Windows & POSIX
-      const segments = selectedItem.path.split(/[/\\]+/).filter(Boolean);
-      const parentSegments = segments.slice(0, -1);
-      const parentPath = parentSegments.length
-        ? parentSegments.join("/") // always join with "/" for URLs
-        : "";
-
-      if (parentPath) {
-        redirect(parentPath);
-      } else {
-        redirect("/browse");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("An unexpected error occurred");
-    }
   };
 
   const handlePushToHub = async (item: FileItem) => {
@@ -276,13 +493,35 @@ export default function FileBrowser() {
       <Table className="bg-background rounded-lg">
         <TableHeader>
           <TableRow>
+            <TableCell className="w-[50px]" />
             <TableCell>Name</TableCell>
+            {
+              path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1") ? (
+                <>
+                  <TableCell className="text-muted-foreground">Robot Type</TableCell>
+                  <TableCell className="text-muted-foreground">DOF</TableCell>
+                  <TableCell className="text-muted-foreground">Episodes</TableCell>
+                  <TableCell className="text-muted-foreground">Image Keys</TableCell>
+                </>
+              ) : null
+            }
             <TableCell></TableCell>
           </TableRow>
         </TableHeader>
         <TableBody>
           {data.items.map((item) => (
             <TableRow key={item.path}>
+              {/* Show checkbox only if path ends with 'lerobot_v2.1' or lerobot_v2 */}
+              <TableCell className="w-[50px]">
+                {item.is_dataset_dir ? (
+                  <Checkbox
+                    checked={selectedItems.includes(item.path)}
+                    onCheckedChange={() => handleSelectItem(item.path)}
+                    aria-label={`Select ${item.name}`}
+                    key={item.path}
+                  />
+                ) : null}
+              </TableCell>
               <TableCell>
                 <Link
                   to={item.browseUrl}
@@ -295,6 +534,26 @@ export default function FileBrowser() {
                   )}
                   {item.name}
                 </Link>
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {datasetInfos[item.path]?.robot_type && (
+                  datasetInfos[item.path]?.robot_type
+                )}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {datasetInfos[item.path]?.robot_dof && (
+                  datasetInfos[item.path]?.robot_dof
+                )}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {datasetInfos[item.path]?.number_of_episodes && (
+                  datasetInfos[item.path]?.number_of_episodes
+                )}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {datasetInfos[item.path]?.image_keys && (
+                  datasetInfos[item.path]?.image_keys?.length
+                )}
               </TableCell>
               <TableCell>
                 <div className="flex space-x-2 justify-end">
@@ -369,18 +628,6 @@ export default function FileBrowser() {
                             </a>
                           </DropdownMenuItem>
                         )}
-                        {item.canDeleteDataset && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteDataset(item)}
-                              className="text-red-500 focus:text-destructive cursor-pointer"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4 text-red-500" />
-                              Delete dataset
-                            </DropdownMenuItem>
-                          </>
-                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}
@@ -437,15 +684,47 @@ export default function FileBrowser() {
         </div>
       )}
 
+      {selectedItems.length > 0 && (path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1")) && (
+        <div className="flex flex-row">
+          {path.endsWith("lerobot_v2.1") && (
+            <Button
+              className="mb-4 mt-6"
+              variant="outline"
+              onClick={() => handleMergeCheck()}
+            >
+              <Repeat className="mr-2 h-4 w-3" />
+              Merge Selected Datasets
+            </Button>
+          )}
+          <Button
+            className="mb-4 mt-6 ml-2"
+            variant="destructive"
+            onClick={() => setConfirmDeleteOpen(true)}
+          >
+            <Trash2 className="mr-2 h-4 w-3" />
+            Delete Selected Datasets
+          </Button>
+        </div>
+      )
+      }
+
       {/* Dataset deletion dialog */}
       <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Delete Dataset</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the dataset{" "}
-              <strong>{selectedItem?.name}</strong>? This action cannot be
-              undone.
+              Are you sure you want to delete the selected datasets:
+              <br />
+              {selectedItems.length > 0
+                ? selectedItems.map((item) => (
+                  <span key={item}>
+                    <strong>{item}</strong>
+                    <br />
+                  </span>
+                ))
+                : null}
+              This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -455,7 +734,7 @@ export default function FileBrowser() {
             >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
+            <Button variant="destructive" onClick={handleDeleteMultipleDatasets}>
               Delete
             </Button>
           </DialogFooter>
@@ -503,6 +782,16 @@ export default function FileBrowser() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+
+      {/* Merge modal */}
+      <Dialog open={mergeModalOpen} onOpenChange={setMergeModalOpen}>
+        <MergeDialog
+          selectedItems={selectedItems}
+          datasetInfos={datasetInfos}
+          setMergeModalOpen={setMergeModalOpen}
+          mergeMultipleDatasets={mergeMultipleDatasets}
+        />
+      </Dialog>
+    </div >
   );
 }

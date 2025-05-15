@@ -344,6 +344,19 @@ class VoltageReadResponse(BaseModel):
     )
 
 
+class InfoResponse(BaseModel):
+    """
+    Response to the /dataset/info endpoint.
+    """
+
+    status: Literal["ok", "error"] = "ok"
+    robot_type: str | None = None
+    robot_dof: int | None = None
+    number_of_episodes: int | None = None
+    image_keys: List[str] | None = None
+    image_frames: Dict[str, str] | None = None
+
+
 class StatusResponse(BaseModel):
     """
     Default response. May contain other fields.
@@ -662,6 +675,32 @@ class VizSettingsResponse(BaseModel):
     width: int
     height: int
     quality: int
+
+
+class MergeDatasetsRequest(BaseModel):
+    # Contains a list of dataset paths to merge
+    first_dataset: str = Field(
+        ...,
+        description="Path to the first dataset to merge",
+        examples=["/lerobot_v2.1/example_dataset"],
+    )
+    second_dataset: str = Field(
+        ...,
+        description="Path to the second dataset to merge",
+        examples=["/lerobot_v2.1/example_dataset_to_merge_with"],
+    )
+    new_dataset_name: str = Field(
+        ...,
+        description="Name of the new dataset to create",
+        examples=["/lerobot_v2.1/example_dataset_merged"],
+    )
+    image_key_mappings: Dict[str, str] = Field(
+        ...,
+        description="Mapping of the image keys from the first dataset to the second dataset.",
+        examples=[
+            {"wrist_camera": "wrist_camera_2", "context_camera": "context_camera_2"}
+        ],
+    )
 
 
 class DatasetListResponse(BaseModel):

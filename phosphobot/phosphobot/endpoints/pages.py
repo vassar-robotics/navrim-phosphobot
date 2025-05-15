@@ -1,5 +1,8 @@
+import base64
 import os
+import cv2
 from pathlib import Path, PurePath
+from typing import Literal, cast
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
@@ -18,12 +21,15 @@ from phosphobot.models import (
     DatasetListResponse,
     DeleteEpisodeRequest,
     HuggingFaceTokenRequest,
+    InfoResponse,
+    MergeDatasetsRequest,
     ItemInfo,
     ModelVideoKeysRequest,
     ModelVideoKeysResponse,
     StatusResponse,
     VizSettingsResponse,
     WandBTokenRequest,
+    InfoModel,
 )
 from phosphobot.utils import (
     get_resources_path,
@@ -339,6 +345,171 @@ async def delete_dataset(request: Request, path: str):
 
     dataset = Dataset(path=dataset_path)
     dataset.delete()
+
+    return StatusResponse(status="ok")
+
+
+@router.post("/dataset/info")
+async def get_dataset_info(path: str) -> InfoResponse:
+    """
+    Get the dataset keys and frames.
+    """
+    dataset_path = os.path.join(ROOT_DIR, path)
+    # Check if the path exists and is a directory
+    if not os.path.exists(dataset_path) or not os.path.isdir(dataset_path):
+        raise HTTPException(status_code=404, detail=f"Dataset {path} not found")
+
+    # Test that the path contains "lerobot" or "json" to prevent accidental deletion
+    if "lerobot_v2" not in path and "lerobot_v2.1" not in path:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid dataset path. Please use the delete button provided in the admin page to delete dataset.",
+        )
+
+    meta_folder_path = os.path.join(
+        dataset_path,
+        "meta",
+    )
+
+    try:
+        info = InfoModel.from_json(
+            meta_folder_path=meta_folder_path,
+            format=cast(Literal["lerobot_v2", "lerobot_v2.1"], path.split("/")[0]),
+        )
+    except Exception as e:
+        logger.warning(f"Error loading dataset info: {e}")
+        return InfoResponse(
+            status="error",
+        )
+
+    image_frames = {}
+    for key in info.features.observation_images.keys():
+        # Extract first frame from first video file
+        video_path = os.path.join(
+            dataset_path, "videos", "chunk-000", key, "episode_000000.mp4"
+        )
+        if os.path.exists(video_path):
+            cap = cv2.VideoCapture(video_path)
+            if cap.isOpened():
+                ret, frame = cap.read()
+                if ret:
+                    # Resize the frame to a smaller size
+                    frame = cv2.resize(frame, (320, 240))
+                    # Convert the frame to bytes
+                    _, buffer = cv2.imencode(".jpg", frame)
+                    image_frames[key] = base64.b64encode(buffer.tobytes()).decode(
+                        "utf-8"
+                    )
+                cap.release()
+        else:
+            logger.warning(f"Video file {video_path} not found.")
+            return InfoResponse(status="error")
+
+    return InfoResponse(
+        status="ok",
+        robot_type=info.robot_type,
+        robot_dof=info.features.observation_state.shape[0],
+        number_of_episodes=info.total_episodes,
+        image_keys=list(info.features.observation_images.keys()),
+        image_frames=image_frames,
+    )
+
+
+@router.post("/dataset/merge")
+async def merge_datasets(merge_request: MergeDatasetsRequest):
+    """
+    Merge two datasets into one.
+    """
+    # Validation
+    # 1 - Check that the datasets are of the same type, v2.1
+    # 2 - Check that the datasets are not empty
+    # 3 - Check that the datasets have the same number of cameras and same robots
+
+    # 1
+    first_datatype = merge_request.first_dataset.split("/")[0]
+    second_datatype = merge_request.second_dataset.split("/")[0]
+    if first_datatype != second_datatype or first_datatype not in [
+        "lerobot_v2.1",
+    ]:
+        raise HTTPException(
+            status_code=400,
+            detail="You can only merge datasets of type v2.1",
+        )
+
+    # 2
+    first_dataset_path = os.path.join(ROOT_DIR, merge_request.first_dataset)
+    second_dataset_path = os.path.join(ROOT_DIR, merge_request.second_dataset)
+    if not os.path.exists(first_dataset_path) or not os.path.isdir(first_dataset_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Dataset {merge_request.first_dataset} not found",
+        )
+    if not os.path.exists(second_dataset_path) or not os.path.isdir(
+        second_dataset_path
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Dataset {merge_request.second_dataset} not found",
+        )
+
+    # 5
+    first_info = InfoModel.from_json(
+        meta_folder_path=os.path.join(ROOT_DIR, merge_request.first_dataset, "meta"),
+        format=cast(Literal["lerobot_v2", "lerobot_v2.1"], first_datatype),
+    )
+    second_info = InfoModel.from_json(
+        meta_folder_path=os.path.join(ROOT_DIR, merge_request.second_dataset, "meta"),
+        format=cast(Literal["lerobot_v2", "lerobot_v2.1"], second_datatype),
+    )
+    if first_info.total_videos == 0 or second_info.total_videos == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="One of the datasets is empty. Please make sure the datasets are not empty.",
+        )
+
+    # Check video sizes
+    for image_key in first_info.features.observation_images.keys():
+        if (
+            first_info.features.observation_images[image_key].shape
+            != second_info.features.observation_images[
+                merge_request.image_key_mappings[image_key]
+            ].shape
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="The datasets have different video sizes.",
+            )
+
+    if (
+        first_info.robot_type != second_info.robot_type
+        or first_info.codebase_version != second_info.codebase_version
+        or first_info.total_videos // first_info.total_episodes
+        != second_info.total_videos // second_info.total_episodes
+        or first_info.features.observation_state.shape[0]
+        != second_info.features.observation_state.shape[0]
+        or first_info.fps != second_info.fps
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="The datasets have different number of cameras or robots.",
+        )
+
+    # Merge the datasets
+
+    initial_dataset = Dataset(path=os.path.join(ROOT_DIR, merge_request.first_dataset))
+    second_dataset = Dataset(path=os.path.join(ROOT_DIR, merge_request.second_dataset))
+    try:
+        initial_dataset.merge_datasets(
+            second_dataset=second_dataset,
+            new_dataset_name=merge_request.new_dataset_name,
+            video_transform=merge_request.image_key_mappings,
+        )
+    except Exception as e:
+        logger.error(f"Error merging datasets: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error merging datasets: {e}",
+        )
 
     return StatusResponse(status="ok")
 
