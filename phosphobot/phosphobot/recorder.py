@@ -1,4 +1,5 @@
 import asyncio
+from functools import lru_cache
 import os
 import time
 from typing import Literal, Optional, cast
@@ -481,19 +482,19 @@ class Recorder:
             self.episode.add_step(step)
             if self.episode_format.startswith("lerobot"):
                 if self.episode_format == "lerobot_v2.1":
-                    assert self.episodes_stats_model is not None, (
-                        "Episodes stats model is not initialized. Call start() first"
-                    )
+                    assert (
+                        self.episodes_stats_model is not None
+                    ), "Episodes stats model is not initialized. Call start() first"
                 elif self.episode_format == "lerobot_v2":
-                    assert self.stats_model is not None, (
-                        "Stats model is not initialized. Call start() first"
-                    )
-                assert self.episodes_model is not None, (
-                    "Episodes model is not initialized. Call start() first"
-                )
-                assert self.tasks_model is not None, (
-                    "Tasks model is not initialized. Call start() first"
-                )
+                    assert (
+                        self.stats_model is not None
+                    ), "Stats model is not initialized. Call start() first"
+                assert (
+                    self.episodes_model is not None
+                ), "Episodes model is not initialized. Call start() first"
+                assert (
+                    self.tasks_model is not None
+                ), "Tasks model is not initialized. Call start() first"
                 # Update the models
 
                 # We pass the step count to update frame index properly
@@ -528,6 +529,7 @@ class Recorder:
             step_count += 1
 
 
+@lru_cache()
 def get_recorder(
     rcm: RobotConnectionManager = Depends(get_rcm),
 ) -> Recorder:

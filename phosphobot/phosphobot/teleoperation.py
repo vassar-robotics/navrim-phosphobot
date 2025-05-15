@@ -1,15 +1,19 @@
 import asyncio
+from functools import lru_cache
+import json
 import socket
 from dataclasses import dataclass
 from datetime import datetime
+import traceback
 from typing import Dict, Literal, Optional
 
 import numpy as np
 from fastapi import WebSocket
 from loguru import logger
+from pydantic import ValidationError
 
 from phosphobot.hardware import BaseRobot
-from phosphobot.models import AppControlData, RobotStatus
+from phosphobot.models import AppControlData, RobotStatus, UDPServerInformationResponse
 from phosphobot.robot import RobotConnectionManager
 
 
@@ -169,6 +173,9 @@ class TeleopManager:
         return updates
 
 
+udp_server = None
+
+
 class UDPServer:
     def __init__(self, rcm: RobotConnectionManager):
         self.rcm = rcm
@@ -176,7 +183,23 @@ class UDPServer:
         self.running = False
         self.sock: socket.socket | None = None
 
-    async def init(self, port: int | None = None):
+    async def init(
+        self, port: int | None = None, restart: bool = False
+    ) -> UDPServerInformationResponse:
+        """
+        Initialize the UDP server socket.
+        If port is None, bind to a random port between 5000 and 6000.
+        If restart is True, reinitialize the socket. Otherwise, return the existing socket.
+        """
+
+        if self.sock is not None and not restart:
+            logger.debug(
+                f"Socket already initialized on port {self.sock.getsockname()[1]}"
+            )
+            return UDPServerInformationResponse(
+                host=self.sock.getsockname()[0], port=self.sock.getsockname()[1]
+            )
+
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         if port is not None:
             self.sock.bind(("0.0.0.0", port))
@@ -193,11 +216,11 @@ class UDPServer:
             raise RuntimeError(f"Could not bind to any port between 5000 and 6000")
 
         self.sock.setblocking(False)
+        return UDPServerInformationResponse(
+            host=self.sock.getsockname()[0], port=self.sock.getsockname()[1]
+        )
 
     async def start(self, port: int | None = None):
-        """
-        Start the UDP server and listen for incoming data.
-        """
         if self.sock is None:
             await self.init(port=port)
         if self.sock is None:
@@ -209,23 +232,57 @@ class UDPServer:
         while self.running:
             try:
                 data, addr = await loop.sock_recvfrom(self.sock, 1024)
-                try:
-                    text = data.decode("utf-8")
-                    control_data = AppControlData.model_validate_json(text)
-                    await self.manager.process_control_data(control_data)
-                    # Generate status updates and send back to client
-                    updates = await self.manager.send_status_updates()
-                    for update in updates:
-                        json_data = update.model_dump_json()
-                        encoded = json_data.encode("utf-8")
-                        await loop.sock_sendto(self.sock, encoded, addr)
-                except Exception as e:
-                    logger.error(f"UDP processing error: {e}")
             except BlockingIOError:
                 await asyncio.sleep(0.01)
+                continue
+
+            # decode once
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError as e:
+                err = {"error": "invalid_encoding", "detail": str(e)}
+                await loop.sock_sendto(self.sock, json.dumps(err).encode(), addr)
+                logger.error(f"Decoding error from {addr}: {e}")
+                continue
+
+            # validate with Pydantic
+            try:
+                control_data = AppControlData.model_validate(text)
+            except ValidationError as e:
+                err = {"error": "validation_error", "detail": str(e)}
+                await loop.sock_sendto(self.sock, json.dumps(err).encode(), addr)
+                logger.error(f"Schema validation failed from {addr}: {e}")
+                continue
+
+            # everything’s good!
+            try:
+                await self.manager.process_control_data(control_data)
+                updates = await self.manager.send_status_updates()
+                for update in updates:
+                    payload = update.model_dump_json().encode("utf-8")
+                    await loop.sock_sendto(self.sock, payload, addr)
+            except Exception as e:
+                tb = traceback.format_exc()
+                err = {"error": "internal_server_error", "detail": str(e)}
+                await loop.sock_sendto(self.sock, json.dumps(err).encode(), addr)
+                logger.error(f"Processing error:\n{tb}")
 
     def stop(self):
         self.running = False
         if self.sock is not None:
             self.sock.close()
         self.sock = None
+
+
+@lru_cache()
+def get_udp_server() -> UDPServer:
+    """
+    Get the UDP server instance.
+    If it doesn't exist, create it.
+    """
+    from phosphobot.robot import get_rcm
+
+    global udp_server
+    if udp_server is None:
+        udp_server = UDPServer(get_rcm())
+    return udp_server
