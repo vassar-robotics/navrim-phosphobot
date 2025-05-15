@@ -475,9 +475,12 @@ jobs:
           VITE_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         working-directory: dashboard
         run: |
-          npm run build 
-          $sourcePath = Join-Path -Path "phosphobot/resources/dist" -ChildPath "*"
-          $destinationPath = Join-Path -Path "phosphobot" -ChildPath "resources/dist"
+          npm run build
+
+      - name: Copy dashboard frontend to resources
+        run: |
+          $sourcePath = Join-Path -Path "dashboard/dist" -ChildPath "*"
+          $destinationPath = Join-Path -Path "phosphobot/resources" -ChildPath "dist"
           if (!(Test-Path $destinationPath)) {
             New-Item -ItemType Directory -Force -Path $destinationPath
           }
