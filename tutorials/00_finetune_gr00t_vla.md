@@ -33,10 +33,10 @@ pip install --no-build-isolation flash-attn==2.7.1.post4
 ```
 
 Now, you need to login to Hugging Face to be able to download the datasets.
-Get an access token from [here](https://huggingface.co/settings/tokens) and run:
+Get an access token from [here](https://huggingface.co/settings/tokens) and set it as an environment variable:
 
 ```bash
-huggingface-cli login
+export HF_TOKEN=<your_token>
 ```
 
 Follow the instructions to login.
