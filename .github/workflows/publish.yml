@@ -564,9 +564,6 @@ jobs:
   publish_phospho_python:
     needs: build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: phosphobot
 
     steps:
       - uses: actions/checkout@v4
@@ -615,7 +612,14 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Build
-        run: uv build
+        run: |
+          cd phosphobot
+          uv build
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
       - name: Install built wheel
         run: |
@@ -649,8 +653,10 @@ jobs:
           uv run pytest tests/api/
         continue-on-error: false
 
-      - name: Publish
-        run: uv publish
+      - name: Publish to PyPI
+        run: |
+          cd phosphobot
+          uv publish
 
   upload-deb:
     needs: build
