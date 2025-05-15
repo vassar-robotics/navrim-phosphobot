@@ -693,7 +693,7 @@ class MergeDatasetsRequest(BaseModel):
         description="Name of the new dataset to create",
         examples=["/lerobot_v2.1/example_dataset_merged"],
     )
-    image_key_mappings: Dict[str, str] | None = Field(
+    image_key_mappings: Dict[str, str] = Field(
         ...,
         description="Mapping of the image keys from the first dataset to the second dataset.",
         examples=[

@@ -1608,10 +1608,33 @@ It's compatible with LeRobot and RLDS.
         except Exception as e:
             logger.error(f"An error occurred: {e}")
 
-    def merge_datasets(self, second_dataset: "Dataset", new_dataset_name: str) -> None:
+    def merge_datasets(
+        self,
+        second_dataset: "Dataset",
+        new_dataset_name: str,
+        video_transform: dict[str, str],
+    ) -> None:
         """
         Merge multiple datasets into one.
         This will create a new dataset with the merged data.
+
+        Dataset Structure
+
+        / videos
+            ├── chunk-000
+            │   ├── observation.images.main
+            │   |   ├── episode_000000.mp4
+            │   ├── observation.images.secondary_0
+            │   |   ├── episode_000000.mp4
+        / data
+            ├── chunk-000
+            │   ├── episode_000000.parquet
+        / meta
+            ├── info.json
+            ├── tasks.jsonl
+            ├── episodes.jsonl
+            ├── episodes_stats.jsonl
+        / README.md
         """
         # Check that all datasets have the same format
         if second_dataset.episode_format != self.episode_format:
@@ -1630,7 +1653,15 @@ It's compatible with LeRobot and RLDS.
             )
         os.makedirs(path_result_dataset, exist_ok=True)
 
+        path_to_videos = os.path.join(
+            path_result_dataset,
+            "videos",
+            "chunk-000",
+        )
+        os.makedirs(path_to_videos, exist_ok=True)
+
         ### VIDEOS
+        logger.debug("Moving videos to the new dataset")
 
         # Start by moving videos to the new dataset
         for video_folder in os.listdir(self.videos_folder_full_path):
@@ -1638,18 +1669,159 @@ It's compatible with LeRobot and RLDS.
                 # Move the video folder to the new dataset
                 shutil.copytree(
                     os.path.join(self.videos_folder_full_path, video_folder),
-                    os.path.join(path_result_dataset, video_folder),
+                    os.path.join(path_to_videos, video_folder),
                 )
 
-        # Count the number of videos in the first video folder
-        video_folder = os.listdir(self.videos_folder_full_path)[0]
-        video_folder_full_path = os.path.join(
-            self.videos_folder_full_path, video_folder
+                # Count the number of videos in the video folder
+                video_folder = os.listdir(self.videos_folder_full_path)[0]
+                video_folder_full_path = os.path.join(
+                    self.videos_folder_full_path, video_folder
+                )
+                video_files = [
+                    f for f in os.listdir(video_folder_full_path) if f.endswith(".mp4")
+                ]
+                nb_videos = len(video_files)
+
+                # Move the videos from the second dataset to the new dataset and increment the index
+                video_folder_full_path = os.path.join(
+                    second_dataset.videos_folder_full_path,
+                    video_transform[video_folder],
+                )
+                for video_file in os.listdir(video_folder_full_path):
+                    if video_file.endswith(".mp4"):
+                        # Get the index of the video
+                        video_index = int(video_file.split("_")[-1].split(".")[0])
+                        # Rename the video file
+                        new_video_file = f"episode_{video_index + nb_videos:06d}.mp4"
+                        # Move the video file to the new dataset
+                        shutil.copy(
+                            os.path.join(video_folder_full_path, video_file),
+                            os.path.join(path_to_videos, video_folder, new_video_file),
+                        )
+
+        ### META DATA
+        logger.debug("Recreating meta files")
+        meta_folder_path = os.path.join(path_result_dataset, "meta")
+        os.makedirs(meta_folder_path, exist_ok=True)
+
+        #### Tasks Model
+        logger.debug("Creating tasks.jsonl")
+        initial_tasks = TasksModel.from_jsonl(
+            meta_folder_path=self.meta_folder_full_path
         )
-        video_files = [
-            f for f in os.listdir(video_folder_full_path) if f.endswith(".mp4")
-        ]
-        nb_videos = len(video_files)
+        second_tasks = TasksModel.from_jsonl(
+            meta_folder_path=second_dataset.meta_folder_full_path
+        )
+        tasks_mapping_second_to_first = initial_tasks.merge_with(
+            second_task_model=second_tasks,
+            meta_folder_to_save_to=meta_folder_path,
+        )
+
+        #### Episodes Model
+        logger.debug("Creating episodes.jsonl")
+        initial_episodes = EpisodesModel.from_jsonl(
+            meta_folder_path=self.meta_folder_full_path,
+            format="lerobot_v2.1",
+        )
+        second_episodes = EpisodesModel.from_jsonl(
+            meta_folder_path=second_dataset.meta_folder_full_path,
+            format="lerobot_v2.1",
+        )
+        initial_episodes.merge_with(
+            second_episodes_model=second_episodes,
+            meta_folder_to_save_to=meta_folder_path,
+        )
+
+        #### Info Model
+        logger.debug("Creating info.json")
+
+        first_info = InfoModel.from_json(
+            meta_folder_path=self.meta_folder_full_path,
+            format="lerobot_v2.1",
+        )
+        second_info = InfoModel.from_json(
+            meta_folder_path=second_dataset.meta_folder_full_path,
+            format="lerobot_v2.1",
+        )
+        first_info.merge_with(
+            second_info_model=second_info,
+            meta_folder_to_save_to=meta_folder_path,
+            new_nb_tasks=len(tasks_mapping_second_to_first),
+        )
+
+        #### Stats model
+        logger.debug("Creating episodes_stats.jsonl")
+
+        first_stats = EpisodesStatsModel.from_jsonl(
+            meta_folder_path=self.meta_folder_full_path
+        )
+        second_stats = EpisodesStatsModel.from_jsonl(
+            meta_folder_path=second_dataset.meta_folder_full_path
+        )
+        first_stats.merge_with(
+            second_stats_model=second_stats,
+            meta_folder_path=meta_folder_path,
+        )
+
+        ### PARQUET FILES
+        logger.debug("Moving parquet files to the new dataset")
+
+        # Move the parquet files to the new dataset
+        path_to_data = os.path.join(
+            path_result_dataset,
+            "data",
+            "chunk-000",
+        )
+        os.makedirs(path_to_data, exist_ok=True)
+        for parquet_file in os.listdir(self.data_folder_full_path):
+            if parquet_file.endswith(".parquet"):
+                # Move the parquet file to the new dataset
+                shutil.copy(
+                    os.path.join(self.data_folder_full_path, parquet_file),
+                    os.path.join(path_to_data, parquet_file),
+                )
+
+        # Reload the first dataset info model
+        first_info = InfoModel.from_json(
+            meta_folder_path=self.meta_folder_full_path,
+            format="lerobot_v2.1",
+        )
+
+        # Move the parquet files from the second dataset to the new dataset and edit them
+        # - Rename the parquet file
+        # - Update the episode index in the parquet file
+        # - Update the index in the parquet file
+        # - Update the task index in the parquet file
+
+        for parquet_file in os.listdir(second_dataset.data_folder_full_path):
+            if parquet_file.endswith(".parquet"):
+                # Get the index of the parquet file
+                parquet_index = int(parquet_file.split("_")[-1].split(".")[0])
+                # Rename the parquet file
+                new_parquet_file = (
+                    f"episode_{parquet_index + first_info.total_episodes:06d}.parquet"
+                )
+                # Move the parquet file to the new dataset
+                shutil.copy(
+                    os.path.join(second_dataset.data_folder_full_path, parquet_file),
+                    os.path.join(path_to_data, new_parquet_file),
+                )
+
+                # Load the parquet file
+                df = pd.read_parquet(
+                    os.path.join(path_to_data, new_parquet_file),
+                )
+
+                df["episode_index"] = df["episode_index"] + first_info.total_episodes
+                df["task_index"] = df["task_index"].replace(
+                    tasks_mapping_second_to_first,
+                )
+                df["index"] = df["index"] + first_info.total_frames
+
+                # Save the parquet file
+                df.to_parquet(
+                    os.path.join(path_to_data, new_parquet_file),
+                )
 
 
 class Stats(BaseModel):
@@ -2423,6 +2595,28 @@ class EpisodesStatsModel(BaseModel):
                         current_max_index
                     )
 
+    def merge_with(
+        self, second_stats_model: "EpisodesStatsModel", meta_folder_path: str
+    ) -> None:
+        """
+        Merges an existing episodes stats model with another one.
+        This is intended to be used when merging files for two so-100 together.
+        """
+        number_of_episodes_in_first_model = len(self.episodes_stats)
+
+        # Update the episode_index for the second stats model
+        for episode_stats in second_stats_model.episodes_stats:
+            episode_stats.episode_index += number_of_episodes_in_first_model
+
+        # Add the second stats model to the first one
+        self.episodes_stats += second_stats_model.episodes_stats
+
+        # Sort the episodes by episode index
+        self.episodes_stats = sorted(self.episodes_stats, key=lambda x: x.episode_index)
+
+        # Save the merged model
+        self.save(meta_folder_path)
+
 
 class FeatureDetails(BaseModel):
     dtype: Literal["video", "int64", "float32", "str", "bool"]
@@ -2874,6 +3068,25 @@ class InfoModel(BaseModel):
         # TODO(adle): Implement support for multi tasks in dataset
         # self.total_tasks -= ...
 
+    def merge_with(
+        self,
+        second_info_model: "InfoModel",
+        meta_folder_to_save_to: str,
+        new_nb_tasks: int,
+    ) -> None:
+        """
+        Will merge the info.json file with another one and save it to the new meta folder.
+        """
+        # Merge the info model
+        self.total_episodes += second_info_model.total_episodes
+        self.total_frames += second_info_model.total_frames
+        self.total_videos += second_info_model.total_videos
+        self.total_tasks = new_nb_tasks
+        self.splits = {"train": f"0:{self.total_episodes}"}
+
+        # Save the info.json file
+        self.to_json(meta_folder_path=meta_folder_to_save_to)
+
 
 class TasksFeatures(BaseModel):
     """
@@ -2992,6 +3205,31 @@ class TasksModel(BaseModel):
         Save the episodes to the meta folder path.
         """
         self.to_jsonl(meta_folder_path)
+
+    def merge_with(
+        self, second_task_model: "TasksModel", meta_folder_to_save_to: str
+    ) -> dict[int, int]:
+        """
+        Will merge the tasks.jsonl file with another one and save it to the new meta folder.
+        Returns a task mapping of the old task index to the new one.
+        """
+        # Create a mapping of the old task index to the new one
+        old_index_to_new_index: Dict[int, int] = {}
+
+        # Merge the tasks
+        self.tasks.extend(second_task_model.tasks)
+
+        # Remove duplicates
+        self.tasks = list({task.task: task for task in self.tasks}.values())
+
+        # Update the task indexes
+        for i, task in enumerate(self.tasks):
+            old_index_to_new_index[task.task_index] = i
+
+        # Save the tasks.jsonl file
+        self.to_jsonl(meta_folder_path=meta_folder_to_save_to, save_mode="overwrite")
+
+        return old_index_to_new_index
 
 
 class EpisodesFeatures(BaseModel):
@@ -3193,3 +3431,27 @@ class EpisodesModel(BaseModel):
         self._episodes_features = {
             episode.episode_index: episode for episode in self.episodes
         }
+
+    def merge_with(
+        self, second_episodes_model: "EpisodesModel", meta_folder_to_save_to
+    ) -> None:
+        """
+        Merge the episodes with another episodes model and save it to the new meta folder.
+        """
+        # Update the episode_index for the second episodes model
+        for episode in second_episodes_model.episodes:
+            episode.episode_index += len(self.episodes)
+
+        # Merge the episodes
+        self.episodes.extend(second_episodes_model.episodes)
+
+        # Remove duplicates
+        self.episodes = list(
+            {episode.episode_index: episode for episode in self.episodes}.values()
+        )
+        self._episodes_features = {
+            episode.episode_index: episode for episode in self.episodes
+        }
+
+        # Save the episodes.jsonl file
+        self.to_jsonl(meta_folder_path=meta_folder_to_save_to, save_mode="overwrite")

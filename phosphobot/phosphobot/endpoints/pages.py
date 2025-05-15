@@ -421,7 +421,7 @@ async def merge_datasets(merge_request: MergeDatasetsRequest):
     Merge two datasets into one.
     """
     # Validation
-    # 1 - Check that the datasets are of the same type, v2 or v2.1
+    # 1 - Check that the datasets are of the same type, v2.1
     # 2 - Check that the datasets are not empty
     # 3 - Check that the datasets have the same number of cameras and same robots
 
@@ -431,12 +431,11 @@ async def merge_datasets(merge_request: MergeDatasetsRequest):
     first_datatype = merge_request.first_dataset.split("/")[0]
     second_datatype = merge_request.second_dataset.split("/")[0]
     if first_datatype != second_datatype or first_datatype not in [
-        "lerobot_v2",
         "lerobot_v2.1",
     ]:
         raise HTTPException(
             status_code=400,
-            detail="You can only merge datasets of the same type (v2 or v2.1).",
+            detail="You can only merge datasets of type v2.1",
         )
 
     # 2
@@ -470,6 +469,19 @@ async def merge_datasets(merge_request: MergeDatasetsRequest):
             detail="One of the datasets is empty. Please make sure the datasets are not empty.",
         )
 
+    # Check video sizes
+    for image_key in first_info.features.observation_images.keys():
+        if (
+            first_info.features.observation_images[image_key].shape
+            != second_info.features.observation_images[
+                merge_request.image_key_mappings[image_key]
+            ].shape
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="The datasets have different video sizes.",
+            )
+
     if (
         first_info.robot_type != second_info.robot_type
         or first_info.codebase_version != second_info.codebase_version
@@ -492,6 +504,7 @@ async def merge_datasets(merge_request: MergeDatasetsRequest):
         initial_dataset.merge_datasets(
             second_dataset=second_dataset,
             new_dataset_name=merge_request.new_dataset_name,
+            video_transform=merge_request.image_key_mappings,
         )
     except Exception as e:
         logger.error(f"Error merging datasets: {e}")
