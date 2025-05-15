@@ -187,14 +187,6 @@ def get_resources_path() -> Path:
     return get_base_path() / "resources"
 
 
-def get_dashboard_path() -> Path:
-    """
-    Return the path of the dashboard directory.
-    It's used to serve the dashboard's index.html file.
-    """
-    return get_base_path() / "dashboard"
-
-
 def login_to_hf(revalidate: bool = True) -> bool:
     """
     Return True if we successfully logged in to Hugging Face.

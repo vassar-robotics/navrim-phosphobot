@@ -97,7 +97,7 @@ jobs:
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
         with:
-          working-directory: phosphobot/dashboard
+          working-directory: dashboard
 
       - name: Build dashboard frontend
         env:
@@ -107,11 +107,11 @@ jobs:
 
       - name: Check that the frontend build was successful (dist folder not empty)
         run: |
-          if [ ! -d "phosphobot/dashboard/dist" ]; then
+          if [ ! -d "phosphobot/resources/dist" ]; then
             echo "Dashboard frontend build failed: dist folder not found"
             exit 1
           fi
-          if [ ! "$(ls -A phosphobot/dashboard/dist)" ]; then
+          if [ ! "$(ls -A phosphobot/resources/dist)" ]; then
             echo "Dashboard frontend build failed: dist folder is empty"
             exit 1
           fi
@@ -463,7 +463,7 @@ jobs:
           Get-ChildItem -Recurse -Depth 3 | Where-Object { $_.Name -eq "dashboard" }
 
       - name: Install frontend dependencies
-        working-directory: phosphobot/dashboard # Modified path
+        working-directory: dashboard
         run: |
           Write-Host "Current directory: $(Get-Location)"
           Get-ChildItem
@@ -473,13 +473,20 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        working-directory: phosphobot/dashboard # Modified path
-        run: npm run build
+        working-directory: dashboard
+        run: |
+          npm run build 
+          $sourcePath = Join-Path -Path "phosphobot/resources/dist" -ChildPath "*"
+          $destinationPath = Join-Path -Path "phosphobot" -ChildPath "resources/dist"
+          if (!(Test-Path $destinationPath)) {
+            New-Item -ItemType Directory -Force -Path $destinationPath
+          }
+          Copy-Item -Path $sourcePath -Destination $destinationPath -Recurse -Force
 
       # Rest of your steps with corrected paths
       - name: Verify frontend build
         run: |
-          $dashboardPath = Join-Path -Path "phosphobot/dashboard" -ChildPath "dist"
+          $dashboardPath = Join-Path -Path "phosphobot/resources" -ChildPath "dist"
           if (-not (Test-Path $dashboardPath)) {
               Write-Error "Frontend build failed - dist directory missing"
               exit 1
@@ -572,7 +579,7 @@ jobs:
       - name: Install dependencies
         uses: bahmutov/npm-install@v1
         with:
-          working-directory: phosphobot/dashboard
+          working-directory: dashboard
 
       - name: Build dashboard frontend
         env:

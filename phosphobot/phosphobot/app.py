@@ -33,7 +33,6 @@ from phosphobot.recorder import Recorder, get_recorder
 from phosphobot.robot import RobotConnectionManager, get_rcm
 from phosphobot.teleoperation import UDPServer
 from phosphobot.utils import (
-    get_dashboard_path,
     get_home_app_path,
     get_resources_path,
     login_to_hf,
@@ -128,15 +127,15 @@ app = FastAPI(lifespan=lifespan)
 # This is a workaround for when the raspberry pi uses its own hotspot
 app.mount("/resources", StaticFiles(directory=get_resources_path()), name="static")
 # Mount the directory with your dashboard's production build (adjust the path as needed)
-# Mount assets at the root (assuming get_dashboard_path() contains both index.html and assets)
+# Mount assets at the root (assuming get_resources_path() contains both index.html and assets)
 app.mount(
     "/assets",
-    StaticFiles(directory=f"{get_dashboard_path()}/dist/assets"),
+    StaticFiles(directory=f"{get_resources_path()}/dist/assets"),
     name="assets",
 )
 app.mount(
     "/dashboard",
-    StaticFiles(directory=get_dashboard_path() / "dist", html=True),
+    StaticFiles(directory=get_resources_path() / "dist", html=True),
     name="dashboard",
 )
 
