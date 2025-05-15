@@ -79,8 +79,10 @@ phosphobot = "phosphobot.main:cli"
 requires = ["setuptools>=42", "wheel", "toml"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["phosphobot", "resources"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["phosphobot*", "resources*"]
 
 [tool.setuptools.package-data]
 resources = ["*"] # Include all files in the resources directory
