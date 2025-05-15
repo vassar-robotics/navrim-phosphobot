@@ -155,6 +155,19 @@ class AppControlData(BaseModel):
     timestamp: float | None = Field(
         None, description="Unix timestamp with milliseconds"
     )
+    # For moving robots, we can have a direction vector.
+    direction_x: float = Field(
+        0.0,
+        description="Direction vector X, normalized between -1 (left) and 1 (right)",
+        le=1,
+        ge=-1,
+    )
+    direction_y: float = Field(
+        0.0,
+        description="Direction vector Y, normalized between -1 (backward) and 1 (forward)",
+        le=1,
+        ge=-1,
+    )
 
     def is_null(self, eps: float = 1e-6) -> bool:
         """
