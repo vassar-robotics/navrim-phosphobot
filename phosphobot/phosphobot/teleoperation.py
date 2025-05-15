@@ -138,7 +138,9 @@ class TeleopManager:
         self.action_counter += 1
         return True
 
-    async def send_status_updates(self, websocket: Optional[WebSocket] = None):
+    async def send_status_updates(
+        self, websocket: Optional[WebSocket] = None
+    ) -> list[RobotStatus]:
         """Generate and optionally send status updates"""
         updates = []
         now = datetime.now()
