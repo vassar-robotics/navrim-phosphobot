@@ -277,7 +277,7 @@ jobs:
       #       --wait --verbose
       # # END NOTARIZATION STEPS.
       - name: Run the built application
-        run: ./phosphobot/${{ env.OUTPUT_FILENAME }} run --simulation=headless --simulate-cameras --port=8080 --host=127.0.0.1 --only-simulation &
+        run: ./phosphobot/${{ env.OUTPUT_FILENAME }} run --simulation=headless --simulate-cameras --port=8080 --host=127.0.0.1 --only-simulation --no-telemetry &
 
       - name: Wait for server
         run: |
@@ -587,11 +587,67 @@ jobs:
           VITE_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: make build_frontend
 
+      - name: Check that the frontend build was successful (dist folder not empty)
+        run: |
+          if [ ! -d "phosphobot/resources/dist" ]; then
+            echo "Dashboard frontend build failed: dist folder not found"
+            exit 1
+          fi
+          if [ ! "$(ls -A phosphobot/resources/dist)" ]; then
+            echo "Dashboard frontend build failed: dist folder is empty"
+            exit 1
+          fi
+
+      - name: Create tokens.toml
+        run: |
+          mkdir -p phosphobot/resources
+          cat > phosphobot/resources/tokens.toml << EOF
+          ENV = "prod"
+          SENTRY_DSN = "${{ secrets.SENTRY_DSN }}"
+          POSTHOG_API_KEY = "${{ secrets.POSTHOG_API_KEY }}"
+          POSTHOG_HOST = "${{ vars.POSTHOG_HOST }}"
+          SUPABASE_URL = "${{ vars.SUPABASE_URL }}"
+          SUPABASE_KEY = "${{ secrets.SUPABASE_KEY }}"
+          MODAL_API_URL = "${{ vars.MODAL_API_URL }}"
+          EOF
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
       - name: Build
         run: uv build
+
+      - name: Install built wheel
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install phosphobot/dist/phosphobot-*.whl
+
+      - name: Run installed app
+        run: |
+          . .venv/bin/activate
+          phosphobot --version
+          phosphobot run --no-telemetry --simulation=headless --simulate-cameras --port=8080 --host=127.0.0.1 &
+
+      - name: Wait for server
+        run: |
+          for i in {1..45}; do
+            if curl -s http://localhost:8080/status; then
+              echo "Server ready! in $i seconds" >> server.log
+              echo "Server ready! in $i seconds"
+              break
+            else
+              echo "Waiting for server..." >> server.log
+              echo "Waiting for server..."
+              sleep 1
+            fi
+          done
+
+      - name: Run integration tests
+        run: |
+          cd phosphobot
+          uv run pytest tests/api/
+        continue-on-error: false
 
       - name: Publish
         run: uv publish
