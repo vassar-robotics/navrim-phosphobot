@@ -80,12 +80,13 @@ requires = ["setuptools>=42", "wheel", "toml"]
 build-backend = "setuptools.build_meta"
 
 
+[tool.setuptools]
+# include data files as listed in MANIFEST.in
+include-package-data = true
+
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["phosphobot*", "resources*"]
-
-[tool.setuptools.package-data]
-resources = ["*"] # Include all files in the resources directory
+include = ["*"]
 
 [tool.ruff]
 src = ["app"]
