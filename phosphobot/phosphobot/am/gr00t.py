@@ -988,7 +988,7 @@ class Gr00tTrainer(BaseTrainer):
         if self.config.model_name is not None:
             # We check if the user has write access to the model-id
             if not HuggingFaceTokenValidator().has_write_access(
-                hf_model_name=self.config.model_name
+                hf_token=os.getenv("HF_TOKEN"), hf_model_name=self.config.model_name
             ):
                 raise ValueError(
                     f"The provided HF token does not have write access to {self.config.model_name}"
@@ -1004,7 +1004,7 @@ class Gr00tTrainer(BaseTrainer):
                     repo_type="dataset",
                     revision=selected_branch,
                     local_dir=str(data_dir),
-                    # token=hf_token,
+                    token=os.getenv("HF_TOKEN"),
                 )
                 DATASET_PATH = Path(dataset_path_as_str)
                 logger.info(
@@ -1069,7 +1069,7 @@ class Gr00tTrainer(BaseTrainer):
             logger.info(f"Uploading model to Hugging Face as {self.config.model_name}")
 
             # Upload using huggingface_hub
-            api = HfApi()
+            api = HfApi(token=os.getenv("HF_TOKEN"))
             files_directory = output_dir
 
             api.create_repo(
