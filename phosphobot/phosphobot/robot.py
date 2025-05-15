@@ -1,3 +1,4 @@
+from functools import lru_cache
 import time
 from dataclasses import dataclass
 from typing import List, Optional, Set
@@ -260,6 +261,7 @@ class RobotConnectionManager:
         return [status for status in robots_status if status is not None]
 
 
+@lru_cache()
 def get_rcm() -> RobotConnectionManager:
     global rcm
 

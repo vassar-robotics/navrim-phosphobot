@@ -31,7 +31,7 @@ from phosphobot.models import ServerStatus
 from phosphobot.posthog import posthog, posthog_pageview
 from phosphobot.recorder import Recorder, get_recorder
 from phosphobot.robot import RobotConnectionManager, get_rcm
-from phosphobot.teleoperation import UDPServer
+from phosphobot.teleoperation import get_udp_server
 from phosphobot.utils import (
     get_home_app_path,
     get_resources_path,
@@ -71,12 +71,7 @@ async def lifespan(app: FastAPI):
     # Initialize cameras
     cameras = get_all_cameras()
     rcm = get_rcm()
-    try:
-        udp_server = UDPServer(get_rcm())
-        server_task = asyncio.create_task(udp_server.start())
-    except Exception as e:
-        logger.debug(f"Failed to start UDP server: {e}")
-        udp_server = None
+    udp_server = get_udp_server()
 
     try:
         login_to_hf()
@@ -89,11 +84,8 @@ async def lifespan(app: FastAPI):
             f"Startup complete. Go to the phosphobot dashboard here: http://{server_ip}:{config.PORT}"
         )
         yield
-        if udp_server is not None:
-            udp_server.stop()
-            server_task.cancel()
     finally:
-        # We shutdown posthog and flush sentry to make sure all logs are properly sent
+        udp_server.stop()
         if cameras:
             cameras.stop()
             logger.info("Cameras stopped")

@@ -1,15 +1,18 @@
 import asyncio
-import socket
+import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Literal, Optional
+from functools import lru_cache
+import time
+from typing import Dict, Literal, Optional, Tuple, cast
 
 import numpy as np
 from fastapi import WebSocket
 from loguru import logger
+from pydantic import ValidationError
 
 from phosphobot.hardware import BaseRobot
-from phosphobot.models import AppControlData, RobotStatus
+from phosphobot.models import AppControlData, RobotStatus, UDPServerInformationResponse
 from phosphobot.robot import RobotConnectionManager
 
 
@@ -27,6 +30,7 @@ class TeleopManager:
     action_counter: int
     last_report: datetime
     MOVE_TIMEOUT: float = 1.0  # seconds
+    MAX_INSTRUCTIONS_PER_SEC: int = 120
 
     def __init__(self, rcm: RobotConnectionManager, robot_id: int | None = None):
         self.rcm = rcm
@@ -37,6 +41,22 @@ class TeleopManager:
         self.action_counter = 0
         self.last_report = datetime.now()
         self.robot_id = robot_id
+
+        # rate limiting window
+        self._window_start: datetime = datetime.now()
+        self._instr_in_window: int = 0
+
+    def allow_instruction(self) -> bool:
+        """Simple 1-second sliding window rate limiter."""
+        now = datetime.now()
+        if (now - self._window_start).total_seconds() >= 1.0:
+            self._window_start = now
+            self._instr_in_window = 0
+
+        if self._instr_in_window < self.MAX_INSTRUCTIONS_PER_SEC:
+            self._instr_in_window += 1
+            return True
+        return False
 
     def get_robot(self, source: str) -> Optional[BaseRobot]:
         """Get the appropriate robot based on source"""
@@ -110,6 +130,14 @@ class TeleopManager:
         )
         target_position = robot.initial_effector_position + target_pos
 
+        # if robot.is_moving, wait for it to stop
+        start_wait_time = time.perf_counter()
+        while (
+            robot.is_moving
+            and time.perf_counter() - start_wait_time < self.MOVE_TIMEOUT
+        ):
+            await asyncio.sleep(0.0001)
+
         loop = asyncio.get_event_loop()
         try:
             # off-load blocking move_robot into threadpool + enforce timeout
@@ -136,7 +164,9 @@ class TeleopManager:
         self.action_counter += 1
         return True
 
-    async def send_status_updates(self, websocket: Optional[WebSocket] = None):
+    async def send_status_updates(
+        self, websocket: Optional[WebSocket] = None
+    ) -> list[RobotStatus]:
         """Generate and optionally send status updates"""
         updates = []
         now = datetime.now()
@@ -169,38 +199,146 @@ class TeleopManager:
         return updates
 
 
-# UDP server implementation
+udp_server = None
+
+
+class _TeleopProtocol(asyncio.DatagramProtocol):
+    def __init__(self, manager: TeleopManager):
+        self.manager = manager
+        self.transport: Optional[asyncio.DatagramTransport] = None
+
+    def connection_made(self, transport: asyncio.BaseTransport):
+        self.transport = cast(asyncio.DatagramTransport, transport)
+        sockname = transport.get_extra_info("sockname")
+        logger.info(f"UDP socket opened on {sockname}")
+
+    def datagram_received(self, data: bytes, addr: Tuple[str, int]):
+        # fire-and-forget per-packet handling
+        asyncio.create_task(self._handle(data, addr))
+
+    async def _handle(self, data: bytes, addr: Tuple[str, int]):
+        if self.transport is None:
+            logger.error("Transport is None, cannot handle datagram")
+            return
+
+        if not self.manager.allow_instruction():
+            err = {
+                "error": "rate_limited",
+                "detail": f"Exceeded {self.manager.MAX_INSTRUCTIONS_PER_SEC} msgs/sec",
+            }
+            self.transport.sendto(json.dumps(err).encode("utf-8"), addr)
+            return
+
+        # 1) decode
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as e:
+            err = {"error": "invalid_encoding", "detail": str(e)}
+            self.transport.sendto(json.dumps(err).encode(), addr)
+            logger.error(f"Decoding error from {addr}: {e}")
+            return
+
+        # 2) parse JSON
+        try:
+            raw = json.loads(text)
+        except json.JSONDecodeError as e:
+            err = {"error": "invalid_json", "detail": e.msg}
+            self.transport.sendto(json.dumps(err).encode(), addr)
+            logger.error(f"JSON parse error from {addr}: {e.msg}")
+            return
+
+        # 3) validate schema
+        try:
+            control = AppControlData.model_validate(raw)
+        except ValidationError as e:
+            err = {"error": "validation_error", "detail": str(e)}
+            self.transport.sendto(json.dumps(err).encode(), addr)
+            logger.error(f"Schema validation failed from {addr}: {e}")
+            return
+
+        # 4) process and respond
+        try:
+            await self.manager.process_control_data(control)
+            updates = await self.manager.send_status_updates()
+            for u in updates:
+                self.transport.sendto(u.model_dump_json().encode(), addr)
+        except Exception as e:
+            err = {"error": "internal_server_error", "detail": str(e)}
+            self.transport.sendto(json.dumps(err).encode(), addr)
+            logger.exception("Error while processing control data")
+
+
 class UDPServer:
     def __init__(self, rcm: RobotConnectionManager):
-        self.rcm = rcm
         self.manager = TeleopManager(rcm)
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(("0.0.0.0", 5055))
-        self.sock.setblocking(False)
-        self.running = False
+        self.transport: Optional[asyncio.DatagramTransport] = None
+        self.protocol: Optional[_TeleopProtocol] = None
+        self.bound_port: Optional[int] = None
 
-    async def start(self):
-        self.running = True
-        logger.info("Starting UDP server on port 5005")
-        loop = asyncio.get_event_loop()
+    async def init(
+        self, port: Optional[int] = None, restart: bool = False
+    ) -> UDPServerInformationResponse:
+        """
+        Initialize (or re-init) the UDP server via asyncio.create_datagram_endpoint.
+        Returns the bound host/port.
+        """
+        if self.transport is not None and not restart:
+            host, bound_port = self.transport.get_extra_info("sockname")
+            return UDPServerInformationResponse(host=host, port=bound_port)
 
-        while self.running:
-            try:
-                data, addr = await loop.sock_recv(self.sock, 1024)
+        loop = asyncio.get_running_loop()
+
+        # choose port
+        if port is None:
+            for p in range(5000, 6000):
                 try:
-                    control_data = AppControlData.model_validate_json(data)
-                    await self.manager.process_control_data(control_data)
-                    # Generate status updates and send back to client
-                    updates = await self.manager.send_status_updates()
-                    for update in updates:
-                        json_data = update.model_dump_json()
-                        encoded = json_data.encode("utf-8")
-                        await loop.sock_sendto(self.sock, encoded, addr)
-                except Exception as e:
-                    logger.error(f"UDP processing error: {e}")
-            except BlockingIOError:
-                await asyncio.sleep(0.01)
+                    transport, protocol = await loop.create_datagram_endpoint(
+                        lambda: _TeleopProtocol(self.manager),
+                        local_addr=("0.0.0.0", p),
+                    )
+                    self.transport = transport
+                    self.protocol = protocol
+                    self.bound_port = p
+                    logger.info(f"Bound UDP server to 0.0.0.0:{p}")
+                    break
+                except OSError:
+                    continue
+            else:
+                raise RuntimeError("Could not bind to any port between 5000 and 6000")
+        else:
+            transport, protocol = await loop.create_datagram_endpoint(
+                lambda: _TeleopProtocol(self.manager),
+                local_addr=("0.0.0.0", port),
+            )
+            self.transport = transport
+            self.protocol = protocol
+            self.bound_port = port
+            logger.info(f"Bound UDP server to 0.0.0.0:{port}")
 
-    def stop(self):
-        self.running = False
-        self.sock.close()
+        host, bound_port = self.transport.get_extra_info("sockname")
+        return UDPServerInformationResponse(host=host, port=bound_port)
+
+    def stop(self) -> None:
+        """
+        Close the transport; no more packets will be received.
+        """
+        if self.transport:
+            self.transport.close()
+            logger.info("UDP server transport closed")
+            self.transport = None
+            self.protocol = None
+            self.bound_port = None
+
+
+@lru_cache()
+def get_udp_server() -> UDPServer:
+    """
+    Get the UDP server instance.
+    If it doesn't exist, create it.
+    """
+    from phosphobot.robot import get_rcm
+
+    global udp_server
+    if udp_server is None:
+        udp_server = UDPServer(get_rcm())
+    return udp_server

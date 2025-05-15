@@ -40,11 +40,12 @@ from phosphobot.models import (
     StatusResponse,
     TorqueControlRequest,
     TorqueReadResponse,
+    UDPServerInformationResponse,
     VoltageReadResponse,
 )
 from phosphobot.robot import RobotConnectionManager, SO100Hardware, get_rcm
 from phosphobot.supabase import get_client, user_is_logged_in
-from phosphobot.teleoperation import TeleopManager
+from phosphobot.teleoperation import TeleopManager, UDPServer, get_udp_server
 from phosphobot.utils import background_task_log_exceptions
 
 # This is used to send numpy arrays as JSON to OpenVLA server
@@ -118,6 +119,29 @@ async def move_teleop_ws(
         logger.warning("WebSocket client disconnected")
 
     vr_control_signal.stop()
+
+
+@router.post("/move/teleop/udp", response_model=UDPServerInformationResponse)
+async def move_teleop_udp(
+    background_tasks: BackgroundTasks,
+    udp_server: UDPServer = Depends(get_udp_server),
+):
+    """
+    Start a UDP server to send and receive teleoperation data to the robot.
+    """
+    udp_server_info = await udp_server.init()
+    return udp_server_info
+
+
+@router.post("/move/teleop/udp/stop", response_model=StatusResponse)
+async def stop_teleop_udp(
+    udp_server: UDPServer = Depends(get_udp_server),
+):
+    """
+    Stop the UDP server main loop.
+    """
+    udp_server.stop()
+    return StatusResponse()
 
 
 @router.post(

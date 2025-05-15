@@ -1,5 +1,6 @@
 import asyncio
 import atexit
+from functools import lru_cache
 import platform
 import subprocess
 import threading
@@ -1267,6 +1268,7 @@ class AllCameras:
         return secondary_camera_key_names
 
 
+@lru_cache()
 def get_all_cameras() -> AllCameras:
     """
     Return the global AllCameras instance.

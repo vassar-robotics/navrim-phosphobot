@@ -923,3 +923,8 @@ class SupabaseTrainingModel(BaseModel):
 
 class TrainingConfig(BaseModel):
     models: list[SupabaseTrainingModel]
+
+
+class UDPServerInformationResponse(BaseModel):
+    host: str
+    port: int
