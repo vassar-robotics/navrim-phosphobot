@@ -1,6 +1,7 @@
 from loguru import logger
 
-logger.info("Starting phosphobot...")
+if __name__ == "__main__":
+    logger.info("Starting phosphobot...")
 
 from rich import print
 
@@ -25,7 +26,8 @@ def print_phospho_splash():
         _splash_shown = True
 
 
-print_phospho_splash()
+if __name__ == "__main__":
+    print_phospho_splash()
 
 import platform
 import threading
@@ -53,7 +55,7 @@ def fetch_latest_version():
         pass
 
 
-if not _version_check_started:
+if not _version_check_started and __name__ == "__main__":
     thread = threading.Thread(target=fetch_latest_version, daemon=True)
     thread.start()
     _version_check_started = True
