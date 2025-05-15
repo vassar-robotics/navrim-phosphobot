@@ -130,9 +130,6 @@ async def move_teleop_udp(
     Start a UDP server to send and receive teleoperation data to the robot.
     """
     udp_server_info = await udp_server.init()
-    if not udp_server.running:
-        # Start the loop to receive data
-        background_tasks.add_task(background_task_log_exceptions(udp_server.start))
     return udp_server_info
 
 

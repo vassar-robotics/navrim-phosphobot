@@ -1,11 +1,9 @@
 import asyncio
-from functools import lru_cache
 import json
-import socket
 from dataclasses import dataclass
 from datetime import datetime
-import traceback
-from typing import Dict, Literal, Optional
+from functools import lru_cache
+from typing import Dict, Literal, Optional, Tuple, cast
 
 import numpy as np
 from fastapi import WebSocket
@@ -176,102 +174,123 @@ class TeleopManager:
 udp_server = None
 
 
+class _TeleopProtocol(asyncio.DatagramProtocol):
+    def __init__(self, manager: TeleopManager):
+        self.manager = manager
+        self.transport: Optional[asyncio.DatagramTransport] = None
+
+    def connection_made(self, transport: asyncio.BaseTransport):
+        self.transport = cast(asyncio.DatagramTransport, transport)
+        sockname = transport.get_extra_info("sockname")
+        logger.info(f"UDP socket opened on {sockname}")
+
+    def datagram_received(self, data: bytes, addr: Tuple[str, int]):
+        # fire-and-forget per-packet handling
+        asyncio.create_task(self._handle(data, addr))
+
+    async def _handle(self, data: bytes, addr: Tuple[str, int]):
+        if self.transport is None:
+            logger.error("Transport is None, cannot handle datagram")
+            return
+        # 1) decode
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as e:
+            err = {"error": "invalid_encoding", "detail": str(e)}
+            self.transport.sendto(json.dumps(err).encode(), addr)
+            logger.error(f"Decoding error from {addr}: {e}")
+            return
+
+        # 2) parse JSON
+        try:
+            raw = json.loads(text)
+        except json.JSONDecodeError as e:
+            err = {"error": "invalid_json", "detail": e.msg}
+            self.transport.sendto(json.dumps(err).encode(), addr)
+            logger.error(f"JSON parse error from {addr}: {e.msg}")
+            return
+
+        # 3) validate schema
+        try:
+            control = AppControlData.model_validate(raw)
+        except ValidationError as e:
+            err = {"error": "validation_error", "detail": str(e)}
+            self.transport.sendto(json.dumps(err).encode(), addr)
+            logger.error(f"Schema validation failed from {addr}: {e}")
+            return
+
+        # 4) process and respond
+        try:
+            await self.manager.process_control_data(control)
+            updates = await self.manager.send_status_updates()
+            for u in updates:
+                self.transport.sendto(u.model_dump_json().encode(), addr)
+        except Exception as e:
+            err = {"error": "internal_server_error", "detail": str(e)}
+            self.transport.sendto(json.dumps(err).encode(), addr)
+            logger.exception("Error while processing control data")
+
+
 class UDPServer:
     def __init__(self, rcm: RobotConnectionManager):
-        self.rcm = rcm
         self.manager = TeleopManager(rcm)
-        self.running = False
-        self.sock: socket.socket | None = None
+        self.transport: Optional[asyncio.DatagramTransport] = None
+        self.protocol: Optional[_TeleopProtocol] = None
+        self.bound_port: Optional[int] = None
 
     async def init(
-        self, port: int | None = None, restart: bool = False
+        self, port: Optional[int] = None, restart: bool = False
     ) -> UDPServerInformationResponse:
         """
-        Initialize the UDP server socket.
-        If port is None, bind to a random port between 5000 and 6000.
-        If restart is True, reinitialize the socket. Otherwise, return the existing socket.
+        Initialize (or re-init) the UDP server via asyncio.create_datagram_endpoint.
+        Returns the bound host/port.
         """
+        if self.transport is not None and not restart:
+            host, bound_port = self.transport.get_extra_info("sockname")
+            return UDPServerInformationResponse(host=host, port=bound_port)
 
-        if self.sock is not None and not restart:
-            logger.debug(
-                f"Socket already initialized on port {self.sock.getsockname()[1]}"
-            )
-            return UDPServerInformationResponse(
-                host=self.sock.getsockname()[0], port=self.sock.getsockname()[1]
-            )
+        loop = asyncio.get_running_loop()
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        if port is not None:
-            self.sock.bind(("0.0.0.0", port))
-        else:
-            # Try to bind to a random port between 5550 and 6000
-            for port in range(5000, 6000):
+        # choose port
+        if port is None:
+            for p in range(5000, 6000):
                 try:
-                    self.sock.bind(("0.0.0.0", port))
-                    logger.info(f"Bound to port {port}")
+                    transport, protocol = await loop.create_datagram_endpoint(
+                        lambda: _TeleopProtocol(self.manager),
+                        local_addr=("0.0.0.0", p),
+                    )
+                    self.transport = transport
+                    self.protocol = protocol
+                    self.bound_port = p
+                    logger.info(f"Bound UDP server to 0.0.0.0:{p}")
                     break
                 except OSError:
-                    logger.warning(f"Port {port} is already in use, trying next")
                     continue
-            raise RuntimeError(f"Could not bind to any port between 5000 and 6000")
+            else:
+                raise RuntimeError("Could not bind to any port between 5000 and 6000")
+        else:
+            transport, protocol = await loop.create_datagram_endpoint(
+                lambda: _TeleopProtocol(self.manager),
+                local_addr=("0.0.0.0", port),
+            )
+            self.transport = transport
+            self.protocol = protocol
+            self.bound_port = port
+            logger.info(f"Bound UDP server to 0.0.0.0:{port}")
 
-        self.sock.setblocking(False)
-        return UDPServerInformationResponse(
-            host=self.sock.getsockname()[0], port=self.sock.getsockname()[1]
-        )
+        host, bound_port = self.transport.get_extra_info("sockname")
+        return UDPServerInformationResponse(host=host, port=bound_port)
 
-    async def start(self, port: int | None = None):
-        if self.sock is None:
-            await self.init(port=port)
-        if self.sock is None:
-            raise RuntimeError("Socket is not initialized")
-
-        self.running = True
-        loop = asyncio.get_event_loop()
-
-        while self.running:
-            try:
-                data, addr = await loop.sock_recvfrom(self.sock, 1024)
-            except BlockingIOError:
-                await asyncio.sleep(0.01)
-                continue
-
-            # decode once
-            try:
-                text = data.decode("utf-8")
-            except UnicodeDecodeError as e:
-                err = {"error": "invalid_encoding", "detail": str(e)}
-                await loop.sock_sendto(self.sock, json.dumps(err).encode(), addr)
-                logger.error(f"Decoding error from {addr}: {e}")
-                continue
-
-            # validate with Pydantic
-            try:
-                control_data = AppControlData.model_validate(text)
-            except ValidationError as e:
-                err = {"error": "validation_error", "detail": str(e)}
-                await loop.sock_sendto(self.sock, json.dumps(err).encode(), addr)
-                logger.error(f"Schema validation failed from {addr}: {e}")
-                continue
-
-            # everything’s good!
-            try:
-                await self.manager.process_control_data(control_data)
-                updates = await self.manager.send_status_updates()
-                for update in updates:
-                    payload = update.model_dump_json().encode("utf-8")
-                    await loop.sock_sendto(self.sock, payload, addr)
-            except Exception as e:
-                tb = traceback.format_exc()
-                err = {"error": "internal_server_error", "detail": str(e)}
-                await loop.sock_sendto(self.sock, json.dumps(err).encode(), addr)
-                logger.error(f"Processing error:\n{tb}")
-
-    def stop(self):
-        self.running = False
-        if self.sock is not None:
-            self.sock.close()
-        self.sock = None
+    def stop(self) -> None:
+        """
+        Close the transport; no more packets will be received.
+        """
+        if self.transport:
+            self.transport.close()
+            logger.info("UDP server transport closed")
+            self.transport = None
+            self.protocol = None
+            self.bound_port = None
 
 
 @lru_cache()
