@@ -20,7 +20,7 @@ from huggingface_hub import (
     upload_folder,
 )
 from loguru import logger
-from pydantic import AliasChoices, BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 from phosphobot.types import VideoCodecs
 from phosphobot.utils import (
@@ -1839,6 +1839,18 @@ class Stats(BaseModel):
     square_sum: NdArrayAsList | None = None
     count: int = 0
 
+    @field_validator("count", mode="before")
+    @classmethod
+    def validate_count(cls, value) -> int:
+        if isinstance(value, int):
+            return value
+        elif isinstance(value, list) and len(value) == 1:
+            return value[0]
+
+        raise ValueError(
+            f"Count must be an int or a list of length 1, got {type(value)} with length {len(value)}"
+        )
+
     # To be able to use np.array in pydantic, we need to use arbitrary_types_allowed = True
     class Config:
         arbitrary_types_allowed = True
@@ -1886,6 +1898,10 @@ class Stats(BaseModel):
         """
         if self.count == 0:
             logger.error("Count is 0. Cannot compute mean and std.")
+            return
+
+        if self.sum is None or self.square_sum is None:
+            # We have already computed the mean and std
             return
 
         self.mean = self.sum / self.count
@@ -2431,11 +2447,22 @@ class EpisodesStatsFeatutes(BaseModel):
         Save the features as a json string.
         """
         # Use the aliases in StatsModel
-        model_dict = self.stats.model_dump(by_alias=True)
+        model_dict: dict[str, dict] = self.stats.model_dump(
+            by_alias=True, warnings=False
+        )
 
         for key, value in model_dict["observation.images"].items():
             model_dict[key] = value
         model_dict.pop("observation.images")
+
+        # Convert count to a list and remove sum and square_sum for compatibility
+        for key, value in model_dict.items():
+            if isinstance(value["count"], int):
+                value["count"] = [value["count"]]
+            if "sum" in value.keys():
+                value.pop("sum")
+            if "square_sum" in value.keys():
+                value.pop("square_sum")
 
         # Add the episode index
         result_dict = {"episode_index": self.episode_index, "stats": model_dict}
