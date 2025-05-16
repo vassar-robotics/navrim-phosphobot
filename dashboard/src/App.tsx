@@ -4,7 +4,8 @@ import { ForgotPassword } from "@/components/auth/ForgotPassword";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ResetPassword } from "@/components/auth/ResetPassword";
 import { Layout } from "@/components/layout/layout";
-import InferenceCodePage from "@/pages/AIControlPage";
+import AIControlPage from "@/pages/AIControlPage";
+import AITrainingPage from "@/pages/AITrainingPage";
 import AdminPage from "@/pages/AdminSettingsPage";
 import BrowsePage from "@/pages/BrowsePage";
 import CalibrationPage from "@/pages/CalibrationPage";
@@ -30,10 +31,18 @@ function App() {
           <Route path="/browse" element={<BrowsePage />} />
           <Route path="/browse/:path" element={<BrowsePage />} />
           <Route
+            path="/train"
+            element={
+              <ProtectedRoute>
+                <AITrainingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/inference"
             element={
               <ProtectedRoute>
-                <InferenceCodePage />
+                <AIControlPage />
               </ProtectedRoute>
             }
           />

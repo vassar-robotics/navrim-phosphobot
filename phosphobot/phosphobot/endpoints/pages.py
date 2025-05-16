@@ -64,6 +64,7 @@ INDEX_PATH = str(get_resources_path() / "dist" / "index.html")
 @router.get("/leader", response_class=HTMLResponse)
 @router.get("/replay", response_class=HTMLResponse)
 @router.get("/control", response_class=HTMLResponse)
+@router.get("/train", response_class=HTMLResponse)
 @router.get("/inference", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
 async def serve_dashboard(request: Request):
@@ -526,50 +527,43 @@ async def list_datasets():
     """
     root_v2 = os.path.join(ROOT_DIR, "lerobot_v2")
     root_v2_1 = os.path.join(ROOT_DIR, "lerobot_v2.1")
-    # if the folder does not exist, return an empty list
-    if (
-        not os.path.exists(root_v2)
-        or not os.path.isdir(root_v2)
-        or not os.path.exists(root_v2_1)
-        or not os.path.isdir(root_v2_1)
-    ):
-        return DatasetListResponse(
-            pushed_datasets=[],
-            local_datasets=[],
-        )
+
     # List all folders in the root directory. Keep only the directory names
-    datasets_folders = [
-        f for f in os.listdir(root_v2) if os.path.isdir(os.path.join(root_v2, f))
-    ]
-    datasets_folders += [
-        f for f in os.listdir(root_v2_1) if os.path.isdir(os.path.join(root_v2_1, f))
-    ]
+    datasets_folders = []
+    if os.path.exists(root_v2) and os.path.isdir(root_v2):
+        datasets_folders += [
+            f for f in os.listdir(root_v2) if os.path.isdir(os.path.join(root_v2, f))
+        ]
+    if os.path.exists(root_v2_1) and os.path.isdir(root_v2_1):
+        datasets_folders += [
+            f
+            for f in os.listdir(root_v2_1)
+            if os.path.isdir(os.path.join(root_v2_1, f))
+        ]
+
     # Keep only directories
-    api = HfApi()
     try:
+        api = HfApi()
         user_info = api.whoami()
+        # Get the username or org that has write access
+        username_or_orgid = parse_hf_username_or_orgid(user_info)
+        # List HF datasets
+        hf_datasets = list(
+            api.list_datasets(author=username_or_orgid, limit=100, gated=False)
+        )
+        # Filter datasets that are in the local folder
+        pushed_datasets = []
+        for dataset in hf_datasets:
+            only_name = dataset.id.split("/")[-1]
+            if only_name in datasets_folders:
+                pushed_datasets.append(dataset.id)
+
     except Exception:
         logger.info("No Hugging Face token found.")
-        return DatasetListResponse(
-            pushed_datasets=[],
-            local_datasets=[],
-        )
-    # Get the username or org that has write access
-    username_or_orgid = parse_hf_username_or_orgid(user_info)
-
-    # List HF datasets
-    hf_datasets = list(
-        api.list_datasets(author=username_or_orgid, limit=100, gated=False)
-    )
-    # Filter datasets that are in the local folder
-    datasets = []
-    for dataset in hf_datasets:
-        only_name = dataset.id.split("/")[-1]
-        if only_name in datasets_folders:
-            datasets.append(dataset.id)
+        pushed_datasets = []
 
     return DatasetListResponse(
-        pushed_datasets=datasets,
+        pushed_datasets=pushed_datasets,
         local_datasets=datasets_folders,
     )
 
