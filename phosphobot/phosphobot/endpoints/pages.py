@@ -309,6 +309,11 @@ async def submit_wandb_token(query: WandBTokenRequest):
     except ImportError:
         # skip token verification
         pass
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error connecting to WandB: {str(e)}",
+        }
 
     try:
         # Open the file in write mode and save the token
