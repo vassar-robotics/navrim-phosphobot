@@ -1073,7 +1073,7 @@ class Gr00tTrainer(BaseTrainer):
                 number_of_robots=number_of_robots,
                 number_of_cameras=number_of_cameras,
                 learning_rate=self.config.training_params.learning_rate,
-                wandb_enabled=True,
+                wandb_enabled=self.config.wandb_api_key is not None,
                 timeout_seconds=timeout_seconds,
                 gr00t_repo_path=self.config.training_params.path_to_gr00t_repo,
             )
