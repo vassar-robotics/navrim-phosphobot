@@ -1,6 +1,7 @@
 import base64
 import os
 import cv2
+import wandb
 from pathlib import Path, PurePath
 from typing import Literal, cast
 
@@ -303,6 +304,7 @@ async def submit_wandb_token(query: WandBTokenRequest):
     file_path = str(get_home_app_path()) + "/wandb.token"
 
     try:
+        wandb.login(key=query.token, verify=True)
         # Open the file in write mode and save the token
         with open(file_path, "w") as token_file:
             token_file.write(query.token)
@@ -315,7 +317,10 @@ async def submit_wandb_token(query: WandBTokenRequest):
 
     except Exception as e:
         logger.error(f"Error saving token: {str(e)}")
-        return {"status": "error", "message": f"Error saving token: {str(e)}"}
+        return {
+            "status": "error",
+            "message": f"Error saving token, make sure to copy/paste the 40 characters long token: {str(e)}",
+        }
 
 
 @router.post("/admin/form/usersettings")
