@@ -96,11 +96,12 @@ Here you can:
 
 You can extend **phosphobot** by plugging in support for any custom robot. Just follow these steps:
 
-1. **Clone the phosphobot repo**
+1. **Clone the phosphobot repo and fetch submodules.** Make sure you have [git lfs](https://git-lfs.com) installed beforehand
 
    ```bash
    git clone https://github.com/phospho-app/phosphobot.git
    cd phosphobot
+   git submodule update --init --recursive
    ```
 
 2. **Install [uv](https://astral.sh/uv/)** to manage python dependencies. The recommended python version for dev is `3.10`
