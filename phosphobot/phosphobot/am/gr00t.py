@@ -4,7 +4,7 @@ import pickle
 import time
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Callable, Dict, Literal, Tuple, Optional
+from typing import Any, Callable, Dict, Literal, Tuple
 import cv2
 import numpy as np
 import zmq
@@ -896,7 +896,7 @@ async def run_gr00t_training(
     number_of_cameras,
     learning_rate,
     wandb_enabled: bool,
-    timeout_seconds: int,
+    timeout_seconds: int | None = None,
     gr00t_repo_path: str = ".",
 ):
     cmd = [
@@ -944,7 +944,12 @@ async def run_gr00t_training(
             output_lines.append(stripped_line)
 
     try:
-        await asyncio.wait_for(read_output(), timeout=timeout_seconds)
+        if timeout_seconds is None:
+            # No timeout
+            await read_output()
+        else:
+            # Timeout
+            await asyncio.wait_for(read_output(), timeout=timeout_seconds)
     except asyncio.TimeoutError:
         process.kill()
         await process.wait()
@@ -973,7 +978,12 @@ class Gr00tTrainer(BaseTrainer):
     def __init__(self, config: Gr00tTrainerConfig):
         self.config = config
 
-    def train(self):
+    def train(self, timeout_seconds: int | None = None) -> None:
+        """
+        You can pass a timeout in seconds to the training process.
+        If the training process exceeds this time, it will be
+        killed and the latest checkpoint will be uploaded to Hugging Face.
+        """
         logger.info(f"Starting training for dataset={self.config.dataset_name}")
 
         # Create output directory
@@ -987,8 +997,13 @@ class Gr00tTrainer(BaseTrainer):
 
         if self.config.model_name is not None:
             # We check if the user has write access to the model-id
+            hf_token = os.getenv("HF_TOKEN")
+            if hf_token is None:
+                raise ValueError(
+                    "HF_TOKEN environment variable is not set. Please set it to your Hugging Face token."
+                )
             if not HuggingFaceTokenValidator().has_write_access(
-                hf_token=os.getenv("HF_TOKEN"), hf_model_name=self.config.model_name
+                hf_token=hf_token, hf_model_name=self.config.model_name
             ):
                 raise ValueError(
                     f"The provided HF token does not have write access to {self.config.model_name}"
@@ -1059,7 +1074,7 @@ class Gr00tTrainer(BaseTrainer):
                 number_of_cameras=number_of_cameras,
                 learning_rate=self.config.training_params.learning_rate,
                 wandb_enabled=True,
-                timeout_seconds=3 * 60 * 60,
+                timeout_seconds=timeout_seconds,
                 gr00t_repo_path=self.config.training_params.path_to_gr00t_repo,
             )
         )
