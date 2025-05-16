@@ -12,6 +12,7 @@ import {
   BrainCircuit,
   Camera,
   Code,
+  Dumbbell,
   FileCog,
   FolderOpen,
   Home,
@@ -89,6 +90,14 @@ export function AppSidebar() {
           <SidebarGroupLabel>AI & Training</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={currentPath === "/train"}>
+                  <a href="/train">
+                    <Dumbbell className="h-5 w-5" />
+                    <span>AI Training</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild

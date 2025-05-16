@@ -2,6 +2,13 @@
 
 import { Button } from "@/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -161,7 +168,10 @@ const ModelRow: React.FC<{ model: SupabaseTrainingModel }> = ({ model }) => {
   );
 };
 
-const ModelsDialog: React.FC<ModelsDialogProps> = ({ open, onOpenChange }) => {
+export const ModelsDialog: React.FC<ModelsDialogProps> = ({
+  open,
+  onOpenChange,
+}) => {
   const {
     data: modelsData,
     isLoading,
@@ -230,4 +240,70 @@ const ModelsDialog: React.FC<ModelsDialogProps> = ({ open, onOpenChange }) => {
   );
 };
 
-export default ModelsDialog;
+export const ModelsCard: React.FC = () => {
+  const {
+    data: modelsData,
+    isLoading,
+    error,
+  } = useSWR<TrainingConfig>(
+    ["/training/models/read"],
+    ([endpoint]) => fetcher(endpoint, "POST"),
+    {
+      refreshInterval: 5000,
+    },
+  );
+
+  const models = modelsData?.models || [];
+
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Trained Models</CardTitle>
+        <CardDescription>
+          You can only run one training job at a time.
+          <br />
+          If you get a "Failed" status, please check the error log on the
+          Hugging Face model page.
+          <br />
+          For more advanced options, such as changing the number of epochs,
+          steps, etc..., please use the <code>/training/start</code> api
+          endpoint.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center py-4">
+            <p className="text-red-500">{error.toString()}</p>
+          </div>
+        ) : models.length === 0 ? (
+          <div className="text-center py-4">No models found.</div>
+        ) : (
+          <div className="max-h-[400px] overflow-auto border rounded-md">
+            <Table>
+              <TableHeader className="sticky top-0 bg-white z-10">
+                <TableRow>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Model Name</TableHead>
+                  <TableHead>Model Type</TableHead>
+                  <TableHead>Training Parameters</TableHead>
+                  <TableHead>Dataset Name</TableHead>
+                  <TableHead>Wandb</TableHead>
+                  <TableHead>Created at</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {models.map((model, index) => (
+                  <ModelRow key={index} model={model} />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
