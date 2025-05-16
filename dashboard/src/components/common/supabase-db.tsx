@@ -19,6 +19,7 @@ function getSupabaseClient(): SupabaseClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dummy: any = {
     // intercept queries: from().select().insert()… etc
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     from: (_: string) => ({
       select: noOp,
       insert: noOp,
