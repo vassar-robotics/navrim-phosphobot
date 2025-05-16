@@ -75,22 +75,22 @@ export default function RobotControllerPage() {
 
   // Mappings for keys (from control.js)
   const KEY_MAPPINGS: Record<string, RobotMovement> = {
-    a: { x: 0, y: 0, z: STEP_SIZE, rz: 0, rx: 0, ry: 0 },
-    d: { x: 0, y: 0, z: -STEP_SIZE, rz: 0, rx: 0, ry: 0 },
+    f: { x: 0, y: 0, z: STEP_SIZE, rz: 0, rx: 0, ry: 0 },
+    v: { x: 0, y: 0, z: -STEP_SIZE, rz: 0, rx: 0, ry: 0 },
     ArrowUp: { x: STEP_SIZE, y: 0, z: 0, rz: 0, rx: 0, ry: 0 },
     ArrowDown: { x: -STEP_SIZE, y: 0, z: 0, rz: 0, rx: 0, ry: 0 },
     ArrowRight: { x: 0, y: 0, z: 0, rz: -STEP_SIZE * 3.14, rx: 0, ry: 0 },
     ArrowLeft: { x: 0, y: 0, z: 0, rz: STEP_SIZE * 3.14, rx: 0, ry: 0 },
-    q: { x: 0, y: 0, z: 0, rz: 0, rx: STEP_SIZE * 3.14, ry: 0 },
-    e: { x: 0, y: 0, z: 0, rz: 0, rx: -STEP_SIZE * 3.14, ry: 0 },
-    w: { x: 0, y: 0, z: 0, rz: 0, rx: 0, ry: STEP_SIZE * 3.14 },
-    s: { x: 0, y: 0, z: 0, rz: 0, rx: 0, ry: -STEP_SIZE * 3.14 },
+    d: { x: 0, y: 0, z: 0, rz: 0, rx: STEP_SIZE * 3.14, ry: 0 },
+    g: { x: 0, y: 0, z: 0, rz: 0, rx: -STEP_SIZE * 3.14, ry: 0 },
+    b: { x: 0, y: 0, z: 0, rz: 0, rx: 0, ry: STEP_SIZE * 3.14 },
+    c: { x: 0, y: 0, z: 0, rz: 0, rx: 0, ry: -STEP_SIZE * 3.14 },
     " ": { x: 0, y: 0, z: 0, rz: 0, rx: 0, ry: 0, toggleOpen: true },
   };
 
   const robotIDFromName = (name?: string | null) => {
     if (name === undefined || name === null || !serverStatus?.robot_status) {
-      return 0; // Default to the first robot
+      return 0; // Default to the first robot 
     }
     // Return the index in the robot_status array
     return serverStatus?.robot_status.findIndex(
@@ -301,32 +301,32 @@ export default function RobotControllerPage() {
       icon: <ArrowLeft className="size-6" />,
     },
     {
-      key: "a",
+      key: "F",
       description: "Increase Z (move up)",
       icon: <ChevronUp className="size-6" />,
     },
     {
-      key: "d",
+      key: "V",
       description: "Decrease Z (move down)",
       icon: <ChevronDown className="size-6" />,
     },
     {
-      key: "q",
+      key: "D",
       description: "Wrist pitch up",
       icon: <ArrowUpFromLine className="size-6" />,
     },
     {
-      key: "e",
+      key: "G",
       description: "Wrist pitch down",
       icon: <ArrowDownFromLine className="size-6" />,
     },
     {
-      key: "w",
+      key: "B",
       description: "Wrist roll clockwise",
       icon: <RotateCw className="size-6" />,
     },
     {
-      key: "s",
+      key: "C",
       description: "Wrist roll counter-clockwise",
       icon: <RotateCcw className="size-6" />,
     },
@@ -398,17 +398,11 @@ export default function RobotControllerPage() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Card
-                  className={`flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-accent transition-colors ${
-                    activeKey === control.key
-                      ? "bg-primary text-primary-foreground"
-                      : ""
-                  }`}
+                  className={`flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-accent transition-colors ${activeKey === control.key
+                    ? "bg-primary text-primary-foreground"
+                    : ""
+                    }`}
                   onClick={() => {
-                    // Simulate key press
-                    // const event = {
-                    //   key: control.key,
-                    //   repeat: false,
-                    // } as KeyboardEvent;
 
                     // Use the same logic as in the keyDown handler
                     if (control.key === " ") {
@@ -423,9 +417,11 @@ export default function RobotControllerPage() {
                         rz: 0,
                         open: openStateRef.current,
                       };
-                      postData(BASE_URL + "move/relative", data, {
-                        robot_id: robotIDFromName(selectedRobotName),
-                      });
+                      if (isMoving) {
+                        postData(BASE_URL + "move/relative", data, {
+                          robot_id: robotIDFromName(selectedRobotName),
+                        });
+                      }
                     } else if (KEY_MAPPINGS[control.key.toLowerCase()]) {
                       keysPressedRef.current.add(control.key.toLowerCase());
                       setActiveKey(control.key);
