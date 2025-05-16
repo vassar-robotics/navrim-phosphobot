@@ -1,7 +1,6 @@
 import base64
 import os
 import cv2
-import wandb
 from pathlib import Path, PurePath
 from typing import Literal, cast
 
@@ -303,9 +302,15 @@ async def submit_wandb_token(query: WandBTokenRequest):
 
     # Define the file path where the token will be saved
     file_path = str(get_home_app_path()) + "/wandb.token"
+    try:
+        import wandb
+
+        wandb.login(key=query.token, verify=True)
+    except ImportError:
+        # skip token verification
+        pass
 
     try:
-        wandb.login(key=query.token, verify=True)
         # Open the file in write mode and save the token
         with open(file_path, "w") as token_file:
             token_file.write(query.token)

@@ -49,7 +49,6 @@ build_pyinstaller:
 	--name $(OUTPUT_FILENAME) \
 	--add-data "resources:resources" \
 	--hidden-import phosphobot \
-	--hidden-import wandb --hidden-import wandb_gql \
 	--collect-all phosphobot \
 	--collect-all phosphobot \
 	--clean -c \
