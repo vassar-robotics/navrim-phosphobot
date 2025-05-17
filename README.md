@@ -69,7 +69,7 @@ You can use the model you just trained to control your robot either:
 
 Learn more [in the docs](https://docs.phospho.ai/basic-usage/inference).
 
-## Official Examples
+## Examples
 
 The `examples/` directory is the quickest way to see the toolkit in action. Check it out!
 Proud of what you build? Share it with the community by opening a PR to add it to the `examples/` directory.
@@ -83,13 +83,20 @@ It is available at `YOUR_SERVER_ADDRESS:YOUR_SERVER_PORT/docs`. By default, it i
 
 We release new versions very often, so make sure to check the API docs for the latest features and changes.
 
+## Supported Robots
+
+We currently support the following robots:
+
+- SO-100
+- SO-101
+- WX-250 by Trossen Robotics (beta)
+- AgileX Piper (beta)
+
+See this [README](phosphobot/README.md) for more details on how to add support for a new robots or open an issue.
+
 ## Join the Community
 
 Connect with other developers and share your experience in our [Discord community](https://discord.gg/cbkggY6NSK)
-
-## Community Projects
-
-Explore projects created by our community members in the [code_examples](./code_examples) directory. Each project includes its own documentation and setup instructions.
 
 ## Support
 
