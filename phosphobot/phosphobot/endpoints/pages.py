@@ -302,17 +302,11 @@ async def submit_wandb_token(query: WandBTokenRequest):
 
     # Define the file path where the token will be saved
     file_path = str(get_home_app_path()) + "/wandb.token"
-    try:
-        import wandb
 
-        wandb.login(key=query.token, verify=True)
-    except ImportError:
-        # skip token verification
-        pass
-    except Exception as e:
+    if len(query.token) != 40:
         return {
             "status": "error",
-            "message": f"Error connecting to WandB: {str(e)}",
+            "message": "Wrong token, make sure to copy/paste the 40 characters long token at https://wandb.ai/authorize",
         }
 
     try:
@@ -330,7 +324,7 @@ async def submit_wandb_token(query: WandBTokenRequest):
         logger.error(f"Error saving token: {str(e)}")
         return {
             "status": "error",
-            "message": f"Error saving token, make sure to copy/paste the 40 characters long token: {str(e)}",
+            "message": f"Error saving token: {str(e)}",
         }
 
 
