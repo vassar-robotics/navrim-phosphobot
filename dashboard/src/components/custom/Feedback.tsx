@@ -12,38 +12,36 @@ interface FeedbackButtonsProps {
     className?: string
 }
 
-export function FeedbackButtons({
-    aiControlID,
-    onFeedbackSubmitted,
-    className,
-}: FeedbackButtonsProps) {
+export function FeedbackButtons({ aiControlID, onFeedbackSubmitted, className }: FeedbackButtonsProps) {
     const [selectedFeedback, setSelectedFeedback] = useState<"positive" | "negative" | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     const submitFeedback = async (isPositive: boolean) => {
-        if (isSubmitting || aiControlID === undefined) return
-        if (!aiControlID) {
-            console.error("AI Control ID is required to submit feedback")
-            return
-        }
+        if (isSubmitting || !aiControlID) return
 
         try {
             setIsSubmitting(true)
-            const response = await fetchWithBaseUrl(`/ai-control/feedback`, "POST",
-                {
-                    feedback: isPositive ? "positive" : "negative",
-                    ai_control_id: aiControlID,
-                },
-            )
 
-            if (!response.ok) {
-                throw new Error("Failed to submit feedback: " + response.statusText)
+            // Set the feedback state immediately for better UX
+            setSelectedFeedback(isPositive ? "positive" : "negative")
+
+            const response = await fetchWithBaseUrl(`/ai-control/feedback`, "POST", {
+                feedback: isPositive ? "positive" : "negative",
+                ai_control_id: aiControlID,
+            })
+
+            // Check if the response is valid
+            if (!response) {
+                throw new Error("No response from server")
             }
 
-            setSelectedFeedback(isPositive ? "positive" : "negative")
+            // Call the callback if provided
             onFeedbackSubmitted?.(isPositive)
         } catch (error) {
             console.error("Error submitting feedback:", error)
+
+            // Reset the feedback state if there was an error
+            setSelectedFeedback(null)
         } finally {
             setIsSubmitting(false)
         }
@@ -83,4 +81,5 @@ export function FeedbackButtons({
         </div>
     )
 }
+
 export default FeedbackButtons
