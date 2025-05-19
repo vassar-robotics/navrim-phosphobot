@@ -1,4 +1,5 @@
 import asyncio
+from collections import deque
 import time
 from typing import Dict, List, Literal
 
@@ -6,10 +7,9 @@ import cv2
 import httpx
 import json_numpy  # type: ignore
 import numpy as np
-import requests
+from loguru import logger
 from fastapi import HTTPException
 from huggingface_hub import HfApi
-from loguru import logger
 from pydantic import BaseModel, field_validator, model_validator
 
 from phosphobot.am.base import ActionModel
@@ -336,6 +336,7 @@ class ACT(ActionModel):
         config = model_spawn_config.hf_model_config
 
         db_state_updated = False
+        actions_queue: deque = deque([])
 
         while control_signal.is_in_loop():
             logger.debug(
@@ -409,7 +410,10 @@ class ACT(ActionModel):
             }
 
             try:
-                actions = await self.async_sample_actions(inputs)
+                if len(actions_queue) == 0:
+                    actions = await self.async_sample_actions(inputs)
+                    actions_queue.extend(actions)
+                actions = actions_queue.popleft()
             except Exception as e:
                 logger.warning(
                     f"Failed to get actions from model: {e}. Exiting AI control loop."
