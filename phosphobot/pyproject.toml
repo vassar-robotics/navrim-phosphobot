@@ -43,7 +43,6 @@ dependencies = [
     "pyrealsense2-macosx>=2.54; platform_system == 'Darwin'",
     "fastparquet>=2024.11.0",
     "httpx>=0.28.1",
-    "wandb>=0.19.11",
 ]
 
 [dependency-groups]
