@@ -171,14 +171,14 @@ class ACT(ActionModel):
             response = self.sync_client.post("/act", json=encoded_payload)
             if response.status_code != 200:
                 raise RuntimeError(response.text)
-            action = json_numpy.loads(response.json())
+            actions = json_numpy.loads(response.json())
         except Exception as e:
             logger.error(f"Error in sampling actions: {e}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Error in sampling actions: {e}",
             )
-        return np.array([action])
+        return actions
 
     async def async_sample_actions(self, inputs: dict) -> np.ndarray:
         # Clean up the input to avoid JSON serialization issues
@@ -191,14 +191,14 @@ class ACT(ActionModel):
 
             if response.status_code != 200:
                 raise RuntimeError(response.text)
-            action = json_numpy.loads(response.json())
+            actions = json_numpy.loads(response.json())
         except Exception as e:
             logger.error(f"Error in sampling actions: {e}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Error in sampling actions: {e}",
             )
-        return np.array([action])
+        return actions
 
     @classmethod
     def fetch_config(cls, model_id: str) -> HuggingFaceModelValidator:
