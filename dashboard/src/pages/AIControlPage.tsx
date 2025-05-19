@@ -351,6 +351,9 @@ export default function AIControlPage() {
               <ToggleGroupItem value="ACT" className="flex-1">
                 ACT
               </ToggleGroupItem>
+              <ToggleGroupItem value="custom" className="flex-1">
+                Custom
+              </ToggleGroupItem>
             </ToggleGroup>
           </div>
 
@@ -515,12 +518,11 @@ export default function AIControlPage() {
                   <Button
                     size="lg"
                     variant="default"
-                    className={`h-16 w-16 rounded-full ${
-                      aiStatus?.status === "stopped" ||
+                    className={`h-16 w-16 rounded-full ${aiStatus?.status === "stopped" ||
                       aiStatus?.status === "paused"
-                        ? "bg-green-600 hover:bg-green-700"
-                        : "bg-gray-400 cursor-not-allowed"
-                    }`}
+                      ? "bg-green-600 hover:bg-green-700"
+                      : "bg-gray-400 cursor-not-allowed"
+                      }`}
                     onClick={
                       aiStatus?.status === "stopped"
                         ? startControlByAI
@@ -556,11 +558,10 @@ export default function AIControlPage() {
                   <Button
                     size="lg"
                     variant="default"
-                    className={`h-16 w-16 rounded-full ${
-                      aiStatus?.status === "running"
-                        ? "bg-amber-500 hover:bg-amber-600"
-                        : "bg-gray-400 cursor-not-allowed"
-                    }`}
+                    className={`h-16 w-16 rounded-full ${aiStatus?.status === "running"
+                      ? "bg-amber-500 hover:bg-amber-600"
+                      : "bg-gray-400 cursor-not-allowed"
+                      }`}
                     onClick={pauseControl}
                     disabled={aiStatus?.status !== "running"}
                     title="Pause AI control"
@@ -572,11 +573,10 @@ export default function AIControlPage() {
                   <Button
                     size="lg"
                     variant="default"
-                    className={`h-16 w-16 rounded-full ${
-                      aiStatus?.status !== "stopped"
-                        ? "bg-red-600 hover:bg-red-700"
-                        : "bg-gray-400 cursor-not-allowed"
-                    }`}
+                    className={`h-16 w-16 rounded-full ${aiStatus?.status !== "stopped"
+                      ? "bg-red-600 hover:bg-red-700"
+                      : "bg-gray-400 cursor-not-allowed"
+                      }`}
                     onClick={stopControl}
                     disabled={aiStatus?.status === "stopped"}
                     title="Stop AI control"

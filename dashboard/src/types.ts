@@ -87,7 +87,7 @@ export type TorqueStatus = {
   current_torque: number[];
 };
 export type TrainingRequest = {
-  model_type: "gr00t" | "ACT";
+  model_type: "gr00t" | "ACT" | "custom";
   dataset_name: string;
   model_name: string;
   batch_size?: number;
