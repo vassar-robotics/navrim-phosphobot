@@ -88,7 +88,7 @@ class TrainingParamsAct(BaseModel):
         default=None,
         description="Number of training steps, leave it to None to auto-detect based on your dataset",
         gt=0,
-        le=10000,
+        le=10_000,
     )
 
     class Config:
@@ -102,11 +102,11 @@ class TrainingParamsGr00T(BaseModel):
         gt=0,
         le=1,
     )
-    batch_size: int = Field(
-        default=64,
+    batch_size: int | None = Field(
+        default=None,
         description="Batch size for training, default is 64, decrease it if you get an out of memory error",
         gt=0,
-        le=80,
+        le=128,
     )
     epochs: int = Field(
         default=10,
