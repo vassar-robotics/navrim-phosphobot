@@ -8,6 +8,7 @@ from phosphobot.types import VideoCodecs
 
 from .camera import AllCamerasStatus, SingleCameraStatus
 from .dataset import (
+    BaseRobot,
     BaseRobotConfig,
     BaseRobotInfo,
     BaseRobotPIDGains,
