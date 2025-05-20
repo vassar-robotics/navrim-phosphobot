@@ -707,10 +707,13 @@ async def get_training_info(
             batch_size = 120 // number_of_cameras
         # These are heuristics used to determine the training parameters
         # Add random characters behinf the model name
+        random_suffix = "".join(
+            random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=5)
+        )
         training_response = TrainingRequest(
             model_type=request.model_type,
             dataset_name=request.model_id,
-            model_name=f"phospho-app/{username_or_orgid}-{request.model_type}-{request.model_id.split('/')[1]}-{random.choice('abcdefghijklmnopqrstuvwxyz0123456789') * 5}",
+            model_name=f"phospho-app/{username_or_orgid}-{request.model_type}-{request.model_id.split('/')[1]}-{random_suffix}",
         )
         training_response.training_params.batch_size = batch_size  # type: ignore
 

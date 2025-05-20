@@ -1,3 +1,5 @@
+"use client";
+
 import { AutoComplete, type Option } from "@/components/common/autocomplete";
 import { ModelsCard } from "@/components/custom/ModelsDialog";
 import { Button } from "@/components/ui/button";
@@ -12,9 +14,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGlobalStore } from "@/lib/hooks";
 import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
-import { AdminTokenSettings, TrainingRequest } from "@/types";
+import type { AdminTokenSettings } from "@/types";
 import { CheckCircle2, Dumbbell, Lightbulb, List, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 
@@ -46,21 +48,37 @@ export default function AITrainingPage() {
     ["/dataset/list"],
     ([url]) => fetcher(url, "POST"),
   );
-  const { data: datasetInfoResponse, isLoading: isDatasetInfoLoading } = useSWR<TrainingInfoResponse>(
-    ["/training/info", selectedDatasetID],
-    ([url]) => fetcher(url, "POST", { model_id: selectedDatasetID, model_type: selectedModelType }),
-  );
+  const { data: datasetInfoResponse, isLoading: isDatasetInfoLoading } =
+    useSWR<TrainingInfoResponse>(
+      ["/training/info", selectedDatasetID],
+      ([url]) =>
+        fetcher(url, "POST", {
+          model_id: selectedDatasetID,
+          model_type: selectedModelType,
+        }),
+    );
 
-  const launchModelTraining = async (datasetID: string, modelName: string) => {
-    const trainingRequest: TrainingRequest = {
-      dataset_name: datasetID,
-      model_name: modelName,
-      model_type: selectedModelType,
-    };
+  const [editableJson, setEditableJson] = useState<string>("");
 
-    fetchWithBaseUrl("/training/start", "POST", trainingRequest);
-    console.log("Launched training job");
-  };
+  useEffect(() => {
+    // Try to load from localStorage first
+    const savedJson = localStorage.getItem("trainingBodyJson");
+    if (savedJson) {
+      setEditableJson(savedJson);
+    }
+
+    // Update from API response when it changes
+    if (datasetInfoResponse?.training_body) {
+      const jsonString = JSON.stringify(
+        datasetInfoResponse.training_body,
+        null,
+        2,
+      );
+      setEditableJson(jsonString);
+      // Save to localStorage
+      localStorage.setItem("trainingBodyJson", jsonString);
+    }
+  }, [datasetInfoResponse]);
 
   const generateHuggingFaceModelName = async (dataset: string) => {
     // Model name followed by 10 random characters
@@ -112,8 +130,25 @@ export default function AITrainingPage() {
       const modelName = await generateHuggingFaceModelName(selectedDatasetID);
       const modelUrl = `https://huggingface.co/${modelName}`;
 
-      // Send Slack notification and wait for response
-      await launchModelTraining(selectedDatasetID, modelName);
+      // Parse the edited JSON
+      let trainingBody;
+      try {
+        trainingBody = JSON.parse(editableJson);
+      } catch (error) {
+        toast.error("Invalid JSON format. Please check your input: " + error, {
+          duration: 5000,
+        });
+        setTrainingState("idle");
+        return { success: false, error: "Invalid JSON format" };
+      }
+
+      // Send the edited JSON to the training endpoint
+      await fetchWithBaseUrl("/train/start", "POST", {
+        dataset_name: selectedDatasetID,
+        model_name: modelName,
+        model_type: selectedModelType,
+        training_body: trainingBody,
+      });
 
       // After successful notification, wait 1 second then show success
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -243,16 +278,25 @@ export default function AITrainingPage() {
                     Loading dataset info...
                   </div>
                 ) : (
-                  <pre className="bg-gray-100 p-4 rounded-md overflow-x-auto">
-                    {JSON.stringify(datasetInfoResponse?.training_body, null, 2)}
-                  </pre>
+                  <textarea
+                    className="bg-gray-100 p-4 rounded-md overflow-x-auto w-full h-64 font-mono text-sm"
+                    value={editableJson}
+                    onChange={(e) => {
+                      setEditableJson(e.target.value);
+                      localStorage.setItem("trainingBodyJson", e.target.value);
+                    }}
+                  />
                 )}
               </div>
               <Button
                 variant="secondary"
                 className="flex width-full mt-4"
                 onClick={handleTrainModel}
-                disabled={!selectedDatasetID || trainingState !== "idle" || isDatasetInfoLoading}
+                disabled={
+                  !selectedDatasetID ||
+                  trainingState !== "idle" ||
+                  isDatasetInfoLoading
+                }
               >
                 {renderButtonContent()}
               </Button>
@@ -261,9 +305,12 @@ export default function AITrainingPage() {
                 Tips
               </div>
               <div className="text-muted-foreground text-sm mt-2">
-                If your training fails with a <code>Timeout error</code>, please lower the number of steps/epochs.
+                If your training fails with a <code>Timeout error</code>, please
+                lower the number of steps/epochs.
                 <br />
-                If your training fails with a <code>Cuda out of memory error</code>, please lower the batch size.
+                If your training fails with a{" "}
+                <code>Cuda out of memory error</code>, please lower the batch
+                size.
               </div>
             </CardContent>
           </Card>
