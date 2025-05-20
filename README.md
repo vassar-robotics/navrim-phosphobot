@@ -1,6 +1,6 @@
 # phosphobot
 
-**phosphobot** is a community-driven platform that enables you to train and use action models to control real robots.
+**phosphobot** is a community-driven platform that enables you to train and use VLA (vision language action models) to control real robots.
 
 <div align="center">
 
