@@ -1,6 +1,7 @@
 "use client";
 
 import { AutoComplete, type Option } from "@/components/common/autocomplete";
+import { LogStream } from "@/components/custom/LogsStream";
 import { CopyButton, ModelsCard } from "@/components/custom/ModelsDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,11 +16,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGlobalStore } from "@/lib/hooks";
 import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
 import type { AdminTokenSettings } from "@/types";
-import { Ban, CheckCircle2, Dumbbell, Lightbulb, List, Loader2, Pencil, Save } from "lucide-react";
+import {
+  Ban,
+  CheckCircle2,
+  Dumbbell,
+  Lightbulb,
+  List,
+  Loader2,
+  Pencil,
+  Save,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
-import { LogStream } from "@/components/custom/LogsStream";
 
 // Add this after the existing imports
 const JsonEditor = ({
@@ -103,10 +112,7 @@ const JsonEditor = ({
       </div>
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
         <div className="flex gap-x-2">
-          <Button
-            variant="outline"
-            onClick={handleEdit}
-          >
+          <Button variant="outline" onClick={handleEdit}>
             <Pencil className="size-4" />
             Edit
           </Button>
@@ -273,7 +279,9 @@ export default function AITrainingPage() {
 
       // Send the edited JSON to the training endpoint
       const response = await fetchWithBaseUrl(
-        selectedModelType !== "custom" ? "/training/start" : "/training/start-custom",
+        selectedModelType !== "custom"
+          ? "/training/start"
+          : "/training/start-custom",
         "POST",
         trainingBody,
       );
@@ -292,9 +300,12 @@ export default function AITrainingPage() {
 
       setTrainingState("success");
       if (selectedModelType !== "custom") {
-        toast.success(`Model training started! Check progress at: ${modelUrl}`, {
-          duration: 5000,
-        });
+        toast.success(
+          `Model training started! Check progress at: ${modelUrl}`,
+          {
+            duration: 5000,
+          },
+        );
       } else {
         toast.success("Custom training job started! Check logs for details.", {
           duration: 5000,
@@ -415,8 +426,9 @@ export default function AITrainingPage() {
                 <div className="text-xs text-muted-foreground mt-4">
                   You have selected a custom model type.
                   <br />
-                  When pressing the "Train AI model" button, we will run the command you've written, you can use this to run any
-                  custom training script you want.
+                  When pressing the "Train AI model" button, we will run the
+                  command you've written, you can use this to run any custom
+                  training script you want.
                 </div>
               )}
               <div className="text-xs text-muted-foreground mt-4">
@@ -470,23 +482,24 @@ export default function AITrainingPage() {
                 {renderButtonContent()}
               </Button>
 
-              {selectedModelType === "custom" && (showLogs || currentLogFile) && (
-                <LogStream
-                  logFile={currentLogFile}
-                  isLoading={trainingState === "loading"}
-                  onClose={() => setShowLogs(false)}
-                />
-              )}
+              {selectedModelType === "custom" &&
+                (showLogs || currentLogFile) && (
+                  <LogStream
+                    logFile={currentLogFile}
+                    isLoading={trainingState === "loading"}
+                    onClose={() => setShowLogs(false)}
+                  />
+                )}
 
               <div className="flex flex-row mt-4 items-center align-center">
                 <Lightbulb className="size-4 mr-2 text-muted-foreground" />
                 Tips
               </div>
               <div className="text-muted-foreground text-sm mt-2">
-                - If your training fails with a <code>Timeout error</code>, lower the number of steps or epochs.
+                - If your training fails with a <code>Timeout error</code>,
+                lower the number of steps or epochs.
                 <br />- If your training fails with a{" "}
-                <code>Cuda out of memory error</code>, lower the batch
-                size.
+                <code>Cuda out of memory error</code>, lower the batch size.
               </div>
             </CardContent>
           </Card>
