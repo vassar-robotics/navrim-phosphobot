@@ -884,7 +884,7 @@ class DynamixelMotorsBus:
         # TODO(rcadene): should we log the time before sending the write command?
         # log the utc time when the write has been completed
         ts_utc_name = get_log_name("timestamp_utc", "write", data_name, motor_names)
-        self.logs[ts_utc_name] = capture_timestamp_utc()
+        self.logs[ts_utc_name] = datetime.now(timezone.utc)
 
     def disconnect(self):
         if not self.is_connected:
