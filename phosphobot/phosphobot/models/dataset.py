@@ -22,7 +22,6 @@ from huggingface_hub import (
 from loguru import logger
 from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
-from phosphobot.hardware.base import BaseRobot
 from phosphobot.types import VideoCodecs
 from phosphobot.utils import (
     NdArrayAsList,
