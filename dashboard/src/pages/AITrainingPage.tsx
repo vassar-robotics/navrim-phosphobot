@@ -1,7 +1,7 @@
 "use client";
 
 import { AutoComplete, type Option } from "@/components/common/autocomplete";
-import { ModelsCard } from "@/components/custom/ModelsDialog";
+import { CopyButton, ModelsCard } from "@/components/custom/ModelsDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGlobalStore } from "@/lib/hooks";
 import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
 import type { AdminTokenSettings } from "@/types";
-import { CheckCircle2, Dumbbell, Lightbulb, List, Loader2 } from "lucide-react";
+import { Ban, CheckCircle2, Dumbbell, Lightbulb, List, Loader2, Pencil, Save } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -82,10 +82,12 @@ const JsonEditor = ({
           onChange={(e) => setEditValue(e.target.value)}
         />
         <div className="absolute bottom-2 right-2 flex gap-2">
-          <Button size="sm" variant="outline" onClick={handleCancel}>
+          <Button variant="outline" onClick={handleCancel}>
+            <Ban className="size-4 mr-2" />
             Cancel
           </Button>
-          <Button size="sm" variant="default" onClick={handleSave}>
+          <Button variant="default" onClick={handleSave}>
+            <Save className="size-4 mr-2" />
             Save
           </Button>
         </div>
@@ -98,14 +100,18 @@ const JsonEditor = ({
       <div className="cursor-pointer" onClick={handleEdit}>
         {formatJsonDisplay(value)}
       </div>
-      <Button
-        size="sm"
-        variant="outline"
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-        onClick={handleEdit}
-      >
-        Edit
-      </Button>
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-x-2">
+          <Button
+            variant="outline"
+            onClick={handleEdit}
+          >
+            <Pencil className="size-4" />
+            Edit
+          </Button>
+          <CopyButton text={value} hint="Copy the json" variant="outline" />
+        </div>
+      </div>
     </div>
   );
 };
@@ -269,9 +275,9 @@ export default function AITrainingPage() {
         trainingBody,
       );
 
-      if (response.status !== "ok") {
-        const errorText = response.detail || "Unknown error occurred";
-        throw new Error(`Failed to start training job: ${errorText}`);
+      if (!response) {
+        setTrainingState("idle");
+        return;
       }
 
       // After successful notification, wait 1 second then show success
@@ -418,7 +424,7 @@ export default function AITrainingPage() {
                 )}
                 {datasetInfoResponse?.status == "ok" &&
                   !isDatasetInfoLoading && (
-                    <div className="bg-gray-100 p-4 rounded-md w-full h-64 overflow-auto">
+                    <div className="bg-gray-100 p-4 rounded-md w-full h-64">
                       <pre className="font-mono text-sm whitespace-pre-wrap">
                         {editableJson ? (
                           <JsonEditor
@@ -460,10 +466,9 @@ export default function AITrainingPage() {
                 Tips
               </div>
               <div className="text-muted-foreground text-sm mt-2">
-                - If your training fails with a <code>Timeout error</code>,
-                please lower the number of steps/epochs.
+                - If your training fails with a <code>Timeout error</code>, lower the number of steps or epochs.
                 <br />- If your training fails with a{" "}
-                <code>Cuda out of memory error</code>, please lower the batch
+                <code>Cuda out of memory error</code>, lower the batch
                 size.
               </div>
             </CardContent>

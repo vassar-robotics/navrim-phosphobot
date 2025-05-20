@@ -671,7 +671,9 @@ async def get_training_info(
     if request.model_type == "custom":
         return TrainingInfoResponse(
             status="ok",
-            training_body={"custom_command": "python path/to/file.py --epochs 10"},
+            training_body={
+                "custom_command": "python absolute/path/to/file.py --epochs 10"
+            },
         )
 
     try:

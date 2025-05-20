@@ -41,7 +41,7 @@ interface ModelsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function CopyButton({ text, hint }: { text: string; hint: string }) {
+export function CopyButton({ text, hint, className, variant = "ghost" }: { text: string; hint: string; className?: string, variant?: "outline" | "ghost" | "default" | "link" }) {
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = () => {
@@ -58,8 +58,9 @@ export function CopyButton({ text, hint }: { text: string; hint: string }) {
             onClick={handleCopy}
             title={hint}
             aria-label={hint}
-            variant="ghost"
+            variant={variant}
             size="icon"
+            className={className}
           >
             <Copy className="h-4 w-4" />
             <span className="sr-only">Copy</span>
