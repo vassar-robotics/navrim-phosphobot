@@ -173,6 +173,7 @@ def list_directory_items(path: str, root_dir: str = "") -> list[ItemInfo]:
             info.is_dataset_dir = True
 
         items_info.append(info)
+    items_info.sort(key=lambda x: x.name.lower())
     return items_info
 
 

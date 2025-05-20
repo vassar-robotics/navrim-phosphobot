@@ -116,32 +116,6 @@ jobs:
             exit 1
           fi
 
-      - name: Create lerobot folder
-        run: |
-          if [ ! -d "lerobot" ]; then
-            mkdir lerobot
-          fi
-
-      - name: Create pyproject.toml file in lerobot folder
-        run: |
-          if [ ! -f "lerobot/pyproject.toml" ]; then
-            cat > lerobot/pyproject.toml << EOF
-          [build-system]
-          requires = ["hatchling"]
-          build-backend = "hatchling.build"
-
-          [project]
-          name = "lerobot"
-          version = "0.1.0"
-          description = "Lerobot package"
-          requires-python = ">=3.10"
-
-          [tool.hatch.build.targets.wheel]
-          packages = ["lerobot"]
-          EOF
-            touch lerobot/__init__.py
-          fi
-
       - name: Restore shared uv cache
         uses: actions/cache@v4
         with:
@@ -398,35 +372,6 @@ jobs:
           $version = $versionLine -replace 'version = "(.*)"', '$1'
           echo "version=$version" >> $env:GITHUB_OUTPUT
 
-      - name: Create lerobot folder
-        run: |
-          if (-not (Test-Path "lerobot")) {
-            New-Item -Path "lerobot" -ItemType Directory
-          }
-
-      - name: Create pyproject.toml file in lerobot folder
-        run: |
-          if (-not (Test-Path "lerobot/pyproject.toml")) {
-            $pyprojectContent = @"
-          [build-system]
-          requires = ["hatchling"]
-          build-backend = "hatchling.build"
-
-          [project]
-          name = "lerobot"
-          version = "0.1.0"
-          description = "Lerobot package"
-          requires-python = ">=3.10"
-
-          [tool.hatch.build.targets.wheel]
-          packages = ["lerobot"]
-          "@
-            Set-Content -Path "lerobot/pyproject.toml" -Value $pyprojectContent
-            
-            # Create empty __init__.py file
-            New-Item -Path "lerobot/__init__.py" -ItemType File -Force
-          }
-
       - name: Restore shared uv cache
         uses: actions/cache@v4
         with:
@@ -649,32 +594,6 @@ jobs:
               sleep 1
             fi
           done
-
-      - name: Create lerobot folder
-        run: |
-          if [ ! -d "lerobot" ]; then
-            mkdir lerobot
-          fi
-
-      - name: Create pyproject.toml file in lerobot folder
-        run: |
-          if [ ! -f "lerobot/pyproject.toml" ]; then
-            cat > lerobot/pyproject.toml << EOF
-          [build-system]
-          requires = ["hatchling"]
-          build-backend = "hatchling.build"
-
-          [project]
-          name = "lerobot"
-          version = "0.1.0"
-          description = "Lerobot package"
-          requires-python = ">=3.10"
-
-          [tool.hatch.build.targets.wheel]
-          packages = ["lerobot"]
-          EOF
-            touch lerobot/__init__.py
-          fi
 
       - name: Run integration tests
         run: |

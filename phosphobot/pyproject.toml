@@ -60,13 +60,11 @@ dev = [
     "pytest-asyncio>=0.25.1",
     "pytest-dependency>=0.6.0",
 ]
-lerobot = ["lerobot>=0.1.0"]
 
 [tool.uv]
 default-groups = ["dev"]
 
 [tool.uv.sources]
-lerobot = { editable = true, path = "../lerobot" }
 # We are cloning from our fork instead of the original repo (https://github.com/Physical-Intelligence/openpi) 
 # because we had the error unknow host: github.com
 openpi-client = { git = "https://github.com/phospho-app/openpi.git", subdirectory = "packages/openpi-client", rev = "main" }

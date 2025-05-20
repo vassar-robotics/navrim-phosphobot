@@ -1,6 +1,7 @@
 # type: ignore
 ## We don't enforce type hints for this file because it's code from the manufacturer's SDK
 
+from datetime import datetime, timezone
 import enum
 import logging
 import math
@@ -9,11 +10,6 @@ from copy import deepcopy
 
 import numpy as np
 import tqdm
-from lerobot.common.robot_devices.utils import (
-    RobotDeviceAlreadyConnectedError,
-    RobotDeviceNotConnectedError,
-)
-from lerobot.common.utils.utils import capture_timestamp_utc
 from loguru import logger
 
 PROTOCOL_VERSION = 2.0
@@ -328,7 +324,7 @@ class DynamixelMotorsBus:
 
     def connect(self):
         if self.is_connected:
-            raise RobotDeviceAlreadyConnectedError(
+            raise ValueError(
                 f"DynamixelMotorsBus({self.port}) is already connected. Do not call `motors_bus.connect()` twice."
             )
 
@@ -710,7 +706,7 @@ class DynamixelMotorsBus:
 
     def read(self, data_name, motor_names: str | list[str] | None = None):
         if not self.is_connected:
-            raise RobotDeviceNotConnectedError(
+            raise ValueError(
                 f"DynamixelMotorsBus({self.port}) is not connected. You need to run `motors_bus.connect()`."
             )
 
@@ -779,7 +775,7 @@ class DynamixelMotorsBus:
 
         # log the utc time at which the data was received
         ts_utc_name = get_log_name("timestamp_utc", "read", data_name, motor_names)
-        self.logs[ts_utc_name] = capture_timestamp_utc()
+        self.logs[ts_utc_name] = datetime.now(timezone.utc)
 
         return values
 
@@ -821,7 +817,7 @@ class DynamixelMotorsBus:
         motor_names: str | list[str] | None = None,
     ):
         if not self.is_connected:
-            raise RobotDeviceNotConnectedError(
+            raise ValueError(
                 f"DynamixelMotorsBus({self.port}) is not connected. You need to run `motors_bus.connect()`."
             )
 
@@ -888,11 +884,11 @@ class DynamixelMotorsBus:
         # TODO(rcadene): should we log the time before sending the write command?
         # log the utc time when the write has been completed
         ts_utc_name = get_log_name("timestamp_utc", "write", data_name, motor_names)
-        self.logs[ts_utc_name] = capture_timestamp_utc()
+        self.logs[ts_utc_name] = datetime.now(timezone.utc)
 
     def disconnect(self):
         if not self.is_connected:
-            raise RobotDeviceNotConnectedError(
+            raise ValueError(
                 f"DynamixelMotorsBus({self.port}) is not connected. Try running `motors_bus.connect()` first."
             )
 
