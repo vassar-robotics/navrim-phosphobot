@@ -1,6 +1,6 @@
 # phosphobot
 
-**phosphobot** is a community-driven platform that enables you to use action models to control your robot.
+**phosphobot** is a community-driven platform that enables you to train and use action models to control your robot.
 
 <div align="center">
 
@@ -9,10 +9,6 @@
 <a href="https://discord.gg/cbkggY6NSK"><img src="https://img.shields.io/discord/1106594252043071509" alt="phospho discord"></a>
 
 </div>
-
-## Overview
-
-This repository contains demo code and community projects developed using the phospho starter pack. Whether you're a beginner or an experienced developer, you can explore existing projects or contribute your own creations.
 
 ## Getting started
 
@@ -57,6 +53,7 @@ If you want to train on your own machine, here are the requirements:
 | ---------- | -------- | ----------- |
 | >16GB      | ACT      | ✅ Yes      |
 | >70GB      | Gr00t n1 | ❌ No       |
+| >70GB      | Pi0      | ? Maybe     |
 
 To learn more about training action models for robotics, check out the [docs](https://docs.phospho.ai/basic-usage/training).
 
@@ -97,6 +94,22 @@ See this [README](phosphobot/README.md) for more details on how to add support f
 ## Join the Community
 
 Connect with other developers and share your experience in our [Discord community](https://discord.gg/cbkggY6NSK)
+
+## Install from source
+
+```bash
+git clone https://github.com/phospho-app/phosphobot.git
+cd phosphobot
+make
+```
+
+Go to `localhost:80` in your browser to see the dashboard or get the server infos with:
+
+```bash
+curl -X 'GET' 'http://localhost/status' -H 'accept: application/json'
+```
+
+Some features such as connection to the phospho cloud are not available when installing from source.
 
 ## Contributing
 
