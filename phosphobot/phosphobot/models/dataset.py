@@ -4,12 +4,12 @@ import json
 import os
 import shutil
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple, Union, cast
 
 import numpy as np
-import pandas as pd  # type: ignore
+import pandas as pd
 from huggingface_hub import (
     HfApi,
     create_branch,
@@ -22,6 +22,7 @@ from huggingface_hub import (
 from loguru import logger
 from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
+from phosphobot.hardware.base import BaseRobot
 from phosphobot.types import VideoCodecs
 from phosphobot.utils import (
     NdArrayAsList,
@@ -134,66 +135,6 @@ class BaseRobotConfig(BaseModel):
         logger.info(f"Saving configuration to {filepath}")
         self.to_json(filepath)
         return filepath
-
-
-class BaseRobot(ABC):
-    name: str
-
-    @abstractmethod
-    def set_motors_positions(
-        self, positions: np.ndarray, enable_gripper: bool = False
-    ) -> None:
-        """
-        Set the motor positions of the robot
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def write_joint_positions(
-        self, angles: np.ndarray, unit: Literal["rad", "motor_units", "degrees"] = "rad"
-    ) -> None:
-        """
-        Write the joint positions of the robot
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def current_position(
-        self, unit: Literal["rad", "motor_units", "degrees"] = "rad"
-    ) -> np.ndarray:
-        """
-        Get the current position of the robot
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_info(self) -> "BaseRobotInfo":
-        """
-        Get information about the robot
-        Dict returned is info.json file at initialization
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def control_gripper(self, position: float) -> None:
-        """
-        Control the gripper of the robot
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_observation(self) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Get the observation of the robot.
-
-        This method should return the observation of the robot.
-        Will be used to build an observation in a Step of an episode.
-
-        Returns:
-            - state: np.array state of the robot (7D)
-            - joints_position: np.array joints position of the robot
-        """
-        raise NotImplementedError
 
 
 class BaseCamera(ABC):
@@ -765,9 +706,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(task_index)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
