@@ -47,6 +47,8 @@ interface GlobalStore {
   setModelId: (modelId: string) => void;
   selectedModelType: "ACT" | "gr00t" | "custom";
   setSelectedModelType: (modelType: "ACT" | "gr00t" | "custom") => void;
+  selectedDataset: string;
+  setSelectedDataset: (dataset: string) => void;
 }
 
 const useGlobalStore = create(
@@ -88,7 +90,13 @@ const useGlobalStore = create(
         set(() => ({
           selectedModelType: modelType,
         })),
+      selectedDataset: "",
+      setSelectedDataset: (dataset: string) =>
+        set(() => ({
+          selectedDataset: dataset,
+        })),
     }),
+
     {
       name: "phosphobot-global-store",
       storage: createJSONStorage(() => sessionStorage),

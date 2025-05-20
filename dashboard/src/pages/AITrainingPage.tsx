@@ -16,9 +16,124 @@ import { useGlobalStore } from "@/lib/hooks";
 import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
 import type { AdminTokenSettings } from "@/types";
 import { CheckCircle2, Dumbbell, Lightbulb, List, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
+
+// Add this after the existing imports
+const JsonEditor = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    try {
+      // Format the JSON when it's not being edited
+      if (!isEditing) {
+        const parsed = JSON.parse(value);
+        const formatted = JSON.stringify(parsed, null, 2);
+        if (formatted !== value) {
+          onChange(formatted);
+        }
+      }
+    } catch (e) {
+      console.error("Invalid JSON format:", e);
+    }
+  }, [value, isEditing, onChange]);
+
+  const handleEdit = () => {
+    setEditValue(value);
+    setIsEditing(true);
+    setTimeout(() => {
+      editorRef.current?.focus();
+    }, 0);
+  };
+
+  const handleSave = () => {
+    try {
+      // Try to parse to validate JSON
+      JSON.parse(editValue);
+      onChange(editValue);
+      setIsEditing(false);
+    } catch (e) {
+      toast.error("Invalid JSON format. Please check your input: " + e, {
+        duration: 5000,
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div className="relative">
+        <textarea
+          ref={editorRef}
+          className="w-full h-56 font-mono text-sm p-2 border border-gray-300 rounded"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+        />
+        <div className="absolute bottom-2 right-2 flex gap-2">
+          <Button size="sm" variant="outline" onClick={handleCancel}>
+            Cancel
+          </Button>
+          <Button size="sm" variant="default" onClick={handleSave}>
+            Save
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative group">
+      <div className="cursor-pointer" onClick={handleEdit}>
+        {formatJsonDisplay(value)}
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={handleEdit}
+      >
+        Edit
+      </Button>
+    </div>
+  );
+};
+
+// Add this helper function to format the JSON display
+const formatJsonDisplay = (jsonString: string) => {
+  try {
+    const obj = JSON.parse(jsonString);
+    return (
+      <div className="text-left">
+        {Object.entries(obj).map(([key, value]) => (
+          <div key={key} className="mb-1">
+            <span className="font-semibold text-green-500">{key}</span>
+            <span className="text-gray-600">: </span>
+            <span className="text-gray-800">
+              {typeof value === "object"
+                ? JSON.stringify(value, null, 2)
+                : String(value)}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  } catch (e) {
+    console.log("Invalid JSON format:", e);
+    return <div className="text-red-500">Invalid JSON format</div>;
+  }
+};
 
 interface DatasetListResponse {
   pushed_datasets: string[];
@@ -26,13 +141,16 @@ interface DatasetListResponse {
 }
 
 interface TrainingInfoResponse {
-  stats: "ok" | "error";
+  status: "ok" | "error";
   message?: string;
   training_body: Record<string, unknown>;
 }
 
 export default function AITrainingPage() {
-  const [selectedDatasetID, setSelectedDataset] = useState<string>("");
+  const selectedDataset = useGlobalStore((state) => state.selectedDataset);
+  const setSelectedDataset = useGlobalStore(
+    (state) => state.setSelectedDataset,
+  );
   const setSelectedModelType = useGlobalStore(
     (state) => state.setSelectedModelType,
   );
@@ -50,10 +168,12 @@ export default function AITrainingPage() {
   );
   const { data: datasetInfoResponse, isLoading: isDatasetInfoLoading } =
     useSWR<TrainingInfoResponse>(
-      ["/training/info", selectedDatasetID],
+      selectedDataset
+        ? ["/training/info", selectedDataset, selectedModelType]
+        : null,
       ([url]) =>
         fetcher(url, "POST", {
-          model_id: selectedDatasetID,
+          model_id: selectedDataset,
           model_type: selectedModelType,
         }),
     );
@@ -108,7 +228,7 @@ export default function AITrainingPage() {
   };
 
   const handleTrainModel = async () => {
-    if (!selectedDatasetID) {
+    if (!selectedDataset) {
       toast.error("Please select a dataset to train the model.", {
         duration: 5000,
       });
@@ -127,7 +247,7 @@ export default function AITrainingPage() {
 
     try {
       // Generate a random model name
-      const modelName = await generateHuggingFaceModelName(selectedDatasetID);
+      const modelName = await generateHuggingFaceModelName(selectedDataset);
       const modelUrl = `https://huggingface.co/${modelName}`;
 
       // Parse the edited JSON
@@ -143,12 +263,16 @@ export default function AITrainingPage() {
       }
 
       // Send the edited JSON to the training endpoint
-      await fetchWithBaseUrl("/train/start", "POST", {
-        dataset_name: selectedDatasetID,
-        model_name: modelName,
-        model_type: selectedModelType,
-        training_body: trainingBody,
-      });
+      const response = await fetchWithBaseUrl(
+        "/training/start",
+        "POST",
+        trainingBody,
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to start training job: ${errorText}`);
+      }
 
       // After successful notification, wait 1 second then show success
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -235,8 +359,8 @@ export default function AITrainingPage() {
                       })) ?? []
                     }
                     value={{
-                      value: selectedDatasetID,
-                      label: selectedDatasetID,
+                      value: selectedDataset,
+                      label: selectedDataset,
                     }}
                     onValueChange={(option: Option) => {
                       setSelectedDataset(option.value);
@@ -272,43 +396,58 @@ export default function AITrainingPage() {
               </div>
               {/* Text should not be overflowing to the right */}
               <div className="text-sm text-muted-foreground mt-2">
-                {isDatasetInfoLoading && datasetInfoResponse ? (
+                {isDatasetInfoLoading && (
                   <div className="flex flex-row items-center">
                     <Loader2 className="size-4 mr-2 animate-spin" />
                     Loading dataset info...
                   </div>
-                ) : (
-                  <textarea
-                    className="bg-gray-100 p-4 rounded-md overflow-x-auto w-full h-64 font-mono text-sm"
-                    value={editableJson}
-                    onChange={(e) => {
-                      setEditableJson(e.target.value);
-                      localStorage.setItem("trainingBodyJson", e.target.value);
-                    }}
-                  />
                 )}
+                {datasetInfoResponse?.status == "ok" &&
+                  !isDatasetInfoLoading && (
+                    <div className="bg-gray-100 p-4 rounded-md w-full h-64 overflow-auto">
+                      <pre className="font-mono text-sm whitespace-pre-wrap">
+                        {editableJson ? (
+                          <JsonEditor
+                            value={editableJson}
+                            onChange={(value) => {
+                              setEditableJson(value);
+                              localStorage.setItem("trainingBodyJson", value);
+                            }}
+                          />
+                        ) : (
+                          "No data available"
+                        )}
+                      </pre>
+                    </div>
+                  )}
+                {datasetInfoResponse?.status == "error" &&
+                  !isDatasetInfoLoading && (
+                    <div className="text-red-500">
+                      {datasetInfoResponse.message ||
+                        "Error fetching dataset info."}
+                    </div>
+                  )}
               </div>
               <Button
                 variant="secondary"
-                className="flex width-full mt-4"
+                className="flex w-full mt-4"
                 onClick={handleTrainModel}
                 disabled={
-                  !selectedDatasetID ||
+                  !selectedDataset ||
                   trainingState !== "idle" ||
                   isDatasetInfoLoading
                 }
               >
                 {renderButtonContent()}
               </Button>
-              <div className="flex flex-row mt-4">
+              <div className="flex flex-row mt-4 items-center align-center">
                 <Lightbulb className="size-4 mr-2 text-muted-foreground" />
                 Tips
               </div>
               <div className="text-muted-foreground text-sm mt-2">
-                If your training fails with a <code>Timeout error</code>, please
-                lower the number of steps/epochs.
-                <br />
-                If your training fails with a{" "}
+                - If your training fails with a <code>Timeout error</code>,
+                please lower the number of steps/epochs.
+                <br />- If your training fails with a{" "}
                 <code>Cuda out of memory error</code>, please lower the batch
                 size.
               </div>

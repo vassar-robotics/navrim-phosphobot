@@ -1,6 +1,7 @@
 import base64
 import os
 import random
+import json
 import cv2
 from pathlib import Path, PurePath
 from typing import Literal, cast
@@ -700,13 +701,16 @@ async def get_training_info(
         validated_info = InfoModel.from_json(meta_folder_path=meta_folder_path)
 
         number_of_cameras = validated_info.total_videos // validated_info.total_episodes
-        batch_size = 100 // number_of_cameras
+        training_params = {}
         if request.model_type == "gr00t":
-            batch_size = 110 // number_of_cameras - 3 * number_of_cameras
+            training_params["batch_size"] = (
+                110 // number_of_cameras - 3 * number_of_cameras
+            )
         elif request.model_type == "ACT":
-            batch_size = 120 // number_of_cameras
+            training_params["batch_size"] = 120 // number_of_cameras
+            training_params["steps"] = 8_000
+
         # These are heuristics used to determine the training parameters
-        # Add random characters behinf the model name
         random_suffix = "".join(
             random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=5)
         )
@@ -715,11 +719,24 @@ async def get_training_info(
             dataset_name=request.model_id,
             model_name=f"phospho-app/{username_or_orgid}-{request.model_type}-{request.model_id.split('/')[1]}-{random_suffix}",
         )
-        training_response.training_params.batch_size = batch_size  # type: ignore
+        # Replace the fields in training_response with the values from training_params dict
+        if training_response.training_params is not None:
+            for key, value in training_params.items():
+                if hasattr(training_response.training_params, key):
+                    setattr(training_response.training_params, key, value)
 
         return TrainingInfoResponse(
             status="ok",
-            training_body=training_response.model_dump_json(exclude={"wandb_api_key"}),
+            training_body=training_response.model_dump(
+                exclude={
+                    "wandb_api_key": True,
+                    "training_params": {
+                        "path_to_gr00t_repo": True,
+                        "data_dir": True,
+                        "output_dir": True,
+                    },
+                }
+            ),
         )
     except Exception as e:
         logger.warning(f"Error fetching training info: {e}")

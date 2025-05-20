@@ -389,7 +389,7 @@ class TrainingInfoRequest(BaseModel):
 class TrainingInfoResponse(BaseModel):
     status: Literal["ok", "error"]
     message: str | None = None
-    training_body: str | None = None
+    training_body: dict | str | None = None
 
 
 class ServerInfoResponse(BaseModel):
