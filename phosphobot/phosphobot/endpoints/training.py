@@ -1,9 +1,11 @@
-import asyncio
 import os
-import subprocess
+import pty
+import time
+import asyncio
 
+from fastapi.responses import StreamingResponse
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from huggingface_hub import HfApi
 from loguru import logger
 
@@ -151,50 +153,93 @@ async def start_training(
     )
 
 
-@router.post(
-    "/training/start-custom",
-    response_model=StatusResponse,
-    summary="Start a training with a custom command",
-)
+@router.post("/training/start-custom", response_model=StatusResponse)
 async def start_custom_training(
     request: CustomTrainingRequest,
+    background_tasks: BackgroundTasks,
 ) -> StatusResponse | HTTPException:
-    """ """
-    logger.debug(f"Received custom training command: {request.custom_command}")
-    # Run the custom command as a subprocess
+    # 1) Prepare log file
+    log_file_name = f"training_{int(time.time())}.log"
+    log_file_path = os.path.join(get_home_app_path(), "logs", log_file_name)
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
-    async def monitor_process(process: asyncio.subprocess.Process):
-        """Background task to monitor the process completion"""
-        stdout, stderr = await process.communicate()
+    # 2) Spawn the process under a PTY
+    master_fd, slave_fd = pty.openpty()
+    # We use create_subprocess_shell so we can pass the whole command string
+    process = await asyncio.create_subprocess_shell(
+        request.custom_command,
+        stdin=slave_fd,
+        stdout=slave_fd,
+        stderr=slave_fd,
+        preexec_fn=os.setsid,  # detach in its own process group
+    )
+    os.close(slave_fd)  # we only need master in our code
 
-        if process.returncode == 0:
-            logger.info(f"Process {process.pid} completed successfully")
-            logger.debug(f"Process output: {stdout.decode()}")
-        else:
-            logger.warning(
-                f"Custom training process {process.pid} failed with return code {process.returncode}"
-            )
-            logger.warning(f"Error output: {stderr.decode()}")
+    # 3) Hook the PTY master into an asyncio StreamReader
+    loop = asyncio.get_running_loop()
+    reader = asyncio.StreamReader()
+    protocol = asyncio.StreamReaderProtocol(reader)
+    # Wrap the master FD as a “read pipe” so .read() becomes non-blocking
+    await loop.connect_read_pipe(lambda: protocol, os.fdopen(master_fd, "rb"))
 
-    try:
-        args = request.custom_command.split(" ")
-        process = await asyncio.create_subprocess_exec(
-            *args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+    # 4) Monitor task: read from the PTY master and write to your log file
+    async def monitor_pty(reader: asyncio.StreamReader, log_path: str):
+        with open(log_path, "wb") as f:
+            # header
+            f.write(f"Custom training started at {time.ctime()}\n".encode())
+            f.write(f"Command: {request.custom_command}\n\n".encode())
+            f.flush()
 
-        logger.info(f"Started custom training process with PID: {process.pid}")
+            # stream everything, flushing as it arrives
+            while True:
+                chunk = await reader.read(1024)
+                if not chunk:
+                    break
+                f.write(chunk)
+                f.flush()
 
-        # Optionally, start a background task to monitor the process
-        asyncio.create_task(monitor_process(process))
+            # when process exits, append return code
+            await process.wait()
+            footer = f"\nProcess completed with return code {process.returncode}\n"
+            f.write(footer.encode())
+            if process.returncode == 0:
+                f.write(b"Training completed successfully!\n")
+            else:
+                f.write(b"Training failed. See errors above.\n")
 
-        return StatusResponse(
-            message=f"Custom command started in the background. Process ID: {process.pid}",
-        )
-    except subprocess.CalledProcessError as e:
-        logger.warning(f"Error running custom command: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error running custom command: {e}",
-        )
+    background_tasks.add_task(monitor_pty, reader, log_file_path)
+
+    return StatusResponse(message=log_file_name)
+
+
+# Add an endpoint to stream logs
+@router.get("/training/logs/{log_file}")
+async def stream_logs(log_file: str):
+    """Stream the logs from a log file"""
+    log_path = os.path.join(get_home_app_path(), "logs", log_file)
+
+    if not os.path.exists(log_path):
+        raise HTTPException(status_code=404, detail="Log file not found")
+
+    async def log_generator():
+        """Generator to stream logs line by line as they are written"""
+        with open(log_path, "rb") as f:
+            # First, send all existing content
+            f.seek(0, os.SEEK_END)
+            file_size = f.tell()
+            f.seek(0)
+            if file_size > 0:
+                yield f.read()
+
+            # Then, continue streaming as new content is added
+            while True:
+                line = f.readline()
+                if line:
+                    yield line
+                else:
+                    # Check if process is still running by looking for completion message
+                    if b"Process completed with return code" in line:
+                        break
+                    await asyncio.sleep(0.1)  # Small delay to avoid busy waiting
+
+    return StreamingResponse(log_generator(), media_type="text/plain")

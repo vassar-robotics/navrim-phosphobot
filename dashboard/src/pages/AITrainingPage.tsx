@@ -19,6 +19,7 @@ import { Ban, CheckCircle2, Dumbbell, Lightbulb, List, Loader2, Pencil, Save } f
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { LogStream } from "@/components/custom/LogsStream";
 
 // Add this after the existing imports
 const JsonEditor = ({
@@ -185,6 +186,8 @@ export default function AITrainingPage() {
     );
 
   const [editableJson, setEditableJson] = useState<string>("");
+  const [currentLogFile, setCurrentLogFile] = useState<string | null>(null);
+  const [showLogs, setShowLogs] = useState<boolean>(false);
 
   useEffect(() => {
     // Try to load from localStorage first
@@ -278,6 +281,10 @@ export default function AITrainingPage() {
       if (!response) {
         setTrainingState("idle");
         return;
+      }
+
+      if (selectedModelType === "custom" && response.message) {
+        setCurrentLogFile(response.message);
       }
 
       // After successful notification, wait 1 second then show success
@@ -448,6 +455,7 @@ export default function AITrainingPage() {
                     </div>
                   )}
               </div>
+
               <Button
                 variant="secondary"
                 className="flex w-full mt-4"
@@ -461,6 +469,15 @@ export default function AITrainingPage() {
               >
                 {renderButtonContent()}
               </Button>
+
+              {selectedModelType === "custom" && (showLogs || currentLogFile) && (
+                <LogStream
+                  logFile={currentLogFile}
+                  isLoading={trainingState === "loading"}
+                  onClose={() => setShowLogs(false)}
+                />
+              )}
+
               <div className="flex flex-row mt-4 items-center align-center">
                 <Lightbulb className="size-4 mr-2 text-muted-foreground" />
                 Tips
