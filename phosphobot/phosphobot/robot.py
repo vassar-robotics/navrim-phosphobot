@@ -150,6 +150,11 @@ class RobotConnectionManager:
                 SO100Hardware,
                 SO100LeaderHardware,
             ]:
+                if not hasattr(robot_class, "name") or not hasattr(
+                    robot_class, "from_port"
+                ):
+                    continue
+
                 logger.debug(f"Trying to connect to {robot_class.name} on {port.device}.")
                 try:
                     robot = robot_class.from_port(
