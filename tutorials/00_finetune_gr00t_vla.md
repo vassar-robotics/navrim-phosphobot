@@ -5,7 +5,7 @@ In this tutorial, we are going to train a Vision-Language Model (VLA) to control
 ## Prerequisites
 
 - You have recorded a dataset of the SO-100 robot arm in LeRobot dataset format (using phospho or LeRobot).
-- You have a NVIDIA GPU with at least XXX GB of memory.
+- You have a NVIDIA GPU.
 
 If you don't have access to such a machine, you can rent a cloud instance with a GPU from any provider. We recommend getting an A-100 80GB.
 
