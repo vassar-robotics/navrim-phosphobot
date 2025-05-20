@@ -52,35 +52,10 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def write_joint_positions(
-        self, angles: np.ndarray, unit: Literal["rad", "motor_units", "degrees"] = "rad"
-    ) -> None:
-        """
-        Write the joint positions of the robot
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def current_position(
-        self, unit: Literal["rad", "motor_units", "degrees"] = "rad"
-    ) -> np.ndarray:
-        """
-        Get the current position of the robot
-        """
-        raise NotImplementedError
-
-    @abstractmethod
     def get_info(self) -> "BaseRobotInfo":
         """
         Get information about the robot
         Dict returned is info.json file at initialization
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def control_gripper(self, position: float) -> None:
-        """
-        Control the gripper of the robot
         """
         raise NotImplementedError
 

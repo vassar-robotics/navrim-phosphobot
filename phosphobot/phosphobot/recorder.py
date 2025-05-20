@@ -1,7 +1,7 @@
 import asyncio
-from functools import lru_cache
 import os
 import time
+from functools import lru_cache
 from typing import Literal, Optional, cast
 
 import numpy as np
@@ -10,8 +10,8 @@ from loguru import logger
 
 from phosphobot.camera import AllCameras, get_all_cameras
 from phosphobot.configs import config
+from phosphobot.hardware import BaseRobot
 from phosphobot.models import (
-    BaseRobot,
     Dataset,
     Episode,
     EpisodesModel,
