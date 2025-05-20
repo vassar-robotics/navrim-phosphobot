@@ -26,12 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install submodules
-        run: git submodule update --init --recursive ../lerobot
-
-      - name: Display submodule status
-        run: git submodule status
-
       - name: Install uv
         uses: astral-sh/setup-uv@v4
         with:
@@ -53,9 +47,6 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-
-      - name: Install submodules
-        run: git submodule update --init --recursive lerobot
 
       - name: Install node
         uses: actions/setup-node@v2
