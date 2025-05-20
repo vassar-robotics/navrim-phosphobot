@@ -15,7 +15,7 @@ from pydantic import BaseModel, field_validator, model_validator
 from phosphobot.am.base import ActionModel
 from phosphobot.camera import AllCameras
 from phosphobot.control_signal import AIControlSignal
-from phosphobot.models.dataset import BaseRobot
+from phosphobot.hardware.base import BaseRobot
 from phosphobot.utils import background_task_log_exceptions, get_hf_token
 
 

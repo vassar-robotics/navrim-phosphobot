@@ -1,15 +1,17 @@
-import av
 import random
 import string
-import requests  # type: ignore
-import numpy as np
+from abc import ABC, abstractmethod
 from pathlib import Path
-from loguru import logger
-from huggingface_hub import HfApi
-from abc import abstractmethod, ABC
 from typing import Literal, Optional
-from phosphobot.models import InfoModel
+
+import av
+import numpy as np
+import requests  # type: ignore
+from huggingface_hub import HfApi
+from loguru import logger
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+from phosphobot.models import InfoModel
 
 
 class ActionModel(ABC):
