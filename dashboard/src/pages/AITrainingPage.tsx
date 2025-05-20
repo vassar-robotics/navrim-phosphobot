@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGlobalStore } from "@/lib/hooks";
 import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
 import { AdminTokenSettings, TrainingRequest } from "@/types";
-import { CheckCircle2, Dumbbell, List, Loader2 } from "lucide-react";
+import { CheckCircle2, Dumbbell, Lightbulb, List, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -21,6 +21,12 @@ import useSWR from "swr";
 interface DatasetListResponse {
   pushed_datasets: string[];
   local_datasets: string[];
+}
+
+interface TrainingInfoResponse {
+  stats: "ok" | "error";
+  message?: string;
+  training_body: Record<string, unknown>;
 }
 
 export default function AITrainingPage() {
@@ -39,6 +45,10 @@ export default function AITrainingPage() {
   const { data: datasetsList } = useSWR<DatasetListResponse>(
     ["/dataset/list"],
     ([url]) => fetcher(url, "POST"),
+  );
+  const { data: datasetInfoResponse, isLoading: isDatasetInfoLoading } = useSWR<TrainingInfoResponse>(
+    ["/training/info", selectedDatasetID],
+    ([url]) => fetcher(url, "POST", { model_id: selectedDatasetID, model_type: selectedModelType }),
   );
 
   const launchModelTraining = async (datasetID: string, modelName: string) => {
@@ -220,19 +230,40 @@ export default function AITrainingPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button
-                  variant="secondary"
-                  className="flex-1/4 mb-1"
-                  onClick={handleTrainModel}
-                  disabled={!selectedDatasetID || trainingState !== "idle"}
-                >
-                  {renderButtonContent()}
-                </Button>
+              </div>
+              {/* Show a text box with the parsed json datasetInfoResposne, the user should be able to edit it */}
+              <div className="text-xs text-muted-foreground mt-4">
+                Dataset info:
+              </div>
+              {/* Text should not be overflowing to the right */}
+              <div className="text-sm text-muted-foreground mt-2">
+                {isDatasetInfoLoading && datasetInfoResponse ? (
+                  <div className="flex flex-row items-center">
+                    <Loader2 className="size-4 mr-2 animate-spin" />
+                    Loading dataset info...
+                  </div>
+                ) : (
+                  <pre className="bg-gray-100 p-4 rounded-md overflow-x-auto">
+                    {JSON.stringify(datasetInfoResponse?.training_body, null, 2)}
+                  </pre>
+                )}
+              </div>
+              <Button
+                variant="secondary"
+                className="flex width-full mt-4"
+                onClick={handleTrainModel}
+                disabled={!selectedDatasetID || trainingState !== "idle" || isDatasetInfoLoading}
+              >
+                {renderButtonContent()}
+              </Button>
+              <div className="flex flex-row mt-4">
+                <Lightbulb className="size-4 mr-2 text-muted-foreground" />
+                Tips
               </div>
               <div className="text-muted-foreground text-sm mt-2">
-                For more advanced options, such as changing the number of
-                epochs, steps, etc..., please use the{" "}
-                <code>/training/start</code> api endpoint.
+                If your training fails with a <code>Timeout error</code>, please lower the number of steps/epochs.
+                <br />
+                If your training fails with a <code>Cuda out of memory error</code>, please lower the batch size.
               </div>
             </CardContent>
           </Card>
