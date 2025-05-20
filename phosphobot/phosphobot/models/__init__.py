@@ -389,7 +389,7 @@ class TrainingInfoRequest(BaseModel):
 class TrainingInfoResponse(BaseModel):
     status: Literal["ok", "error"]
     message: str | None = None
-    training_body: dict | str | None = None
+    training_body: dict | None = None
 
 
 class ServerInfoResponse(BaseModel):
@@ -939,3 +939,10 @@ class TrainingConfig(BaseModel):
 class UDPServerInformationResponse(BaseModel):
     host: str
     port: int
+
+
+class CustomTrainingRequest(BaseModel):
+    custom_command: str = Field(
+        ...,
+        description="Will run this custom command as a subprocess when pressing the train button.",
+    )

@@ -1,4 +1,6 @@
+import asyncio
 import os
+import subprocess
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,6 +9,7 @@ from loguru import logger
 
 from phosphobot.am.base import TrainingRequest
 from phosphobot.models import (
+    CustomTrainingRequest,
     StatusResponse,
     SupabaseTrainingModel,
     TrainingConfig,
@@ -146,3 +149,52 @@ async def start_training(
     return StatusResponse(
         message=f"Training triggered successfully, find your model at: https://huggingface.co/{request.model_name}"
     )
+
+
+@router.post(
+    "/training/start-custom",
+    response_model=StatusResponse,
+    summary="Start a training with a custom command",
+)
+async def start_custom_training(
+    request: CustomTrainingRequest,
+) -> StatusResponse | HTTPException:
+    """ """
+    logger.debug(f"Received custom training command: {request.custom_command}")
+    # Run the custom command as a subprocess
+
+    async def monitor_process(process: asyncio.subprocess.Process):
+        """Background task to monitor the process completion"""
+        stdout, stderr = await process.communicate()
+
+        if process.returncode == 0:
+            logger.info(f"Process {process.pid} completed successfully")
+            logger.debug(f"Process output: {stdout.decode()}")
+        else:
+            logger.warning(
+                f"Custom training process {process.pid} failed with return code {process.returncode}"
+            )
+            logger.warning(f"Error output: {stderr.decode()}")
+
+    try:
+        args = request.custom_command.split(" ")
+        process = await asyncio.create_subprocess_exec(
+            *args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        logger.info(f"Started custom training process with PID: {process.pid}")
+
+        # Optionally, start a background task to monitor the process
+        asyncio.create_task(monitor_process(process))
+
+        return StatusResponse(
+            message=f"Custom command started in the background. Process ID: {process.pid}",
+        )
+    except subprocess.CalledProcessError as e:
+        logger.warning(f"Error running custom command: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error running custom command: {e}",
+        )

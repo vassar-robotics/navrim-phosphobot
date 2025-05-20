@@ -264,13 +264,13 @@ export default function AITrainingPage() {
 
       // Send the edited JSON to the training endpoint
       const response = await fetchWithBaseUrl(
-        "/training/start",
+        selectedModelType !== "custom" ? "/training/start" : "/training/start-custom",
         "POST",
         trainingBody,
       );
 
-      if (!response.ok) {
-        const errorText = await response.text();
+      if (response.status !== "ok") {
+        const errorText = response.detail || "Unknown error occurred";
         throw new Error(`Failed to start training job: ${errorText}`);
       }
 
@@ -278,9 +278,15 @@ export default function AITrainingPage() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       setTrainingState("success");
-      toast.success(`Model training started! Check progress at: ${modelUrl}`, {
-        duration: 5000,
-      });
+      if (selectedModelType !== "custom") {
+        toast.success(`Model training started! Check progress at: ${modelUrl}`, {
+          duration: 5000,
+        });
+      } else {
+        toast.success("Custom training job started! Check logs for details.", {
+          duration: 5000,
+        });
+      }
 
       return { success: true, modelName };
     } catch (error) {
@@ -362,6 +368,7 @@ export default function AITrainingPage() {
                       value: selectedDataset,
                       label: selectedDataset,
                     }}
+                    disabled={selectedModelType === "custom"}
                     onValueChange={(option: Option) => {
                       setSelectedDataset(option.value);
                     }}
@@ -386,15 +393,22 @@ export default function AITrainingPage() {
                     <SelectContent>
                       <SelectItem value="gr00t">gr00t</SelectItem>
                       <SelectItem value="ACT">ACT</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              {/* Show a text box with the parsed json datasetInfoResposne, the user should be able to edit it */}
+              {selectedModelType === "custom" && (
+                <div className="text-xs text-muted-foreground mt-4">
+                  You have selected a custom model type.
+                  <br />
+                  When pressing the "Train AI model" button, we will run the command you've written, you can use this to run any
+                  custom training script you want.
+                </div>
+              )}
               <div className="text-xs text-muted-foreground mt-4">
                 Dataset info:
               </div>
-              {/* Text should not be overflowing to the right */}
               <div className="text-sm text-muted-foreground mt-2">
                 {isDatasetInfoLoading && (
                   <div className="flex flex-row items-center">
@@ -435,7 +449,8 @@ export default function AITrainingPage() {
                 disabled={
                   !selectedDataset ||
                   trainingState !== "idle" ||
-                  isDatasetInfoLoading
+                  isDatasetInfoLoading ||
+                  datasetInfoResponse?.status === "error"
                 }
               >
                 {renderButtonContent()}

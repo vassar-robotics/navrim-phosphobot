@@ -1,8 +1,7 @@
-import base64
 import os
-import random
-import json
 import cv2
+import random
+import base64
 from pathlib import Path, PurePath
 from typing import Literal, cast
 
@@ -672,7 +671,7 @@ async def get_training_info(
     if request.model_type == "custom":
         return TrainingInfoResponse(
             status="ok",
-            training_body="python path/train.py\nThis will launch a custom script.",
+            training_body={"custom_command": "python path/to/file.py --epochs 10"},
         )
 
     try:
@@ -730,6 +729,7 @@ async def get_training_info(
             training_body=training_response.model_dump(
                 exclude={
                     "wandb_api_key": True,
+                    "custom_command": True,
                     "training_params": {
                         "path_to_gr00t_repo": True,
                         "data_dir": True,
