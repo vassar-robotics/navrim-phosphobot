@@ -132,32 +132,45 @@ class RobotConnectionManager:
             self._all_robots = [SO100Hardware(only_simulation=True)]
             return
 
-        # Enumerate the ports and try to detect a robot
+        # Keep track of connected devices by port name and serial to avoid duplicates
+        connected_devices: Set[str] = set()
+        connected_serials: Set[str] = set()
+
+        # Try each serial port exactly once
         for port in self.available_ports:
+            serial_num = getattr(port, "serial_number", None)
+            # Skip if this port or its serial has already been connected
+            if port.device in connected_devices or (serial_num and serial_num in connected_serials):
+                logger.debug(f"Skipping {port.device}: already connected (or alias).")
+                continue
+
             for robot_class in [
                 WX250SHardware,
                 KochHardware,
                 SO100Hardware,
                 SO100LeaderHardware,
             ]:
-                if not hasattr(robot_class, "name") or not hasattr(
-                    robot_class, "from_port"
-                ):
+                logger.debug(f"Trying to connect to {robot_class.name} on {port.device}.")
+                try:
+                    robot = robot_class.from_port(
+                        port,
+                        robot_ports_without_power=self.robot_ports_without_power,
+                    )
+                except Exception as e:
+                    logger.warning(f"Error connecting to {robot_class.name} on {port.device}: {e}")
                     continue
 
-                logger.debug(
-                    f"Trying to connect to {robot_class.name} on {port.device}."
-                )
-                robot = robot_class.from_port(
-                    port, robot_ports_without_power=self.robot_ports_without_power
-                )
                 if robot is not None:
                     logger.success(f"Connected to {robot_class.name} on {port.device}.")
-                    # Remove from robot_ports_without_power if it was there
-                    if port.device in self.robot_ports_without_power:
-                        self.robot_ports_without_power.remove(port.device)
                     self._all_robots.append(robot)
-                    break
+                    # Mark both device and serial as connected
+                    connected_devices.add(port.device)
+                    if serial_num:
+                        connected_serials.add(serial_num)
+                    # Remove power-warning flag if present
+                    self.robot_ports_without_power.discard(port.device)
+                    break  # stop trying other classes on this port
+
 
         # Detect CAN-based Agilex Piper robots
         for can_name in self.available_can_ports:
@@ -169,6 +182,7 @@ class RobotConnectionManager:
 
         if not self._all_robots:
             logger.info("No robot connected.")
+
 
     @property
     def robots(self) -> list[BaseRobot]:
