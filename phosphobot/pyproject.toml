@@ -35,7 +35,7 @@ dependencies = [
     "supabase>=2.15.0",
     "zmq>=0.0.0",
     "toml>=0.10.2",
-    "av>=9.0.0",
+    "av>=12.0.0",
     "tyro>=0.9.20",
     "types-toml>=0.10.8.20240310",
     "pyrealsense2>=2.54; platform_system == 'Linux'",
@@ -43,7 +43,7 @@ dependencies = [
     "pyrealsense2-macosx>=2.54; platform_system == 'Darwin'",
     "fastparquet>=2024.11.0",
     "httpx>=0.28.1",
-    "go2-webrtc-connect",
+    "go2-webrtc-connect>=0.1.0",
 ]
 
 [dependency-groups]
@@ -62,8 +62,10 @@ dev = [
     "pytest-dependency>=0.6.0",
 ]
 
+
 [tool.uv]
 default-groups = ["dev"]
+
 
 [tool.uv.sources]
 # We are cloning from our fork instead of the original repo (https://github.com/Physical-Intelligence/openpi) 

@@ -387,9 +387,9 @@ def resize_dataset(
                             codec_name="h264",
                             rate=input_stream.base_rate,
                         )
-                        output_stream.width = resize_to[0]
-                        output_stream.height = resize_to[1]
-                        output_stream.pix_fmt = input_stream.pix_fmt
+                        output_stream.width = resize_to[0]  # type: ignore
+                        output_stream.height = resize_to[1]  # type: ignore
+                        output_stream.pix_fmt = input_stream.pix_fmt  # type: ignore
 
                         # Process frames
                         for frame in input_container.decode(video=0):
@@ -400,11 +400,11 @@ def resize_dataset(
                             )
 
                             # Encode frame
-                            packet = output_stream.encode(frame)
+                            packet = output_stream.encode(frame)  # type: ignore
                             output_container.mux(packet)
 
                         # Flush encoder
-                        for value in output_stream.encode(None):
+                        for value in output_stream.encode(None):  # type: ignore
                             output_container.mux(value)
 
                         input_container.close()

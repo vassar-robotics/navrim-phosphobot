@@ -551,10 +551,11 @@ def create_video_file(
         )  # type: ignore
         # Force a minimum bitrate for mpeg4 to avoid artifacts
         if codec_av == "mpeg4":
-            stream.bit_rate = 5_000_000  # ~5 Mb/s
+            # ~5 Mb/s
+            stream.bit_rate = 5_000_000  # type: ignore
 
-        stream.width, stream.height = size
-        stream.pix_fmt = "yuv420p"
+        stream.width, stream.height = size  # type: ignore
+        stream.pix_fmt = "yuv420p"  # type: ignore
         return container, stream
 
     def process_and_encode(frame: np.ndarray, stream, container, size: Tuple[int, int]):
