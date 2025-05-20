@@ -1,6 +1,6 @@
 # phosphobot
 
-**phosphobot** is a community-driven platform that enables you to use action models to control your robot.
+**phosphobot** is a community-driven platform that enables you to train and use VLA (vision language action models) to control real robots.
 
 <div align="center">
 
@@ -12,7 +12,13 @@
 
 ## Overview
 
-This repository contains demo code and community projects developed using the phospho starter pack. Whether you're a beginner or an experienced developer, you can explore existing projects or contribute your own creations.
+- 🕹️ Control your robot with the keyboard, a leader arm, a Meta Quest headset or via API
+- 📹 Teleoperate robots to record datasets in LeRobot dataset format
+- 🤖 Train action models like ACT, gr00t n1 or Pi0
+- 🔥 Use action models to control robots
+- 💻 Runs on macOS, Linux and Windows
+- 🦾 Compatible with the SO-100, SO-101, WX-250 and AgileX Piper
+- 🔧 Extend it with your own robots and cameras
 
 ## Getting started
 
@@ -50,24 +56,25 @@ Check out the [docs](https://docs.phospho.ai/basic-usage/dataset-recording) for 
 
 ### 5. Train an action model
 
-Train an action model on the dataset you recorded.
-If you want to train on your own machine, here are the requirements:
+To train an action model on the dataset you recorded, you can:
 
-| GPU Memory | Model    | MPS Support |
-| ---------- | -------- | ----------- |
-| >16GB      | ACT      | ✅ Yes      |
-| >70GB      | Gr00t n1 | ❌ No       |
+- train a model directly from the phosphobot webapp (see [this tutorial](https://docs.phospho.ai/basic-usage/training))
+- use your own machine (see [this tutorial](tutorials/00_finetune_gr00t_vla.md) to finetune gr00t n1)
+
+In both cases, you will have a trained model exported to huggingface.
 
 To learn more about training action models for robotics, check out the [docs](https://docs.phospho.ai/basic-usage/training).
 
 ### 6. Use the model to control your robot
 
-You can use the model you just trained to control your robot either:
+Now that you have a trained model hosted on huggingface, you can use it to control your robot either:
 
 - directly from the webapp
-- from your own code using the HTTP API
+- from your own code using the phosphobot python package (see [this script](scripts/quickstart_ai_gr00t.py) for an example)
 
 Learn more [in the docs](https://docs.phospho.ai/basic-usage/inference).
+
+Congrats! You just trained and used your first action model on a real robot.
 
 ## Examples
 
@@ -97,6 +104,34 @@ See this [README](phosphobot/README.md) for more details on how to add support f
 ## Join the Community
 
 Connect with other developers and share your experience in our [Discord community](https://discord.gg/cbkggY6NSK)
+
+## Install from source
+
+```bash
+git clone https://github.com/phospho-app/phosphobot.git
+cd phosphobot
+make
+```
+
+Go to `localhost:80` in your browser to see the dashboard or get the server infos with:
+
+```bash
+curl -X 'GET' 'http://localhost/status' -H 'accept: application/json'
+```
+
+Some features such as connection to the phospho cloud are not available when installing from source.
+
+## Contributing
+
+We welcome contributions!
+
+Some of the ways you can contribute:
+
+- Add support for new controllers
+- Add support for new robots and sensors
+- Add something you built to the examples
+- Improve the documentation and tutorials
+- Contribute to the code
 
 ## Support
 

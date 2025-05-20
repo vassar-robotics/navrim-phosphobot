@@ -86,16 +86,25 @@ export type Session = {
 export type TorqueStatus = {
   current_torque: number[];
 };
+
+export type TrainingParamsACT = {
+  batch_size?: number;
+  steps?: number;
+};
+
+export type TrainingParamsGR00T = {
+  batch_size?: number;
+  learning_rate?: number;
+  epochs?: number;
+  train_test_split?: number;
+};
+
 export type TrainingRequest = {
-  model_type: "gr00t" | "ACT";
+  model_type: "gr00t" | "ACT" | "custom";
   dataset_name: string;
   model_name: string;
-  batch_size?: number;
-  epochs?: number;
-  learning_rate?: number;
   wandb_api_key?: string;
-  train_test_split?: number;
-  model_url?: string;
+  training_params?: TrainingParamsACT | TrainingParamsGR00T;
 };
 
 export type AdminSettings = {

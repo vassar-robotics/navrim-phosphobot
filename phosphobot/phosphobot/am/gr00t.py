@@ -957,7 +957,7 @@ async def run_gr00t_training(
         await process.wait()
         logger.error(f"Training process timed out after {timeout_seconds} seconds.")
         raise TimeoutError(
-            f"Training process exceeded timeout of {timeout_seconds} seconds. Please consider lowering the number of epochs or batch size."
+            f"Training process exceeded timeout of {timeout_seconds} seconds. Please consider lowering the number of epochs and/or batch size."
         )
 
     await process.wait()

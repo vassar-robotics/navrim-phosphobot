@@ -381,6 +381,17 @@ class StatusResponse(BaseModel):
     message: str | None = None
 
 
+class TrainingInfoRequest(BaseModel):
+    model_id: str = Field(..., description="Hugging Face model id to get training info")
+    model_type: Literal["gr00t", "ACT", "custom"]
+
+
+class TrainingInfoResponse(BaseModel):
+    status: Literal["ok", "error"]
+    message: str | None = None
+    training_body: dict | None = None
+
+
 class ServerInfoResponse(BaseModel):
     server_id: int
     url: str
@@ -928,3 +939,10 @@ class TrainingConfig(BaseModel):
 class UDPServerInformationResponse(BaseModel):
     host: str
     port: int
+
+
+class CustomTrainingRequest(BaseModel):
+    custom_command: str = Field(
+        ...,
+        description="Will run this custom command as a subprocess when pressing the train button.",
+    )

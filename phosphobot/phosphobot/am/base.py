@@ -141,7 +141,7 @@ class TrainingParamsGr00T(BaseModel):
 
 
 class BaseTrainerConfig(BaseModel):
-    model_type: Literal["ACT", "gr00t"] = Field(
+    model_type: Literal["ACT", "gr00t", "custom"] = Field(
         ...,
         description="Type of model to train, either 'ACT' or 'gr00t'",
     )
