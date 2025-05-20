@@ -98,6 +98,18 @@ See this [README](phosphobot/README.md) for more details on how to add support f
 
 Connect with other developers and share your experience in our [Discord community](https://discord.gg/cbkggY6NSK)
 
+## Contributing
+
+We welcome contributions!
+
+Some of the ways you can contribute:
+
+- Add support for new controllers
+- Add support for new robots and sensors
+- Add something you built to the examples
+- Improve the documentation and tutorials
+- Contribute to the code
+
 ## Support
 
 - **Documentation**: Read the [documentation](https://docs.phospho.ai)
