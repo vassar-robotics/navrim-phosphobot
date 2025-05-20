@@ -35,7 +35,7 @@ dependencies = [
     "supabase>=2.15.0",
     "zmq>=0.0.0",
     "toml>=0.10.2",
-    "av>=14.3.0",
+    "av>=9.0.0",
     "tyro>=0.9.20",
     "types-toml>=0.10.8.20240310",
     "pyrealsense2>=2.54; platform_system == 'Linux'",
@@ -43,6 +43,7 @@ dependencies = [
     "pyrealsense2-macosx>=2.54; platform_system == 'Darwin'",
     "fastparquet>=2024.11.0",
     "httpx>=0.28.1",
+    "go2-webrtc-connect",
 ]
 
 [dependency-groups]
@@ -68,6 +69,7 @@ default-groups = ["dev"]
 # We are cloning from our fork instead of the original repo (https://github.com/Physical-Intelligence/openpi) 
 # because we had the error unknow host: github.com
 openpi-client = { git = "https://github.com/phospho-app/openpi.git", subdirectory = "packages/openpi-client", rev = "main" }
+# go2-webrtc-connect = { path = "../../go2_webrtc_connect", editable = true }
 
 
 [project.scripts]

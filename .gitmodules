@@ -1,6 +1,3 @@
 [submodule "docs"]
 	path = docs
 	url = https://github.com/phospho-app/docs.git
-[submodule "go2_webrtc_connect"]
-	path = go2_webrtc_connect
-	url = git@github.com:phospho-app/go2_webrtc_connect.git
