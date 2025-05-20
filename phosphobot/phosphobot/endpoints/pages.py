@@ -1,6 +1,7 @@
-import base64
 import os
 import cv2
+import random
+import base64
 from pathlib import Path, PurePath
 from typing import Literal, cast
 
@@ -9,7 +10,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from huggingface_hub import HfApi
 from loguru import logger
 
-from phosphobot.am.base import ActionModel
+from phosphobot.am.base import ActionModel, TrainingRequest
 from phosphobot.configs import config
 from phosphobot.models import (
     AdminSettingsRequest,
@@ -27,6 +28,8 @@ from phosphobot.models import (
     ModelVideoKeysRequest,
     ModelVideoKeysResponse,
     StatusResponse,
+    TrainingInfoRequest,
+    TrainingInfoResponse,
     VizSettingsResponse,
     WandBTokenRequest,
     InfoModel,
@@ -656,3 +659,90 @@ async def get_model_video_keys(
     except Exception as e:
         logger.warning(f"No video keys found for {request.model_id}: {e}")
         return ModelVideoKeysResponse(video_keys=[])
+
+
+@router.post("/training/info", response_model=TrainingInfoResponse)
+async def get_training_info(
+    request: TrainingInfoRequest,
+) -> TrainingInfoResponse:
+    """
+    Fetch the info.json from the model repo and return the training info.
+    """
+    if request.model_type == "custom":
+        return TrainingInfoResponse(
+            status="ok",
+            training_body={
+                "custom_command": "python absolute/path/to/file.py --epochs 10"
+            },
+        )
+
+    try:
+        token_path = str(get_home_app_path()) + "/huggingface.token"
+
+        if not os.path.exists(token_path):
+            raise HTTPException(
+                status_code=400,
+                detail="Hugging Face token not found. Please set the token in the Admin page.",
+            )
+
+        with open(token_path, "r") as token_file:
+            token = token_file.read().strip()
+        api = HfApi(token=token)
+        user_info = api.whoami(token=token)
+        username_or_orgid = parse_hf_username_or_orgid(user_info)
+
+        model_info = api.hf_hub_download(
+            repo_id=request.model_id,
+            repo_type="dataset",
+            filename="meta/info.json",
+            token=token,
+        )
+
+        meta_folder_path = os.path.dirname(model_info)
+        validated_info = InfoModel.from_json(meta_folder_path=meta_folder_path)
+
+        number_of_cameras = validated_info.total_videos // validated_info.total_episodes
+        training_params = {}
+        if request.model_type == "gr00t":
+            training_params["batch_size"] = (
+                110 // number_of_cameras - 3 * number_of_cameras
+            )
+        elif request.model_type == "ACT":
+            training_params["batch_size"] = 120 // number_of_cameras
+            training_params["steps"] = 8_000
+
+        # These are heuristics used to determine the training parameters
+        random_suffix = "".join(
+            random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=5)
+        )
+        training_response = TrainingRequest(
+            model_type=request.model_type,
+            dataset_name=request.model_id,
+            model_name=f"phospho-app/{username_or_orgid}-{request.model_type}-{request.model_id.split('/')[1]}-{random_suffix}",
+        )
+        # Replace the fields in training_response with the values from training_params dict
+        if training_response.training_params is not None:
+            for key, value in training_params.items():
+                if hasattr(training_response.training_params, key):
+                    setattr(training_response.training_params, key, value)
+
+        return TrainingInfoResponse(
+            status="ok",
+            training_body=training_response.model_dump(
+                exclude={
+                    "wandb_api_key": True,
+                    "custom_command": True,
+                    "training_params": {
+                        "path_to_gr00t_repo": True,
+                        "data_dir": True,
+                        "output_dir": True,
+                    },
+                }
+            ),
+        )
+    except Exception as e:
+        logger.warning(f"Error fetching training info: {e}")
+        return TrainingInfoResponse(
+            status="error",
+            message=f"Error fetching training info: {e}",
+        )

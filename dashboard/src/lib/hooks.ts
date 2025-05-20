@@ -45,8 +45,10 @@ interface GlobalStore {
   setCameraKeysMapping: (mapping: Record<string, number> | null) => void;
   modelId: string;
   setModelId: (modelId: string) => void;
-  selectedModelType: "ACT" | "gr00t";
-  setSelectedModelType: (modelType: "ACT" | "gr00t") => void;
+  selectedModelType: "ACT" | "gr00t" | "custom";
+  setSelectedModelType: (modelType: "ACT" | "gr00t" | "custom") => void;
+  selectedDataset: string;
+  setSelectedDataset: (dataset: string) => void;
 }
 
 const useGlobalStore = create(
@@ -84,11 +86,17 @@ const useGlobalStore = create(
           modelId: modelName,
         })),
       selectedModelType: "gr00t",
-      setSelectedModelType: (modelType: "ACT" | "gr00t") =>
+      setSelectedModelType: (modelType: "ACT" | "gr00t" | "custom") =>
         set(() => ({
           selectedModelType: modelType,
         })),
+      selectedDataset: "",
+      setSelectedDataset: (dataset: string) =>
+        set(() => ({
+          selectedDataset: dataset,
+        })),
     }),
+
     {
       name: "phosphobot-global-store",
       storage: createJSONStorage(() => sessionStorage),

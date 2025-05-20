@@ -1,5 +1,8 @@
+"use client";
+
 import { AutoComplete, type Option } from "@/components/common/autocomplete";
-import { ModelsCard } from "@/components/custom/ModelsDialog";
+import { LogStream } from "@/components/custom/LogsStream";
+import { CopyButton, ModelsCard } from "@/components/custom/ModelsDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -12,19 +15,155 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGlobalStore } from "@/lib/hooks";
 import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
-import { AdminTokenSettings, TrainingRequest } from "@/types";
-import { CheckCircle2, Dumbbell, List, Loader2 } from "lucide-react";
-import { useState } from "react";
+import type { AdminTokenSettings } from "@/types";
+import {
+  Ban,
+  CheckCircle2,
+  Dumbbell,
+  Lightbulb,
+  List,
+  Loader2,
+  Pencil,
+  Save,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
+
+// Add this after the existing imports
+const JsonEditor = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    try {
+      // Format the JSON when it's not being edited
+      if (!isEditing) {
+        const parsed = JSON.parse(value);
+        const formatted = JSON.stringify(parsed, null, 2);
+        if (formatted !== value) {
+          onChange(formatted);
+        }
+      }
+    } catch (e) {
+      console.error("Invalid JSON format:", e);
+    }
+  }, [value, isEditing, onChange]);
+
+  const handleEdit = () => {
+    setEditValue(value);
+    setIsEditing(true);
+    setTimeout(() => {
+      editorRef.current?.focus();
+    }, 0);
+  };
+
+  const handleSave = () => {
+    try {
+      // Try to parse to validate JSON
+      JSON.parse(editValue);
+      onChange(editValue);
+      setIsEditing(false);
+    } catch (e) {
+      toast.error("Invalid JSON format. Please check your input: " + e, {
+        duration: 5000,
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div className="relative">
+        <textarea
+          ref={editorRef}
+          className="w-full h-56 font-mono text-sm p-2 border border-gray-300 rounded"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+        />
+        <div className="absolute bottom-2 right-2 flex gap-2">
+          <Button variant="outline" onClick={handleCancel}>
+            <Ban className="size-4 mr-2" />
+            Cancel
+          </Button>
+          <Button variant="default" onClick={handleSave}>
+            <Save className="size-4 mr-2" />
+            Save
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative group">
+      <div className="cursor-pointer" onClick={handleEdit}>
+        {formatJsonDisplay(value)}
+      </div>
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-x-2">
+          <Button variant="outline" onClick={handleEdit}>
+            <Pencil className="size-4" />
+            Edit
+          </Button>
+          <CopyButton text={value} hint="Copy the json" variant="outline" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Add this helper function to format the JSON display
+const formatJsonDisplay = (jsonString: string) => {
+  try {
+    const obj = JSON.parse(jsonString);
+    return (
+      <div className="text-left">
+        {Object.entries(obj).map(([key, value]) => (
+          <div key={key} className="mb-1">
+            <span className="font-semibold text-green-500">{key}</span>
+            <span className="text-gray-600">: </span>
+            <span className="text-gray-800">
+              {typeof value === "object"
+                ? JSON.stringify(value, null, 2)
+                : String(value)}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  } catch (e) {
+    console.log("Invalid JSON format:", e);
+    return <div className="text-red-500">Invalid JSON format</div>;
+  }
+};
 
 interface DatasetListResponse {
   pushed_datasets: string[];
   local_datasets: string[];
 }
 
+interface TrainingInfoResponse {
+  status: "ok" | "error";
+  message?: string;
+  training_body: Record<string, unknown>;
+}
+
 export default function AITrainingPage() {
-  const [selectedDatasetID, setSelectedDataset] = useState<string>("");
+  const selectedDataset = useGlobalStore((state) => state.selectedDataset);
+  const setSelectedDataset = useGlobalStore(
+    (state) => state.setSelectedDataset,
+  );
   const setSelectedModelType = useGlobalStore(
     (state) => state.setSelectedModelType,
   );
@@ -40,17 +179,41 @@ export default function AITrainingPage() {
     ["/dataset/list"],
     ([url]) => fetcher(url, "POST"),
   );
+  const { data: datasetInfoResponse, isLoading: isDatasetInfoLoading } =
+    useSWR<TrainingInfoResponse>(
+      selectedDataset
+        ? ["/training/info", selectedDataset, selectedModelType]
+        : null,
+      ([url]) =>
+        fetcher(url, "POST", {
+          model_id: selectedDataset,
+          model_type: selectedModelType,
+        }),
+    );
 
-  const launchModelTraining = async (datasetID: string, modelName: string) => {
-    const trainingRequest: TrainingRequest = {
-      dataset_name: datasetID,
-      model_name: modelName,
-      model_type: selectedModelType,
-    };
+  const [editableJson, setEditableJson] = useState<string>("");
+  const [currentLogFile, setCurrentLogFile] = useState<string | null>(null);
+  const [showLogs, setShowLogs] = useState<boolean>(false);
 
-    fetchWithBaseUrl("/training/start", "POST", trainingRequest);
-    console.log("Launched training job");
-  };
+  useEffect(() => {
+    // Try to load from localStorage first
+    const savedJson = localStorage.getItem("trainingBodyJson");
+    if (savedJson) {
+      setEditableJson(savedJson);
+    }
+
+    // Update from API response when it changes
+    if (datasetInfoResponse?.training_body) {
+      const jsonString = JSON.stringify(
+        datasetInfoResponse.training_body,
+        null,
+        2,
+      );
+      setEditableJson(jsonString);
+      // Save to localStorage
+      localStorage.setItem("trainingBodyJson", jsonString);
+    }
+  }, [datasetInfoResponse]);
 
   const generateHuggingFaceModelName = async (dataset: string) => {
     // Model name followed by 10 random characters
@@ -80,7 +243,7 @@ export default function AITrainingPage() {
   };
 
   const handleTrainModel = async () => {
-    if (!selectedDatasetID) {
+    if (!selectedDataset) {
       toast.error("Please select a dataset to train the model.", {
         duration: 5000,
       });
@@ -99,19 +262,55 @@ export default function AITrainingPage() {
 
     try {
       // Generate a random model name
-      const modelName = await generateHuggingFaceModelName(selectedDatasetID);
+      const modelName = await generateHuggingFaceModelName(selectedDataset);
       const modelUrl = `https://huggingface.co/${modelName}`;
 
-      // Send Slack notification and wait for response
-      await launchModelTraining(selectedDatasetID, modelName);
+      // Parse the edited JSON
+      let trainingBody;
+      try {
+        trainingBody = JSON.parse(editableJson);
+      } catch (error) {
+        toast.error("Invalid JSON format. Please check your input: " + error, {
+          duration: 5000,
+        });
+        setTrainingState("idle");
+        return { success: false, error: "Invalid JSON format" };
+      }
+
+      // Send the edited JSON to the training endpoint
+      const response = await fetchWithBaseUrl(
+        selectedModelType !== "custom"
+          ? "/training/start"
+          : "/training/start-custom",
+        "POST",
+        trainingBody,
+      );
+
+      if (!response) {
+        setTrainingState("idle");
+        return;
+      }
+
+      if (selectedModelType === "custom" && response.message) {
+        setCurrentLogFile(response.message);
+      }
 
       // After successful notification, wait 1 second then show success
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       setTrainingState("success");
-      toast.success(`Model training started! Check progress at: ${modelUrl}`, {
-        duration: 5000,
-      });
+      if (selectedModelType !== "custom") {
+        toast.success(
+          `Model training started! Check progress at: ${modelUrl}`,
+          {
+            duration: 5000,
+          },
+        );
+      } else {
+        toast.success("Custom training job started! Check logs for details.", {
+          duration: 5000,
+        });
+      }
 
       return { success: true, modelName };
     } catch (error) {
@@ -190,9 +389,10 @@ export default function AITrainingPage() {
                       })) ?? []
                     }
                     value={{
-                      value: selectedDatasetID,
-                      label: selectedDatasetID,
+                      value: selectedDataset,
+                      label: selectedDataset,
                     }}
+                    disabled={selectedModelType === "custom"}
                     onValueChange={(option: Option) => {
                       setSelectedDataset(option.value);
                     }}
@@ -217,22 +417,89 @@ export default function AITrainingPage() {
                     <SelectContent>
                       <SelectItem value="gr00t">gr00t</SelectItem>
                       <SelectItem value="ACT">ACT</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Button
-                  variant="secondary"
-                  className="flex-1/4 mb-1"
-                  onClick={handleTrainModel}
-                  disabled={!selectedDatasetID || trainingState !== "idle"}
-                >
-                  {renderButtonContent()}
-                </Button>
+              </div>
+              {selectedModelType === "custom" && (
+                <div className="text-xs text-muted-foreground mt-4">
+                  You have selected a custom model type.
+                  <br />
+                  When pressing the "Train AI model" button, we will run the
+                  command you've written, you can use this to run any custom
+                  training script you want.
+                </div>
+              )}
+              <div className="text-xs text-muted-foreground mt-4">
+                Dataset info:
+              </div>
+              <div className="text-sm text-muted-foreground mt-2">
+                {isDatasetInfoLoading && (
+                  <div className="flex flex-row items-center">
+                    <Loader2 className="size-4 mr-2 animate-spin" />
+                    Loading dataset info...
+                  </div>
+                )}
+                {datasetInfoResponse?.status == "ok" &&
+                  !isDatasetInfoLoading && (
+                    <div className="bg-gray-100 p-4 rounded-md w-full h-64">
+                      <pre className="font-mono text-sm whitespace-pre-wrap">
+                        {editableJson ? (
+                          <JsonEditor
+                            value={editableJson}
+                            onChange={(value) => {
+                              setEditableJson(value);
+                              localStorage.setItem("trainingBodyJson", value);
+                            }}
+                          />
+                        ) : (
+                          "No data available"
+                        )}
+                      </pre>
+                    </div>
+                  )}
+                {datasetInfoResponse?.status == "error" &&
+                  !isDatasetInfoLoading && (
+                    <div className="text-red-500">
+                      {datasetInfoResponse.message ||
+                        "Error fetching dataset info."}
+                    </div>
+                  )}
+              </div>
+
+              <Button
+                variant="secondary"
+                className="flex w-full mt-4"
+                onClick={handleTrainModel}
+                disabled={
+                  !selectedDataset ||
+                  trainingState !== "idle" ||
+                  isDatasetInfoLoading ||
+                  datasetInfoResponse?.status === "error"
+                }
+              >
+                {renderButtonContent()}
+              </Button>
+
+              {selectedModelType === "custom" &&
+                (showLogs || currentLogFile) && (
+                  <LogStream
+                    logFile={currentLogFile}
+                    isLoading={trainingState === "loading"}
+                    onClose={() => setShowLogs(false)}
+                  />
+                )}
+
+              <div className="flex flex-row mt-4 items-center align-center">
+                <Lightbulb className="size-4 mr-2 text-muted-foreground" />
+                Tips
               </div>
               <div className="text-muted-foreground text-sm mt-2">
-                For more advanced options, such as changing the number of
-                epochs, steps, etc..., please use the{" "}
-                <code>/training/start</code> api endpoint.
+                - If your training fails with a <code>Timeout error</code>,
+                lower the number of steps or epochs.
+                <br />- If your training fails with a{" "}
+                <code>Cuda out of memory error</code>, lower the batch size.
               </div>
             </CardContent>
           </Card>
