@@ -4,9 +4,8 @@ import json
 import os
 import shutil
 import time
-from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple, Union, cast
+from typing import Dict, List, Literal, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -35,142 +34,9 @@ from phosphobot.utils import (
     get_home_app_path,
     parse_hf_username_or_orgid,
 )
+from phosphobot.models.robot import BaseRobot
 
 DEFAULT_FILE_ENCODING = "utf-8"
-
-
-class BaseRobot(ABC):
-    name: str
-
-    @abstractmethod
-    def set_motors_positions(
-        self, positions: np.ndarray, enable_gripper: bool = False
-    ) -> None:
-        """
-        Set the motor positions of the robot
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_info(self) -> "BaseRobotInfo":
-        """
-        Get information about the robot
-        Dict returned is info.json file at initialization
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_observation(self) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Get the observation of the robot.
-        This method should return the observation of the robot.
-        Will be used to build an observation in a Step of an episode.
-        Returns:
-            - state: np.array state of the robot (7D)
-            - joints_position: np.array joints position of the robot
-        """
-        raise NotImplementedError
-
-
-class BaseRobotPIDGains(BaseModel):
-    """
-    PID gains for servo motors
-    """
-
-    p_gain: float
-    i_gain: float
-    d_gain: float
-
-
-class BaseRobotConfig(BaseModel):
-    """
-    Calibration configuration for a robot
-    """
-
-    name: str
-    servos_voltage: float
-    servos_offsets: List[float] = Field(
-        default_factory=lambda: [
-            2048.0,
-            2048.0,
-            2048.0,
-            2048.0,
-            2048.0,
-            2048.0,
-        ]
-    )
-    # Default factory: default offsets for SO-100
-    servos_calibration_position: List[float]
-    servos_offsets_signs: List[float] = Field(
-        default_factory=lambda: [-1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-    )
-    pid_gains: List[BaseRobotPIDGains] = Field(default_factory=list)
-
-    # Torque value to consider that an object is gripped
-    gripping_threshold: int = 0
-    non_gripping_threshold: int = 0  # noise
-
-    @classmethod
-    def from_json(cls, filepath: str) -> Union["BaseRobotConfig", None]:
-        """
-        Load a configuration from a JSON file
-        """
-        try:
-            with open(filepath, "r", encoding=DEFAULT_FILE_ENCODING) as f:
-                data = json.load(f)
-
-        except FileNotFoundError:
-            return None
-
-        # Fix issues with the JSON file
-        servos_offsets = data.get("servos_offsets", [])
-        if len(servos_offsets) == 0:
-            data["servos_offsets"] = [2048.0] * 6
-
-        servos_offsets_signs = data.get("servos_offsets_signs", [])
-        if len(servos_offsets_signs) == 0:
-            data["servos_offsets_signs"] = [-1.0] + [1.0] * 5
-
-        try:
-            return cls(**data)
-        except Exception as e:
-            logger.error(f"Error loading configuration from {filepath}: {e}")
-            return None
-
-    @classmethod
-    def from_serial_id(
-        cls, serial_id: str, name: str
-    ) -> Union["BaseRobotConfig", None]:
-        """
-        Load a configuration from a serial ID and a name.
-        """
-        filename = f"{name}_{serial_id}_config.json"
-        filepath = str(get_home_app_path() / "calibration" / filename)
-        return cls.from_json(filepath)
-
-    def to_json(self, filename: str) -> None:
-        """
-        Save the configuration to a JSON file
-        """
-        with open(filename, "w", encoding=DEFAULT_FILE_ENCODING) as f:
-            f.write(self.model_dump_json(indent=4))
-
-    def save_local(self, serial_id: str) -> str:
-        """
-        Save the configuration to the local calibration folder
-
-        Returns:
-            The path to the saved file
-        """
-        filename = f"{self.name}_{serial_id}_config.json"
-        filepath = str(get_home_app_path() / "calibration" / filename)
-        logger.info(f"Saving configuration to {filepath}")
-        self.to_json(filepath)
-        return filepath
-
-
-class BaseCamera(ABC):
-    camera_type: str
 
 
 class Observation(BaseModel):

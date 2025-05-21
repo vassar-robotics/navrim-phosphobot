@@ -8,12 +8,12 @@ from loguru import logger
 from phosphobot.control_signal import ControlSignal
 from serial.tools.list_ports_common import ListPortInfo
 
-from phosphobot.hardware.base import BaseRobot
+from phosphobot.hardware.base import BaseManipulator
 from phosphobot.hardware.motors.feetech import FeetechMotorsBus  # type: ignore
 from phosphobot.utils import step_simulation, get_resources_path
 
 
-class SO100Hardware(BaseRobot):
+class SO100Hardware(BaseManipulator):
     name = "so-100"
 
     URDF_FILE_PATH = str(
@@ -115,7 +115,7 @@ class SO100Hardware(BaseRobot):
             return
 
         # Create serial connection
-        self.motors_bus = FeetechMotorsBus(port=self.DEVICE_NAME, motors=self.motors)
+        self.motors_bus = FeetechMotorsBus(port=self.device_name, motors=self.motors)
         self.motors_bus.connect()
         self.is_connected = True
 

@@ -15,11 +15,11 @@ from dynamixel_sdk import (
 from loguru import logger
 from serial.tools.list_ports_common import ListPortInfo
 
-from phosphobot.hardware.base import BaseRobot
+from phosphobot.hardware.base import BaseManipulator
 from phosphobot.utils import get_resources_path
 
 
-class KochHardware(BaseRobot):
+class KochHardware(BaseManipulator):
     name: str = "koch-v1.1"
 
     URDF_FILE_PATH = str(get_resources_path() / "urdf" / "koch" / "robot.urdf")
@@ -73,7 +73,7 @@ class KochHardware(BaseRobot):
 
     def connect(self):
         # Initialize PortHandler and PacketHandler
-        self.portHandler = PortHandler(self.DEVICE_NAME)
+        self.portHandler = PortHandler(self.device_name)
         self.packetHandler = PacketHandler(protocol_version=2.0)
 
         # Open port

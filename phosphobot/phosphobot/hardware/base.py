@@ -2,19 +2,19 @@ import atexit
 import json
 import os
 import asyncio
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import List, Literal, Optional, Union
 
 import numpy as np
 import pybullet as p  # type: ignore
 from loguru import logger
 from phosphobot.models import (
+    BaseRobot,
     BaseRobotConfig,
     BaseRobotInfo,
     FeatureDetails,
 )
 from scipy.spatial.transform import Rotation as R  # type: ignore
-from serial.tools.list_ports_common import ListPortInfo
 
 from phosphobot.configs import SimulationMode, config
 from phosphobot.models import RobotConfigStatus
@@ -49,15 +49,11 @@ class AxisRobot:
 axis_robot = AxisRobot()
 
 
-class BaseRobot(ABC):
+class BaseManipulator(BaseRobot):
     """
-    Abstract class for hardware interface.
-    This class defines
-    - abstract methods that must be implemented by the hardware interface.
-    - common methods that can be used by the hardware interface.
+    Abstract class for a manipulator robot (single robot arm).
+    E.g SO-100, SO-101, AgilexPiper, Kock 1.1, etc.
     """
-
-    name: str
 
     # Path to the URDF file of the robot
     URDF_FILE_PATH: str
@@ -95,27 +91,6 @@ class BaseRobot(ABC):
     # Used to keep track of the calibration sequence
     calibration_current_step: int = 0
     calibration_max_steps: int = 3
-
-    @abstractmethod
-    def connect(self) -> None:
-        """
-        Initialize communication with the robot.
-
-        This method is called after the __init__ method.
-
-        raise: Exception if the setup fails. For example, if the robot is not plugged in.
-            This Exception will be caught by the __init__ method.
-        """
-        raise NotImplementedError("The robot setup method must be implemented.")
-
-    @abstractmethod
-    def disconnect(self) -> None:
-        """
-        Close the connection to the robot.
-
-        This method is called on __del__ to disconnect the robot.
-        """
-        raise NotImplementedError("The robot setup method must be implemented.")
 
     @abstractmethod
     def enable_torque(self) -> None:
@@ -193,16 +168,6 @@ class BaseRobot(ABC):
         Write the positions to the motors in the group.
         """
         raise NotImplementedError("write_group_motor_position must be implemented.")
-
-    @classmethod
-    def from_port(cls, port: ListPortInfo, **kwargs) -> Optional["BaseRobot"]:
-        """
-        Return the robot class from the port information.
-        """
-        logger.error(
-            f"For automatic detection of {cls.__name__}, the method from_port must be implemented. Skipping autodetection."
-        )
-        return None
 
     def __init__(
         self,
@@ -652,7 +617,7 @@ Falling back to simulation mode.
             current_position = np.zeros(len(self.SERVO_IDS))
             if (
                 self.read_group_motor_position.__qualname__
-                != BaseRobot.read_group_motor_position.__qualname__
+                != BaseManipulator.read_group_motor_position.__qualname__
             ):
                 # Read all the motors at once
                 current_position = self.read_group_motor_position()
@@ -722,7 +687,7 @@ Falling back to simulation mode.
             q_target = self._radians_vec_to_units(q_target_rad)
             if (
                 self.write_group_motor_position.__qualname__
-                != BaseRobot.write_group_motor_position.__qualname__
+                != BaseManipulator.write_group_motor_position.__qualname__
             ):
                 # Use the batched motor write if available
                 self.write_group_motor_position(q_target, enable_gripper)
@@ -1319,3 +1284,12 @@ Falling back to simulation mode.
             name=self.name,
             usb_port=getattr(self, "SERIAL_ID", None),
         )
+
+
+class BaseMobileRobot(BaseRobot):
+    """
+    Abstract class for a mobile robot
+    E.g. LeKiwi, Unitree Go2
+    """
+
+    pass

@@ -9,11 +9,11 @@ from phosphobot.models import BaseRobotConfig
 from piper_sdk import C_PiperInterface_V2
 
 
-from phosphobot.hardware.base import BaseRobot
+from phosphobot.hardware.base import BaseManipulator
 from phosphobot.utils import is_running_on_linux, get_resources_path
 
 
-class PiperHardware(BaseRobot):
+class PiperHardware(BaseManipulator):
     name = "agilex-piper"
 
     URDF_FILE_PATH = str(
