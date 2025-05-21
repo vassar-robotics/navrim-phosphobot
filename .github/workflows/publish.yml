@@ -608,12 +608,6 @@ jobs:
               Set-Content -Path $hfTokenPath -Value "${{ secrets.HF_TOKEN }}"
           }
 
-      - name: Run the built application in foreground
-        run: |
-          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
-          & $exePath run --simulation=headless --no-telemetry --simulate-cameras --only-simulation --port=8080 --host=127.0.0.1
-
       - name: Run the built application in background
         run: |
           [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
