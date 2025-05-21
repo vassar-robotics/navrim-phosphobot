@@ -863,7 +863,7 @@ def background_task_log_exceptions(func):
         return sync_wrapper
 
 
-def get_wifi_ip():
+def get_local_network_ip():
     # Connect to a public IP to get the IP used by the current network interface
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:

@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from phosphobot.hardware import BaseRobot
 from phosphobot.models import AppControlData, RobotStatus, UDPServerInformationResponse
 from phosphobot.robot import RobotConnectionManager
-from phosphobot.utils import get_wifi_ip
+from phosphobot.utils import get_local_network_ip
 
 
 @dataclass
@@ -288,7 +288,7 @@ class UDPServer:
             return UDPServerInformationResponse(host=host, port=bound_port)
 
         loop = asyncio.get_running_loop()
-        local_ip = get_wifi_ip()
+        local_ip = get_local_network_ip()
 
         # choose port
         if port is None:
