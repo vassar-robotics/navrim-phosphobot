@@ -613,10 +613,6 @@ jobs:
         run: |
           [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
           $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
-          $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
-          $stderrLog = "$env:TEMP\phosphobot_stderr.log"
-
-          Write-Host "▶️ Starting $exePath in foreground..."
 
           $psi = New-Object System.Diagnostics.ProcessStartInfo
           $psi.FileName = $exePath
@@ -628,33 +624,39 @@ jobs:
 
           $process = New-Object System.Diagnostics.Process
           $process.StartInfo = $psi
+
+          # StringBuilders to capture output
+          $stdoutBuilder = New-Object System.Text.StringBuilder
+          $stderrBuilder = New-Object System.Text.StringBuilder
+
+          # Define handlers to append output lines
+          $process.add_OutputDataReceived({ if ($_.Data) { $stdoutBuilder.AppendLine($_.Data) | Out-Null } })
+          $process.add_ErrorDataReceived({ if ($_.Data) { $stderrBuilder.AppendLine($_.Data) | Out-Null } })
+
           $process.Start() | Out-Null
+          $process.BeginOutputReadLine()
+          $process.BeginErrorReadLine()
 
-          $stdoutJob = Start-Job { param($p) $p.StandardOutput.ReadToEnd() } -ArgumentList $process
-          $stderrJob = Start-Job { param($p) $p.StandardError.ReadToEnd() } -ArgumentList $process
-
-          # Wait up to 10 seconds for the process to exit naturally
-          $exited = $process.WaitForExit(10000)
-
-          if (-not $exited) {
+          # Wait 10 seconds or until process exits
+          if (-not $process.WaitForExit(10000)) {
             Write-Host "🛑 Process exceeded 10 seconds. Killing..."
             $process.Kill()
             $process.WaitForExit()
           }
 
-          $exitCode = $process.ExitCode
-          $stdout = Receive-Job $stdoutJob
-          $stderr = Receive-Job $stderrJob
-          Remove-Job $stdoutJob, $stderrJob
+          # Get the output as strings
+          $stdout = $stdoutBuilder.ToString()
+          $stderr = $stderrBuilder.ToString()
 
           Write-Host "`n--- STDOUT ---"
           Write-Output $stdout
           Write-Host "`n--- STDERR ---"
           Write-Output $stderr
 
-          if ($exitCode -ne 0) {
-            Write-Error "❌ Process exited with code $exitCode"
-            exit $exitCode
+          # Fail if exit code non-zero
+          if ($process.ExitCode -ne 0) {
+            Write-Error "❌ Process exited with code $($process.ExitCode)"
+            exit $process.ExitCode
           }
 
           Write-Host "✅ Process completed successfully"
