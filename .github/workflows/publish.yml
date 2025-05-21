@@ -496,6 +496,7 @@ jobs:
           $versionLine = Get-Content phosphobot/pyproject.toml | Select-String '^version ='
           $version = $versionLine -replace 'version = "(.*)"', '$1'
           echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "OUTPUT_FILENAME=phosphobot-${{ steps.version.outputs.version }}-amd64.exe" >> $env:GITHUB_ENV
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -573,8 +574,6 @@ jobs:
 
       - name: Build with PyInstaller
         working-directory: phosphobot
-        env:
-          OUTPUT_FILENAME: phosphobot-${{ steps.version.outputs.version }}-amd64.exe
         run: |
           # Execute PyInstaller with specified parameters
           uv run pyinstaller `
@@ -589,7 +588,7 @@ jobs:
 
       - name: Verify Windows executable
         run: |
-          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath "phosphobot-${{ steps.version.outputs.version }}-amd64.exe"
+          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
           if (-not (Test-Path $exePath)) {
               Write-Error "Executable not found at $exePath"
               exit 1
@@ -609,15 +608,20 @@ jobs:
               Set-Content -Path $hfTokenPath -Value "${{ secrets.HF_TOKEN }}"
           }
 
+      # - name: Run the built application in foreground
+      #   run: |
+      #     $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
+      #     & $exePath run --simulation=headless --no-telemetry --simulate-cameras --only-simulation --port=8080 --host=127.0.0.1
+
       - name: Run the built application in background
         run: |
-          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath "phosphobot-0.3.9-amd64.exe"
+          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
           $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
           $stderrLog = "$env:TEMP\phosphobot_stderr.log"
 
           # Start the process with separate output and error log files
           $p = Start-Process -FilePath $exePath `
-            -ArgumentList "run", "--simulation=headless", "--simulate-cameras", "--port=8080" `
+            -ArgumentList "run", "--simulation=headless", "--no-telemetry", "--simulate-cameras", "--only-simulation", "--port=8080", "--host=127.0.0.1" `
             -RedirectStandardOutput $stdoutLog `
             -RedirectStandardError $stderrLog `
             -NoNewWindow `
@@ -675,21 +679,21 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: phosphobot-${{ steps.version.outputs.version }}-amd64.exe
-          path: phosphobot/dist/phosphobot-${{ steps.version.outputs.version }}-amd64.exe
+          name: ${{ env.OUTPUT_FILENAME }}
+          path: phosphobot/dist/${{ env.OUTPUT_FILENAME }}
           retention-days: 1
 
       - name: Generate SHA256
         run: |
-          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath "phosphobot-${{ steps.version.outputs.version }}-amd64.exe"
+          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
           $hash = (Get-FileHash $exePath -Algorithm SHA256).Hash
           Set-Content -Path "sha256-phosphobot-${{ steps.version.outputs.version }}-amd64.exe.txt" -Value $hash
 
       - name: Upload SHA256
         uses: actions/upload-artifact@v4
         with:
-          name: sha256-phosphobot-${{ steps.version.outputs.version }}-amd64.exe.txt
-          path: sha256-phosphobot-${{ steps.version.outputs.version }}-amd64.exe.txt
+          name: sha256-${{ env.OUTPUT_FILENAME }}.txt
+          path: sha256-${{ env.OUTPUT_FILENAME }}.txt
           retention-days: 1
 
   publish_pypi:
