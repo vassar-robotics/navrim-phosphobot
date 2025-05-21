@@ -627,6 +627,7 @@ jobs:
           $p.Id | Set-Content -Path "$env:TEMP\phosphobot_pid.txt"
 
       - name: Wait for server to become ready (print logs on failure)
+        shell: pwsh
         run: |
           $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
           $stderrLog = "$env:TEMP\phosphobot_stderr.log"
@@ -644,16 +645,27 @@ jobs:
             } catch {
               Write-Host "⏳ Waiting for server... ($i/$maxRetries)"
             }
-            Start-Sleep -Seconds 1
+            Start-Sleep -Seconds 3
           }
 
           if (-not $serverReady) {
-            Write-Error "❌ Server did not start in time"
-            Write-Host "`n--- STDOUT LOG ---"
-            Get-Content -Path $stdoutLog -ErrorAction SilentlyContinue
-            Write-Host "`n--- STDERR LOG ---"
-            Get-Content -Path $stderrLog -ErrorAction SilentlyContinue
-            exit 1
+            Write-Host "`n❌ Server did not start in time"
+
+            if (Test-Path $stdoutLog) {
+              Write-Host "`n--- STDOUT LOG ---"
+              Write-Output (Get-Content -Path $stdoutLog -Raw)
+            } else {
+              Write-Host "⚠️ No stdout log found at $stdoutLog"
+            }
+
+            if (Test-Path $stderrLog) {
+              Write-Host "`n--- STDERR LOG ---"
+              Write-Output (Get-Content -Path $stderrLog -Raw)
+            } else {
+              Write-Host "⚠️ No stderr log found at $stderrLog"
+            }
+
+            throw "Server did not start within timeout."
           }
 
       - name: Run integration tests
