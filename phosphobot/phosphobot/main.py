@@ -9,7 +9,7 @@ print(f"sys.stdout.encoding = {sys.stdout.encoding}")
 import io
 
 # Fix encoding issues on Windows
-if sys.platform.startswith("win") and sys.stdout.encoding.lower() == "cp65001":
+if sys.platform.startswith("win") and sys.stdout.encoding.lower() != "utf-8":
     try:
         sys.stdout = io.TextIOWrapper(
             sys.stdout.buffer, encoding="utf-8", errors="replace"
