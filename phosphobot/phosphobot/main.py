@@ -2,6 +2,25 @@ from loguru import logger
 
 logger.info("Starting phosphobot...")
 
+import sys
+
+print(f"sys.stdout.encoding = {sys.stdout.encoding}")
+
+import io
+
+# Fix encoding issues on Windows
+if sys.platform.startswith("win") and sys.stdout.encoding.lower() == "cp65001":
+    try:
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding="utf-8", errors="replace"
+        )
+        sys.stderr = io.TextIOWrapper(
+            sys.stderr.buffer, encoding="utf-8", errors="replace"
+        )
+    except Exception:
+        pass  # Ignore if already wrapped or in unsupported environment
+
+
 from rich import print
 
 from phosphobot import __version__
