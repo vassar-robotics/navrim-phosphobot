@@ -946,7 +946,6 @@ class Dataset:
         """
         Load an existing dataset.
         """
-        logger.debug(f"Loading dataset from {path}")
         # Check path format
         path_obj = Path(path)
         path_parts = path_obj.parts

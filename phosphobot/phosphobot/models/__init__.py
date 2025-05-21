@@ -508,7 +508,7 @@ class RecordingPlayRequest(BaseModel):
     dataset_name: str | None = Field(
         None,
         description="Name of the dataset to play the episode from. If None, defaults to the last dataset recorded.",
-        examples=["lerobot_v2.1/example_dataset"],
+        examples=["example_dataset"],
     )
     episode_id: int | None = Field(
         None,
