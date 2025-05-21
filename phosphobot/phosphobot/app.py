@@ -190,10 +190,10 @@ async def status(
 app.include_router(control_router)
 app.include_router(camera_router)
 app.include_router(recording_router)
+app.include_router(training_router)
 app.include_router(pages_router)
 app.include_router(networking_router)
 app.include_router(update_router)
-app.include_router(training_router)
 app.include_router(auth_router)
 
 # TODO : Only allow secured origins
