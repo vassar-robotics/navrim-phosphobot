@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from phosphobot.hardware import BaseRobot
 from phosphobot.models import AppControlData, RobotStatus, UDPServerInformationResponse
 from phosphobot.robot import RobotConnectionManager
+from phosphobot.utils import get_local_network_ip
 
 
 @dataclass
@@ -287,6 +288,7 @@ class UDPServer:
             return UDPServerInformationResponse(host=host, port=bound_port)
 
         loop = asyncio.get_running_loop()
+        local_ip = get_local_network_ip()
 
         # choose port
         if port is None:
@@ -294,12 +296,12 @@ class UDPServer:
                 try:
                     transport, protocol = await loop.create_datagram_endpoint(
                         lambda: _TeleopProtocol(self.manager),
-                        local_addr=("0.0.0.0", p),
+                        local_addr=(local_ip, p),
                     )
                     self.transport = transport
                     self.protocol = protocol
                     self.bound_port = p
-                    logger.info(f"Bound UDP server to 0.0.0.0:{p}")
+                    logger.info(f"Bound UDP server to {local_ip}:{p}")
                     break
                 except OSError:
                     continue
@@ -308,12 +310,12 @@ class UDPServer:
         else:
             transport, protocol = await loop.create_datagram_endpoint(
                 lambda: _TeleopProtocol(self.manager),
-                local_addr=("0.0.0.0", port),
+                local_addr=(local_ip, port),
             )
             self.transport = transport
             self.protocol = protocol
             self.bound_port = port
-            logger.info(f"Bound UDP server to 0.0.0.0:{port}")
+            logger.info(f"Bound UDP server to {local_ip}:{port}")
 
         host, bound_port = self.transport.get_extra_info("sockname")
         return UDPServerInformationResponse(host=host, port=bound_port)

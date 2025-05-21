@@ -4,6 +4,7 @@ import inspect
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import traceback
@@ -861,3 +862,14 @@ def background_task_log_exceptions(func):
         return async_wrapper
     else:
         return sync_wrapper
+
+
+def get_local_network_ip():
+    # Connect to a public IP to get the IP used by the current network interface
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))  # Google's DNS server
+        ip = s.getsockname()[0]
+    finally:
+        s.close()
+    return ip
