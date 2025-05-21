@@ -20,6 +20,7 @@ from phosphobot.models import (
     BrowserFilesRequest,
     Dataset,
     DatasetListResponse,
+    DatasetRepairRequest,
     DeleteEpisodeRequest,
     HuggingFaceTokenRequest,
     InfoResponse,
@@ -34,6 +35,7 @@ from phosphobot.models import (
     WandBTokenRequest,
     InfoModel,
 )
+from phosphobot.models.dataset import EpisodesModel
 from phosphobot.utils import (
     get_resources_path,
     get_home_app_path,
@@ -745,4 +747,32 @@ async def get_training_info(
         return TrainingInfoResponse(
             status="error",
             message=f"Error fetching training info: {e}",
+        )
+
+
+@router.post("/dataset/repair", response_model=StatusResponse)
+async def repair_dataset(query: DatasetRepairRequest):
+    """
+    Repair a dataset by removing any corrupted files.
+    For now, this only works for parquets files.
+    If the parquets are wrongly indexed, it will not do anything.
+    """
+    dataset_path = os.path.join(ROOT_DIR, query.dataset_path)
+    # Check if the path exists and is a directory
+    if not os.path.exists(dataset_path) or not os.path.isdir(dataset_path):
+        raise HTTPException(
+            status_code=404, detail=f"Dataset {query.dataset_path} not found"
+        )
+
+    # For the moment, we repair parquets files only, we need to improve this function to recaculate the meta files as well
+
+    result = EpisodesModel.repair_parquets(
+        parquets_path=os.path.join(dataset_path, "data", "chunk-000"),
+    )
+
+    if result:
+        return StatusResponse(status="ok")
+    else:
+        return StatusResponse(
+            status="error", message="Please check the logs for more details."
         )
