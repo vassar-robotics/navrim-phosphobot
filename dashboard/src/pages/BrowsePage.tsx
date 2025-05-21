@@ -765,10 +765,10 @@ export default function FileBrowser() {
 
       {selectedItems.length > 0 &&
         (path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1")) && (
-          <div className="flex flex-row">
+          <div className="flex flex-col md:flex-row md:space-x-2 mt-6">
             {path.endsWith("lerobot_v2.1") && (
               <Button
-                className="mb-4 mt-6"
+                className="mb-4"
                 variant="outline"
                 onClick={() => handleMergeCheck()}
               >
@@ -777,15 +777,7 @@ export default function FileBrowser() {
               </Button>
             )}
             <Button
-              className="mb-4 mt-6 ml-2"
-              variant="destructive"
-              onClick={() => setConfirmDeleteOpen(true)}
-            >
-              <Trash2 className="mr-2 h-4 w-3" />
-              Delete Selected Datasets
-            </Button>
-            <Button
-              className="mb-4 mt-6 ml-2"
+              className="mb-4"
               variant="outline"
               onClick={() => setConfirmRepairOpen(true)}
             >
@@ -793,7 +785,7 @@ export default function FileBrowser() {
               Repair Selected Datasets
             </Button>
             <Button
-              className="mb-4 mt-6 ml-2"
+              className="mb-4"
               variant="destructive"
               onClick={() => setConfirmDeleteOpen(true)}
             >
