@@ -626,28 +626,34 @@ jobs:
           # Store the PID for later termination
           $p.Id | Set-Content -Path "$env:TEMP\phosphobot_pid.txt"
 
-          # Start tailing stdout log in background
-          Start-Job { Get-Content -Path $using:stdoutLog -Wait }
-          Start-Job { Get-Content -Path $using:stderrLog -Wait }
-
-      - name: Wait for server to become ready
+      - name: Wait for server to become ready (print logs on failure)
         run: |
-          $maxRetries = 45
+          $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
+          $stderrLog = "$env:TEMP\phosphobot_stderr.log"
+          $maxRetries = 10
+          $serverReady = $false
+
           for ($i = 1; $i -le $maxRetries; $i++) {
             try {
               $response = Invoke-WebRequest -Uri "http://localhost:8080/status" -UseBasicParsing -TimeoutSec 2
               if ($response.StatusCode -eq 200) {
                 Write-Host "✅ Server ready in $i seconds"
+                $serverReady = $true
                 break
               }
             } catch {
               Write-Host "⏳ Waiting for server... ($i/$maxRetries)"
             }
             Start-Sleep -Seconds 1
-            if ($i -eq $maxRetries) {
-              Write-Error "❌ Server did not start in time"
-              exit 1
-            }
+          }
+
+          if (-not $serverReady) {
+            Write-Error "❌ Server did not start in time"
+            Write-Host "`n--- STDOUT LOG ---"
+            Get-Content -Path $stdoutLog -ErrorAction SilentlyContinue
+            Write-Host "`n--- STDERR LOG ---"
+            Get-Content -Path $stderrLog -ErrorAction SilentlyContinue
+            exit 1
           }
 
       - name: Run integration tests
