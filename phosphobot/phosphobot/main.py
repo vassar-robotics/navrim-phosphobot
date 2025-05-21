@@ -2,19 +2,30 @@ from loguru import logger
 
 logger.info("Starting phosphobot...")
 
+import sys
+
+print(f"sys.stdout.encoding = {sys.stdout.encoding}")
+
+import io
+
+# Fix encoding issues on Windows
+if sys.platform.startswith("win") and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding="utf-8", errors="replace"
+        )
+        sys.stderr = io.TextIOWrapper(
+            sys.stderr.buffer, encoding="utf-8", errors="replace"
+        )
+    except Exception:
+        pass  # Ignore if already wrapped or in unsupported environment
+
+
 from rich import print
 
 from phosphobot import __version__
 
 _splash_shown = False
-
-import os
-import sys
-
-# Enable UTF-8 mode if possible
-if hasattr(sys, "set_int_max_str_digits"):
-    os.environ["PYTHONUTF8"] = "1"
-    os.environ["PYTHONIOENCODING"] = "utf-8"
 
 
 def print_phospho_splash():
