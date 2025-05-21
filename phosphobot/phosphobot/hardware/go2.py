@@ -9,32 +9,12 @@ from phosphobot.models import RobotConfigStatus
 class UnitreeGo2(BaseMobileRobot):
     name = "unitree-go2"
 
-    def set_motors_positions(
-        self, positions: np.ndarray, enable_gripper: bool = False
-    ) -> None:
-        """
-        Set the motor positions of the robot
-        """
-        raise NotImplementedError
-
-    def get_info_for_dataset(self):
-        """
-        Generate information about the robot useful for the dataset.
-        Return a BaseRobotInfo object. (see models.dataset.BaseRobotInfo)
-        Dict returned is info.json file at initialization
-        """
-        raise NotImplementedError
-
-    def get_observation(self) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Get the observation of the robot.
-        This method should return the observation of the robot.
-        Will be used to build an observation in a Step of an episode.
-        Returns:
-            - state: np.array state of the robot (7D)
-            - joints_position: np.array joints position of the robot
-        """
-        raise NotImplementedError
+    UNITREE_MAC_PREFIXES = [
+        "00:04:4b",  # Jetson Nano (NVIDIA MAC block)
+        "48:b0:2d",  # Jetson Xavier NX (common)
+        "08:7c:be",  # Unitree Go1 confirmed prefix
+        # Add more if you know them
+    ]
 
     def connect(self) -> None:
         """
@@ -52,6 +32,33 @@ class UnitreeGo2(BaseMobileRobot):
         Close the connection to the robot.
 
         This method is called on __del__ to disconnect the robot.
+        """
+        raise NotImplementedError
+
+    def get_observation(self) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Get the observation of the robot.
+        This method should return the observation of the robot.
+        Will be used to build an observation in a Step of an episode.
+        Returns:
+            - state: np.array state of the robot (7D)
+            - joints_position: np.array joints position of the robot
+        """
+        raise NotImplementedError
+
+    def set_motors_positions(
+        self, positions: np.ndarray, enable_gripper: bool = False
+    ) -> None:
+        """
+        Set the motor positions of the robot
+        """
+        raise NotImplementedError
+
+    def get_info_for_dataset(self):
+        """
+        Generate information about the robot useful for the dataset.
+        Return a BaseRobotInfo object. (see models.dataset.BaseRobotInfo)
+        Dict returned is info.json file at initialization
         """
         raise NotImplementedError
 

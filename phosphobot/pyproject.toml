@@ -44,6 +44,7 @@ dependencies = [
     "fastparquet>=2024.11.0",
     "httpx>=0.28.1",
     "go2-webrtc-connect>=0.1.0",
+    "scapy>=2.6.1",
 ]
 
 [dependency-groups]

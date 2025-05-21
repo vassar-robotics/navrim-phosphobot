@@ -5,4 +5,5 @@ from .so100leader import SO100LeaderHardware
 from .sim import simulation_init, simulation_stop
 from .wx250s import WX250SHardware
 from .piper import PiperHardware
+from .go2 import UnitreeGo2
 from . import motors
