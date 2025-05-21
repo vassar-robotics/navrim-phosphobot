@@ -242,7 +242,7 @@ async def stream_logs(log_file: str):
 
     if platform.system() == "Windows":
         return PlainTextResponse(
-            "Streaming logs is not supported on Windows. Please check the console logs directly."
+            "Streaming logs is not supported on Windows. Check the console logs directly."
         )
 
     async def log_generator():
