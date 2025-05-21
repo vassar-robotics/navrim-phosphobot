@@ -281,8 +281,8 @@ class BaseManipulator(BaseRobot):
         self.upper_joint_limits = [info[9] for info in joint_infos]
 
         (
-            self.initial_effector_position,
-            self.initial_effector_orientation_rad,
+            self.initial_position,
+            self.initial_orientation_rad,
         ) = self.forward_kinematics()
 
         self.gripper_initial_angle = p.getJointState(

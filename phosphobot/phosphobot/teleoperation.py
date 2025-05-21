@@ -114,23 +114,20 @@ class TeleopManager:
 
         # Initialize robot if needed
         if isinstance(robot, BaseManipulator):
-            if (
-                robot.initial_effector_position is None
-                or robot.initial_effector_orientation_rad is None
-            ):
+            if robot.initial_position is None or robot.initial_orientation_rad is None:
                 await self.move_init()
 
-        # Convert and execute command
-        (
-            target_pos,
-            target_orient_deg,
-            target_open,
-        ) = control_data.to_robot(robot_name=robot.name)
+            # Convert and execute command
+            (
+                target_pos,
+                target_orient_deg,
+                target_open,
+            ) = control_data.to_robot(robot_name=robot.name)
 
         target_orientation_rad = (
-            np.deg2rad(target_orient_deg) + robot.initial_effector_orientation_rad
+            np.deg2rad(target_orient_deg) + robot.initial_orientation_rad
         )
-        target_position = robot.initial_effector_position + target_pos
+        target_position = robot.initial_position + target_pos
 
         # if robot.is_moving, wait for it to stop
         start_wait_time = time.perf_counter()
@@ -149,7 +146,6 @@ class TeleopManager:
                     robot.move_robot,
                     target_position,
                     target_orientation_rad,
-                    False,  # interpolate_trajectory
                 ),
                 timeout=self.MOVE_TIMEOUT,
             )
@@ -160,8 +156,9 @@ class TeleopManager:
             # skip gripper & counting if move failed
             return False
 
-        robot.control_gripper(open_command=target_open)
-        robot.update_object_gripping_status()
+        if isinstance(robot, BaseManipulator):
+            robot.control_gripper(open_command=target_open)
+            robot.update_object_gripping_status()
 
         self.action_counter += 1
         return True

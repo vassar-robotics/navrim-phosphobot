@@ -23,6 +23,9 @@ class RobotConfigStatus(BaseModel):
 
 class BaseRobot(ABC):
     name: str
+    initial_orientation_rad: np.ndarray = np.zeros(3)
+    initial_position: np.ndarray = np.zeros(3)
+    is_moving: bool = False
 
     @abstractmethod
     def set_motors_positions(
@@ -74,6 +77,19 @@ class BaseRobot(ABC):
         This method is called on __del__ to disconnect the robot.
         """
         raise NotImplementedError("The robot setup method must be implemented.")
+
+    @abstractmethod
+    def move_robot(
+        self,
+        target_position: np.ndarray,  # cartesian np.array
+        target_orientation_rad: np.ndarray | None,  # rad np.array
+        **kwargs,
+    ) -> None:
+        """
+        Move the robot to the target position and orientation.
+        This method should be implemented by the robot class.
+        """
+        raise NotImplementedError("The move_robot method must be implemented.")
 
     @classmethod
     def from_port(cls, port: ListPortInfo, **kwargs) -> Optional["BaseRobot"]:
