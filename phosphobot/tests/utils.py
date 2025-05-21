@@ -1,5 +1,5 @@
 import numpy as np
-from phosphobot.hardware.base import BaseRobot
+from phosphobot.hardware.base import BaseManipulator
 from phosphobot.utils import step_simulation
 
 
@@ -32,7 +32,7 @@ def compare_angles_radian(
 
 
 def move_robot_testing(
-    robot: BaseRobot,
+    robot: BaseManipulator,
     delta_position: np.ndarray,
     delta_orientation_rad: np.ndarray,
     atol_pos=1.1e-2,  # in meters
