@@ -8,14 +8,6 @@ from phosphobot import __version__
 
 _splash_shown = False
 
-import os
-import sys
-
-# Enable UTF-8 mode if possible
-if hasattr(sys, "set_int_max_str_digits"):
-    os.environ["PYTHONUTF8"] = "1"
-    os.environ["PYTHONIOENCODING"] = "utf-8"
-
 
 def print_phospho_splash():
     global _splash_shown
