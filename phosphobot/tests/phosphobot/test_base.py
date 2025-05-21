@@ -66,11 +66,11 @@ def test_forward_kinematics(robot: BaseRobot):
     current_effector_position, current_effector_orientation = robot.forward_kinematics()
 
     assert np.allclose(
-        current_effector_position, robot.initial_effector_position
+        current_effector_position, robot.initial_position
     ), "The position should be the same"
 
     assert np.allclose(
-        current_effector_orientation, robot.initial_effector_orientation_rad
+        current_effector_orientation, robot.initial_orientation_rad
     ), "The orientation should be the same"
 
 
@@ -80,8 +80,8 @@ def test_inverse_kinematics(robot: BaseRobot):
     Assert the function inverse_kinematics returns the correct angles
     """
 
-    position = robot.initial_effector_position
-    orientation = robot.initial_effector_orientation_rad
+    position = robot.initial_position
+    orientation = robot.initial_orientation_rad
 
     q_robot_reference_rad = robot.current_position()
     logger.info(f"q_robot_reference_rad: {q_robot_reference_rad}")

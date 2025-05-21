@@ -170,7 +170,7 @@ async def move_to_absolute_position(
     query.y /= 100
     query.z /= 100
     target_controller_position = np.array([query.x, query.y, query.z])
-    target_position = robot.initial_effector_position + target_controller_position
+    target_position = robot.initial_position + target_controller_position
     position_residual = np.linalg.norm(current_position - target_position)
 
     # angle
@@ -190,7 +190,7 @@ async def move_to_absolute_position(
         target_controller_orientation_rad = np.deg2rad(target_controller_orientation)
 
         target_orientation_rad = (
-            robot.initial_effector_orientation_rad + target_controller_orientation_rad
+            robot.initial_orientation_rad + target_controller_orientation_rad
         )
         use_angles = True
     else:
@@ -281,13 +281,11 @@ async def move_relative(
     # Round to 3 decimals
     current_position = np.round(current_position, 3)
     current_orientation = np.round(current_orientation, 3)
-    target_position = (
-        current_position + delta_position - robot.initial_effector_position
-    )
+    target_position = current_position + delta_position - robot.initial_position
     target_orientation = (
         np.rad2deg(current_orientation)
         + delta_orientation_euler_degrees
-        - np.rad2deg(robot.initial_effector_orientation_rad)
+        - np.rad2deg(robot.initial_orientation_rad)
     )
 
     # Round to 3 decimals
@@ -391,8 +389,8 @@ async def end_effector_read(
     position, orientation, open_status = robot.get_end_effector_state()
     logger.debug(f"End effector state: {position}, {orientation}, {open_status}")
     # Remove the initial position and orientation (used to zero the robot)
-    position = position - robot.initial_effector_position
-    orientation = orientation - robot.initial_effector_orientation_rad
+    position = position - robot.initial_position
+    orientation = orientation - robot.initial_orientation_rad
 
     x, y, z = position
     rx, ry, rz = orientation

@@ -94,8 +94,8 @@ class TeleopManager:
         for robot in self.rcm.robots:
             initial_position, initial_orientation_rad = robot.forward_kinematics()
 
-            robot.initial_effector_position = initial_position
-            robot.initial_effector_orientation_rad = initial_orientation_rad
+            robot.initial_position = initial_position
+            robot.initial_orientation_rad = initial_orientation_rad
 
     async def process_control_data(self, control_data: AppControlData) -> bool:
         """Process control data and return if it was processed"""
