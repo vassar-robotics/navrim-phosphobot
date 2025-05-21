@@ -12,6 +12,15 @@ from phosphobot.utils import get_home_app_path
 DEFAULT_FILE_ENCODING = "utf-8"
 
 
+class RobotConfigStatus(BaseModel):
+    """
+    Contains the configuration of a robot.
+    """
+
+    name: str
+    usb_port: str | None
+
+
 class BaseRobot(ABC):
     name: str
 
@@ -25,9 +34,10 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_info(self) -> "BaseRobotInfo":  # type: ignore
+    def get_info(self):
         """
-        Get information about the robot
+        Get information about the robot.
+        Return a BaseRobotInfo object. (see models.dataset.BaseRobotInfo)
         Dict returned is info.json file at initialization
         """
         raise NotImplementedError
@@ -74,6 +84,12 @@ class BaseRobot(ABC):
             f"For automatic detection of {cls.__name__}, the method from_port must be implemented. Skipping autodetection."
         )
         return None
+
+    def status(self) -> RobotConfigStatus:
+        return RobotConfigStatus(
+            name=self.name,
+            usb_port=getattr(self, "SERIAL_ID", None),
+        )
 
 
 class BaseRobotPIDGains(BaseModel):

@@ -11,7 +11,7 @@ from phosphobot.am.act import ACT, ACTSpawnConfig
 from phosphobot.am.gr00t import Gr00tN1, Gr00tSpawnConfig
 from phosphobot.camera import AllCameras
 from phosphobot.control_signal import AIControlSignal
-from phosphobot.hardware.base import BaseRobot
+from phosphobot.hardware.base import BaseManipulator
 from phosphobot.models import ServerInfoResponse
 from phosphobot.supabase import get_client
 from phosphobot.utils import get_tokens
@@ -103,7 +103,7 @@ class CustomAIControlSignal(AIControlSignal):
 
 
 async def setup_ai_control(
-    robots: List[BaseRobot],
+    robots: List[BaseManipulator],
     all_cameras: AllCameras,
     model_type: Literal["gr00t", "ACT"],
     model_id: str = "PLB/GR00T-N1-lego-pickup-mono-2",

@@ -140,7 +140,9 @@ class RobotConnectionManager:
         for port in self.available_ports:
             serial_num = getattr(port, "serial_number", None)
             # Skip if this port or its serial has already been connected
-            if port.device in connected_devices or (serial_num and serial_num in connected_serials):
+            if port.device in connected_devices or (
+                serial_num and serial_num in connected_serials
+            ):
                 logger.debug(f"Skipping {port.device}: already connected (or alias).")
                 continue
 
@@ -155,14 +157,18 @@ class RobotConnectionManager:
                 ):
                     continue
 
-                logger.debug(f"Trying to connect to {robot_class.name} on {port.device}.")
+                logger.debug(
+                    f"Trying to connect to {robot_class.name} on {port.device}."
+                )
                 try:
                     robot = robot_class.from_port(
                         port,
                         robot_ports_without_power=self.robot_ports_without_power,
                     )
                 except Exception as e:
-                    logger.warning(f"Error connecting to {robot_class.name} on {port.device}: {e}")
+                    logger.warning(
+                        f"Error connecting to {robot_class.name} on {port.device}: {e}"
+                    )
                     continue
 
                 if robot is not None:
@@ -176,7 +182,6 @@ class RobotConnectionManager:
                     self.robot_ports_without_power.discard(port.device)
                     break  # stop trying other classes on this port
 
-
         # Detect CAN-based Agilex Piper robots
         for can_name in self.available_can_ports:
             logger.info(f"Attempting to connect to Agilex Piper on {can_name}")
@@ -187,7 +192,6 @@ class RobotConnectionManager:
 
         if not self._all_robots:
             logger.info("No robot connected.")
-
 
     @property
     def robots(self) -> list[BaseRobot]:

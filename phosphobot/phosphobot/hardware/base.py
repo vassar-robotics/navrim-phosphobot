@@ -1274,17 +1274,6 @@ Falling back to simulation mode.
         if gripper_torque <= self.config.non_gripping_threshold:
             self.is_object_gripped = False
 
-    def status(self) -> RobotConfigStatus | None:
-        # Check robot voltage
-        if not self.is_powered_on():
-            logger.warning("Robot is not powered on.")
-            return None
-
-        return RobotConfigStatus(
-            name=self.name,
-            usb_port=getattr(self, "SERIAL_ID", None),
-        )
-
 
 class BaseMobileRobot(BaseRobot):
     """

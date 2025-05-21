@@ -29,7 +29,7 @@ from phosphobot.am.base import (
 )
 from phosphobot.camera import AllCameras
 from phosphobot.control_signal import AIControlSignal
-from phosphobot.hardware.base import BaseRobot
+from phosphobot.hardware.base import BaseManipulator
 from phosphobot.utils import background_task_log_exceptions, get_hf_token
 
 # Code from: https://github.com/NVIDIA/Isaac-GR00T/blob/main/gr00t/eval/service.py#L111
@@ -614,7 +614,7 @@ class Gr00tN1(ActionModel):
         cls,
         model_id: str,
         all_cameras: AllCameras,
-        robots: list[BaseRobot],
+        robots: list[BaseManipulator],
         cameras_keys_mapping: Dict[str, int] | None = None,
     ) -> Gr00tSpawnConfig:
         """
@@ -686,7 +686,7 @@ class Gr00tN1(ActionModel):
     async def control_loop(
         self,
         control_signal: AIControlSignal,
-        robots: list[BaseRobot],
+        robots: list[BaseManipulator],
         model_spawn_config: Gr00tSpawnConfig,
         all_cameras: AllCameras,
         prompt: str | None = None,

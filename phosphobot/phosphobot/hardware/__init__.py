@@ -1,4 +1,4 @@
-from .base import BaseRobot
+from .base import BaseRobot, BaseManipulator
 from .koch11 import KochHardware
 from .so100 import SO100Hardware
 from .so100leader import SO100LeaderHardware

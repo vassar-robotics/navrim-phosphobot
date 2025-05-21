@@ -11,7 +11,7 @@ from fastapi import WebSocket
 from loguru import logger
 from pydantic import ValidationError
 
-from phosphobot.hardware import BaseRobot
+from phosphobot.hardware import BaseRobot, BaseManipulator
 from phosphobot.models import AppControlData, RobotStatus, UDPServerInformationResponse
 from phosphobot.robot import RobotConnectionManager
 from phosphobot.utils import get_local_network_ip
@@ -113,11 +113,12 @@ class TeleopManager:
             return False
 
         # Initialize robot if needed
-        if (
-            robot.initial_effector_position is None
-            or robot.initial_effector_orientation_rad is None
-        ):
-            await self.move_init()
+        if isinstance(robot, BaseManipulator):
+            if (
+                robot.initial_effector_position is None
+                or robot.initial_effector_orientation_rad is None
+            ):
+                await self.move_init()
 
         # Convert and execute command
         (
@@ -175,15 +176,17 @@ class TeleopManager:
         for source, state in self.states.items():
             robot = self.get_robot(source)
             if robot and (now - state.last_update).total_seconds() > 0.033:
-                if state.gripped != robot.is_object_gripped:
-                    state.gripped = robot.is_object_gripped
-                    updates.append(
-                        RobotStatus(
-                            is_object_gripped=state.gripped,
-                            is_object_gripped_source=source,
-                            nb_actions_received=self.action_counter,
+                if isinstance(robot, BaseManipulator):
+                    if state.gripped != robot.is_object_gripped:
+                        state.gripped = robot.is_object_gripped
+                        updates.append(
+                            RobotStatus(
+                                is_object_gripped=state.gripped,
+                                is_object_gripped_source=source,
+                                nb_actions_received=self.action_counter,
+                            )
                         )
-                    )
+
                 state.last_update = now
 
         # Send periodic action count

@@ -28,20 +28,7 @@ from .dataset import (
     VideoFeatureDetails,
     VideoInfo,
 )
-from .robot import (
-    BaseRobot,
-    BaseRobotConfig,
-    BaseRobotPIDGains,
-)
-
-
-class RobotConfigStatus(BaseModel):
-    """
-    Contains the configuration of a robot.
-    """
-
-    name: str
-    usb_port: str | None
+from .robot import BaseRobot, BaseRobotConfig, BaseRobotPIDGains, RobotConfigStatus
 
 
 class ServerStatus(BaseModel):
