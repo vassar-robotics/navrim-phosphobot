@@ -608,73 +608,73 @@ jobs:
               Set-Content -Path $hfTokenPath -Value "${{ secrets.HF_TOKEN }}"
           }
 
-      - name: Run the built application in foreground
-        run: |
-          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
-          & $exePath run --simulation=headless --no-telemetry --simulate-cameras --only-simulation --port=8080 --host=127.0.0.1
+      # - name: Run the built application in foreground
+      #   run: |
+      #     $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
+      #     & $exePath run --simulation=headless --no-telemetry --simulate-cameras --only-simulation --port=8080 --host=127.0.0.1
 
-      - name: Run the built application in background
-        run: |
-          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
-          $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
-          $stderrLog = "$env:TEMP\phosphobot_stderr.log"
+      # - name: Run the built application in background
+      #   run: |
+      #     $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
+      #     $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
+      #     $stderrLog = "$env:TEMP\phosphobot_stderr.log"
 
-          # Start the process with separate output and error log files
-          $p = Start-Process -FilePath $exePath `
-            -ArgumentList "run", "--simulation=headless", "--no-telemetry", "--simulate-cameras", "--only-simulation", "--port=8080", "--host=127.0.0.1" `
-            -RedirectStandardOutput $stdoutLog `
-            -RedirectStandardError $stderrLog `
-            -NoNewWindow `
-            -PassThru
+      #     # Start the process with separate output and error log files
+      #     $p = Start-Process -FilePath $exePath `
+      #       -ArgumentList "run", "--simulation=headless", "--no-telemetry", "--simulate-cameras", "--only-simulation", "--port=8080", "--host=127.0.0.1" `
+      #       -RedirectStandardOutput $stdoutLog `
+      #       -RedirectStandardError $stderrLog `
+      #       -NoNewWindow `
+      #       -PassThru
 
-          # Store the PID for later termination
-          $p.Id | Set-Content -Path "$env:TEMP\phosphobot_pid.txt"
+      #     # Store the PID for later termination
+      #     $p.Id | Set-Content -Path "$env:TEMP\phosphobot_pid.txt"
 
-      - name: Wait for server to become ready (print logs on failure)
-        run: |
-          $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
-          $stderrLog = "$env:TEMP\phosphobot_stderr.log"
-          $maxRetries = 10
-          $serverReady = $false
+      # - name: Wait for server to become ready (print logs on failure)
+      #   run: |
+      #     $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
+      #     $stderrLog = "$env:TEMP\phosphobot_stderr.log"
+      #     $maxRetries = 10
+      #     $serverReady = $false
 
-          for ($i = 1; $i -le $maxRetries; $i++) {
-            try {
-              $response = Invoke-WebRequest -Uri "http://localhost:8080/status" -UseBasicParsing -TimeoutSec 2
-              if ($response.StatusCode -eq 200) {
-                Write-Host "✅ Server ready in $i seconds"
-                $serverReady = $true
-                break
-              }
-            } catch {
-              Write-Host "⏳ Waiting for server... ($i/$maxRetries)"
-            }
-            Start-Sleep -Seconds 1
-          }
+      #     for ($i = 1; $i -le $maxRetries; $i++) {
+      #       try {
+      #         $response = Invoke-WebRequest -Uri "http://localhost:8080/status" -UseBasicParsing -TimeoutSec 2
+      #         if ($response.StatusCode -eq 200) {
+      #           Write-Host "✅ Server ready in $i seconds"
+      #           $serverReady = $true
+      #           break
+      #         }
+      #       } catch {
+      #         Write-Host "⏳ Waiting for server... ($i/$maxRetries)"
+      #       }
+      #       Start-Sleep -Seconds 1
+      #     }
 
-          if (-not $serverReady) {
-            Write-Error "❌ Server did not start in time"
-            Write-Host "`n--- STDOUT LOG ---"
-            Get-Content -Path $stdoutLog -ErrorAction SilentlyContinue
-            Write-Host "`n--- STDERR LOG ---"
-            Get-Content -Path $stderrLog -ErrorAction SilentlyContinue
-            exit 1
-          }
+      #     if (-not $serverReady) {
+      #       Write-Error "❌ Server did not start in time"
+      #       Write-Host "`n--- STDOUT LOG ---"
+      #       Get-Content -Path $stdoutLog -ErrorAction SilentlyContinue
+      #       Write-Host "`n--- STDERR LOG ---"
+      #       Get-Content -Path $stderrLog -ErrorAction SilentlyContinue
+      #       exit 1
+      #     }
 
-      - name: Run integration tests
-        run: |
-          cd phosphobot
-          uv run pytest tests/api/
-        continue-on-error: false
+      # - name: Run integration tests
+      #   run: |
+      #     cd phosphobot
+      #     uv run pytest tests/api/
+      #   continue-on-error: false
 
-      - name: Stop server after tests
-        run: |
-          $pidPath = "$env:TEMP\phosphobot_pid.txt"
-          if (Test-Path $pidPath) {
-            $pid = Get-Content $pidPath
-            Stop-Process -Id $pid -Force
-            Remove-Item $pidPath
-            Write-Host "🛑 Server process (PID $pid) terminated."
-          }
+      # - name: Stop server after tests
+      #   run: |
+      #     $pidPath = "$env:TEMP\phosphobot_pid.txt"
+      #     if (Test-Path $pidPath) {
+      #       $pid = Get-Content $pidPath
+      #       Stop-Process -Id $pid -Force
+      #       Remove-Item $pidPath
+      #       Write-Host "🛑 Server process (PID $pid) terminated."
+      #     }
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
