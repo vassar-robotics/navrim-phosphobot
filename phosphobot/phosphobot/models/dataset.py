@@ -1222,6 +1222,9 @@ class Dataset:
                     df["episode_index"] = df["episode_index"].replace(
                         old_index_to_new_index
                     )
+                    logger.debug(
+                        f"Updating episode index in {new_filename}: {df['episode_index']}"
+                    )
                     # Replace the global index (total number of steps in the dataset)
                     # First, make it from zero to the total number of rows
                     df["index"] = np.arange(len(df))
@@ -3494,3 +3497,44 @@ class EpisodesModel(BaseModel):
 
         # Save the episodes.jsonl file
         self.to_jsonl(meta_folder_path=meta_folder_to_save_to, save_mode="overwrite")
+
+    @classmethod
+    def repair_parquets(self, parquets_path: str) -> bool:
+        """
+        This function will attempt to correct the parquet files in the dataset.
+        It will:
+        - Check if the parquets are correctly indexed
+        - Rewrite all episode_index, frame index and index
+        """
+        # Check if the parquets exist
+        if not os.path.exists(parquets_path):
+            logger.warning(f"Parquet path {parquets_path} does not exist.")
+            return False
+        # Fetch all the parquet files
+        parquet_files = os.listdir(parquets_path)
+        parquet_files = [file for file in parquet_files if file.endswith(".parquet")]
+        parquet_files.sort()
+        # Check if the files are correctly indexed
+        for i, file in enumerate(parquet_files):
+            # Check if the file is correctly indexed
+            if f"episode_{i:06d}.parquet" not in file:
+                logger.warning(
+                    f"Parquet file {file} is not correctly indexed. Expected episode_{i:06d}.parquet"
+                )
+                return False
+
+        logger.info("Parquet files are correctly indexed. Will attempt to repair them.")
+        cumulative_index = 0
+        for i, file in enumerate(parquet_files):
+            # Read the parquet file
+            df = pd.read_parquet(os.path.join(parquets_path, file))
+            # Check if the episode_index is correct
+            df["episode_index"] = i
+            df["frame_index"] = np.arange(len(df))
+            df["index"] = np.arange(len(df)) + cumulative_index
+            cumulative_index += len(df)
+            # Save the parquet file
+            df.to_parquet(os.path.join(parquets_path, file), index=False)
+            logger.info(f"Parquet file {file} repaired.")
+
+        return True

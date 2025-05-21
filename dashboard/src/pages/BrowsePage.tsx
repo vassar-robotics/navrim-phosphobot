@@ -62,6 +62,7 @@ import {
   Plus,
   Repeat,
   Trash2,
+  Wrench,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { redirect, useParams, useSearchParams } from "react-router-dom";
@@ -306,6 +307,7 @@ export default function FileBrowser() {
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [openDownloadModal, setOpenDownloadModal] = useState(false);
   const [hfDatasetName, setHFDatasetName] = useState("");
+  const [confirmRepairOpen, setConfirmRepairOpen] = useState(false);
 
   // Loading state for episode deletion
   const [loadingDeleteEpisode, setLoadingDeleteEpisode] = useState(false);
@@ -451,6 +453,28 @@ export default function FileBrowser() {
       }
     });
     setMergeModalOpen(false);
+  };
+
+  const handleRepairDataset = async () => {
+    if (selectedItems.length === 0) {
+      toast.error("No datasets selected for repair");
+      return;
+    }
+    const repairPromises = selectedItems.map(async (item) => {
+      console.log("Repairing dataset:", item);
+      const resp = await fetchWithBaseUrl(`/dataset/repair`, "POST", {
+        dataset_path: item,
+      });
+      if (resp.status !== "ok") {
+        toast.error(`Failed to repair dataset: ${item}`);
+        return;
+      }
+      toast.success(`Dataset repaired successfully: ${item}`);
+    });
+    await Promise.all(repairPromises);
+    setConfirmRepairOpen(false);
+    setSelectedItems([]);
+    mutate();
   };
 
   const handleDeleteEpisode = async () => {
@@ -760,6 +784,22 @@ export default function FileBrowser() {
               <Trash2 className="mr-2 h-4 w-3" />
               Delete Selected Datasets
             </Button>
+            <Button
+              className="mb-4 mt-6 ml-2"
+              variant="outline"
+              onClick={() => setConfirmRepairOpen(true)}
+            >
+              <Wrench className="mr-2 h-4 w-3" />
+              Repair Selected Datasets
+            </Button>
+            <Button
+              className="mb-4 mt-6 ml-2"
+              variant="destructive"
+              onClick={() => setConfirmDeleteOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-3" />
+              Delete Selected Datasets
+            </Button>
           </div>
         )}
 
@@ -899,6 +939,40 @@ export default function FileBrowser() {
               }}
             >
               Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dataset repair dialog */}
+      <Dialog open={confirmRepairOpen} onOpenChange={setConfirmRepairOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Repair Dataset</DialogTitle>
+            <DialogDescription>
+              This will attempt to repair the selected datasets:
+              <br />
+              {selectedItems.length > 0
+                ? selectedItems.map((item) => (
+                    <span key={item}>
+                      <strong>{item}</strong>
+                      <br />
+                    </span>
+                  ))
+                : null}
+              For now, this will only recalculate the parquets files, not the
+              meta data.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmRepairOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => handleRepairDataset()}>
+              Repair
             </Button>
           </DialogFooter>
         </DialogContent>
