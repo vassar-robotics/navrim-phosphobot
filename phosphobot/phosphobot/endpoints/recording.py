@@ -235,7 +235,7 @@ async def play_recording(
     elif query.dataset_name is not None and query.episode_id is None:
         # Load the latest episode
         dataset_path = os.path.join(
-            get_home_app_path(), "recordings", "lerobot_v2", query.dataset_name
+            get_home_app_path(), "recordings", query.dataset_name
         )
         dataset = Dataset(path=dataset_path)
         if len(dataset.episodes) == 0:

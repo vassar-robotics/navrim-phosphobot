@@ -1,5 +1,4 @@
 import os
-import pty
 import time
 import asyncio
 
@@ -164,6 +163,8 @@ async def start_custom_training(
     request: CustomTrainingRequest,
     background_tasks: BackgroundTasks,
 ) -> StatusResponse | HTTPException:
+    import pty
+
     # 1) Prepare log file
     log_file_name = f"training_{int(time.time())}.log"
     log_file_path = os.path.join(get_home_app_path(), "logs", log_file_name)
