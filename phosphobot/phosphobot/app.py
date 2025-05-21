@@ -1,4 +1,3 @@
-import asyncio
 import platform
 import socket
 from contextlib import asynccontextmanager
