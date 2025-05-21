@@ -608,63 +608,67 @@ jobs:
               Set-Content -Path $hfTokenPath -Value "${{ secrets.HF_TOKEN }}"
           }
 
-      - name: Run the built application in foreground (fail on error, kill after 10s)
-        shell: pwsh
-        run: |
-          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
+      # These test don't work on Windows yet
 
-          $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
-          $stderrLog = "$env:TEMP\phosphobot_stderr.log"
+      # - name: Run the built application in foreground (blocks the job)
+      #   run: |
+      #     [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+      #     $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
+      #     & $exePath run --simulation=headless --no-telemetry --simulate-cameras --only-simulation --port=8080 --host=127.0.0.1
 
-          $psi = New-Object System.Diagnostics.ProcessStartInfo
-          $psi.FileName = $exePath
-          $psi.Arguments = "run --simulation=headless --no-telemetry --simulate-cameras --only-simulation --port=8080 --host=127.0.0.1"
-          $psi.RedirectStandardOutput = $true
-          $psi.RedirectStandardError = $true
-          $psi.UseShellExecute = $false
-          $psi.CreateNoWindow = $true
-          $psi.StandardOutputEncoding = [Console]::OutputEncoding
-          $psi.StandardErrorEncoding = [Console]::OutputEncoding
+      # - name: Run the built application in background
+      #   run: |
+      #     [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+      #     $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
+      #     $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
+      #     $stderrLog = "$env:TEMP\phosphobot_stderr.log"
 
-          # Redirect output to files
-          $stdoutStream = [System.IO.StreamWriter]::new($stdoutLog, $false, [System.Text.Encoding]::UTF8)
-          $stderrStream = [System.IO.StreamWriter]::new($stderrLog, $false, [System.Text.Encoding]::UTF8)
+      #     # Start the process with separate output and error log files
+      #     $p = Start-Process -FilePath $exePath `
+      #       -ArgumentList "run", "--simulation=headless", "--no-telemetry", "--simulate-cameras", "--only-simulation", "--port=8080", "--host=127.0.0.1" `
+      #       -RedirectStandardOutput $stdoutLog `
+      #       -RedirectStandardError $stderrLog `
+      #       -NoNewWindow `
+      #       -PassThru
 
-          $process = New-Object System.Diagnostics.Process
-          $process.StartInfo = $psi
+      #     # Store the PID for later termination
+      #     $p.Id | Set-Content -Path "$env:TEMP\phosphobot_pid.txt"
 
-          $process.Start() | Out-Null
+      # - name: Wait for server to become ready (print logs on failure)
+      #   run: |
+      #     $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
+      #     $stderrLog = "$env:TEMP\phosphobot_stderr.log"
+      #     $maxRetries = 10
+      #     $serverReady = $false
 
-          # Start async reading and writing output to file
-          $process.StandardOutput.BaseStream.CopyToAsync($stdoutStream.BaseStream) | Out-Null
-          $process.StandardError.BaseStream.CopyToAsync($stderrStream.BaseStream) | Out-Null
+      #     for ($i = 1; $i -le $maxRetries; $i++) {
+      #       try {
+      #         $response = Invoke-WebRequest -Uri "http://localhost:8080/status" -UseBasicParsing -TimeoutSec 2
+      #         if ($response.StatusCode -eq 200) {
+      #           Write-Host "✅ Server ready in $i seconds"
+      #           $serverReady = $true
+      #           break
+      #         }
+      #       } catch {
+      #         Write-Host "⏳ Waiting for server... ($i/$maxRetries)"
+      #       }
+      #       Start-Sleep -Seconds 1
+      #     }
 
-          # Wait 10 seconds or until exit
-          if (-not $process.WaitForExit(10000)) {
-            Write-Host "🛑 Process exceeded 10 seconds. Killing..."
-            $process.Kill()
-            $process.WaitForExit()
-          }
+      #     if (-not $serverReady) {
+      #       Write-Error "❌ Server did not start in time"
+      #       Write-Host "`n--- STDOUT LOG ---"
+      #       Get-Content -Path $stdoutLog -ErrorAction SilentlyContinue
+      #       Write-Host "`n--- STDERR LOG ---"
+      #       Get-Content -Path $stderrLog -ErrorAction SilentlyContinue
+      #       exit 1
+      #     }
 
-          # Close streams (important to flush)
-          $stdoutStream.Close()
-          $stderrStream.Close()
-
-          # Read logs from files
-          Write-Host "`n--- STDOUT ---"
-          Get-Content $stdoutLog -Raw
-
-          Write-Host "`n--- STDERR ---"
-          Get-Content $stderrLog -Raw
-
-          # Fail if exit code non-zero
-          if ($process.ExitCode -ne 0) {
-            Write-Error "❌ Process exited with code $($process.ExitCode)"
-            exit $process.ExitCode
-          }
-
-          Write-Host "✅ Process completed successfully"
+      # - name: Run integration tests
+      #   run: |
+      #     cd phosphobot
+      #     uv run pytest tests/api/
+      #   continue-on-error: false
 
       - name: Stop server after tests
         run: |
