@@ -390,6 +390,18 @@ class ServerInfoResponse(BaseModel):
     timeout: int
 
 
+class HFDownloadDatasetRequest(BaseModel):
+    dataset_name: str
+
+
+class DatasetRepairRequest(BaseModel):
+    dataset_path: str = Field(
+        ...,
+        description="Path to the dataset to repair",
+        examples=["/lerobot_v2.1/example_dataset"],
+    )
+
+
 class SpawnStatusResponse(StatusResponse):
     """
     Response to spawn a server.
