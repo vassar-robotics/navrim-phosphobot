@@ -142,7 +142,7 @@ class TeleopManager:
             await asyncio.wait_for(
                 loop.run_in_executor(
                     None,
-                    robot.move_robot,
+                    robot.move_robot_absolute,
                     target_position,
                     target_orientation_rad,
                 ),

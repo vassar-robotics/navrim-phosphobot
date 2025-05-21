@@ -198,19 +198,19 @@ def test_routine(robot: BaseManipulator):
     start_position, start_orientation = robot.forward_kinematics()
 
     successive_movements: list[np.ndarray] = [
-        np.array([0, 0, -0.01]),
+        np.array([0, 0, 0.0]),
         np.array([-0.01, 0, 0]),
         np.array([0, 0.01, 0]),
         np.array([0, -0.02, 0]),
         np.array([0, 0.01, 0]),
         np.array([0.01, 0, 0]),
-        np.array([0, 0, 0.01]),
+        np.array([0, 0, 0.0]),
     ]
 
     for movement in successive_movements:
-        robot.relative_move_robot(
-            delta_position=movement,
-            delta_orientation_euler_rad=np.array([0, 0, 0]),
+        robot.move_robot_absolute(
+            target_position=movement,
+            target_orientation_rad=np.array([0, 0, 0]),
         )
         step_simulation()
 

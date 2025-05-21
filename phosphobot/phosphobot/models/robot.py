@@ -47,17 +47,6 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def forward_kinematics(self) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Get the forward kinematics of the robot.
-        This method should return the position and orientation of the end effector.
-        Returns:
-            - position: np.array position of the end effector (3D)
-            - orientation: np.array Euler orientation of the end effector in radians
-        """
-        raise NotImplementedError
-
-    @abstractmethod
     def get_observation(self) -> tuple[np.ndarray, np.ndarray]:
         """
         Get the observation of the robot.
@@ -91,7 +80,7 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def move_robot(
+    def move_robot_absolute(
         self,
         target_position: np.ndarray,  # cartesian np.array
         target_orientation_rad: np.ndarray | None,  # rad np.array
@@ -101,7 +90,7 @@ class BaseRobot(ABC):
         Move the robot to the target position and orientation.
         This method should be implemented by the robot class.
         """
-        raise NotImplementedError("The move_robot method must be implemented.")
+        raise NotImplementedError
 
     @classmethod
     def from_port(cls, port: ListPortInfo, **kwargs) -> Optional["BaseRobot"]:

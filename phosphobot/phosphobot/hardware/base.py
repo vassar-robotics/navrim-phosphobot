@@ -839,7 +839,7 @@ Falling back to simulation mode.
         )
         self.update_object_gripping_status()
 
-    def move_robot(
+    def move_robot_absolute(
         self,
         target_position: np.ndarray,  # cartesian np.array
         target_orientation_rad: np.ndarray | None,  # rad np.array
@@ -907,35 +907,6 @@ Falling back to simulation mode.
 
         # reset gripping status when going to init position
         self.update_object_gripping_status()
-
-    def relative_move_robot(
-        self,
-        delta_position: np.ndarray,
-        delta_orientation_euler_rad: Optional[np.ndarray] = None,
-    ):
-        """We use the output of the OpenVLA model to move the robot in the simulation.
-        The orientation output of Openvla is (roll, pitch, yaw) in radians.
-
-        If the orientation is not provided, we assume it's zero.
-        """
-
-        if delta_orientation_euler_rad is None:
-            delta_orientation_euler_rad = np.zeros(3)
-
-        (
-            current_effector_position,
-            current_effector_orientation_euler,
-        ) = self.forward_kinematics()
-
-        # The Forward -> Inverse kinematics process is not idempotent
-        # We want to diminish its effect by limiting the calculations if the delta is small
-
-        target_position = current_effector_position + delta_position
-        target_orientation_radian = (
-            current_effector_orientation_euler + delta_orientation_euler_rad
-        )
-
-        return self.move_robot(target_position, target_orientation_radian)
 
     def set_simulation_positions(self, joints: np.ndarray) -> None:
         """

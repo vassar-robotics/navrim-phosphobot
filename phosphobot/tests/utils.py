@@ -54,7 +54,7 @@ def move_robot_testing(
     theoretical_position = start_position + delta_position
     theoretical_rotation = start_orientation + delta_orientation_rad
 
-    robot.move_robot(
+    robot.move_robot_absolute(
         target_position=theoretical_position,
         target_orientation_rad=theoretical_rotation,
     )
