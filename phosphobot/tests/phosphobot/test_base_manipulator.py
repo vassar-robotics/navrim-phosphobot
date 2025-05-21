@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from phosphobot.configs import config
 from phosphobot.types import SimulationMode
 from phosphobot.hardware import KochHardware, SO100Hardware, simulation_init
-from phosphobot.hardware.base import BaseRobot
+from phosphobot.hardware.base import BaseManipulator
 
 
 # Create robot pytest fixture
@@ -57,7 +57,7 @@ def so100():
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_forward_kinematics(robot: BaseRobot):
+def test_forward_kinematics(robot: BaseManipulator):
     """
     Assert the function forward_kinematics returns the correct position
     """
@@ -75,7 +75,7 @@ def test_forward_kinematics(robot: BaseRobot):
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_inverse_kinematics(robot: BaseRobot):
+def test_inverse_kinematics(robot: BaseManipulator):
     """
     Assert the function inverse_kinematics returns the correct angles
     """
@@ -95,7 +95,7 @@ def test_inverse_kinematics(robot: BaseRobot):
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_forward_inverse_kinematics(robot: BaseRobot):
+def test_forward_inverse_kinematics(robot: BaseManipulator):
     """
     Assert the functions forward kinematics is the inverse of inverse kinematics
     """
@@ -116,7 +116,7 @@ def test_forward_inverse_kinematics(robot: BaseRobot):
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_initial_position(robot: BaseRobot):
+def test_initial_position(robot: BaseManipulator):
     current_joint_positions = robot.current_position()
 
     assert np.allclose(
@@ -126,22 +126,22 @@ def test_initial_position(robot: BaseRobot):
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_no_move(robot: BaseRobot):
+def test_move_robot_no_move(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0, 0]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_forward(robot: BaseRobot):
+def test_move_robot_forward(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0.015, 0, 0]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_backward(robot: BaseRobot):
+def test_move_robot_backward(robot: BaseManipulator):
     move_robot_testing(robot, np.array([-0.02, 0, 0]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_right(robot: BaseRobot):
+def test_move_robot_right(robot: BaseManipulator):
     """
     The SO100 robot can't move right without rotation its basis on the Z axis.
     """
@@ -156,39 +156,39 @@ def test_move_robot_right(robot: BaseRobot):
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_left(robot: BaseRobot):
+def test_move_robot_left(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0.01, 0]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_up(robot: BaseRobot):
+def test_move_robot_up(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0, 0.02]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_down(robot: BaseRobot):
+def test_move_robot_down(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0, -0.02]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_rotate_robot_x(robot: BaseRobot):
+def test_rotate_robot_x(robot: BaseManipulator):
     move_robot_testing(
         robot, np.array([0, 0, 0]), np.array([0.1, 0, 0]), atol_pos=1.5e-2
     )
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_rotate_robot_y(robot: BaseRobot):
+def test_rotate_robot_y(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0, 0]), np.array([0, 0.1, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_rotate_robot_z(robot: BaseRobot):
+def test_rotate_robot_z(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0, 0]), np.array([0, 0, 0.1]), atol_pos=2e-2)
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_routine(robot: BaseRobot):
+def test_routine(robot: BaseManipulator):
     robot.set_simulation_positions(np.zeros(6))
 
     # This steps the simulation to update the robot's position
