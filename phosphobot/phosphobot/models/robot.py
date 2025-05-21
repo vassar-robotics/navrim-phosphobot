@@ -25,6 +25,7 @@ class BaseRobot(ABC):
     name: str
     initial_orientation_rad: np.ndarray = np.zeros(3)
     initial_position: np.ndarray = np.zeros(3)
+    is_connected: bool = False
     is_moving: bool = False
 
     @abstractmethod
@@ -37,11 +38,22 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_info(self):
+    def get_info_for_dataset(self):
         """
-        Get information about the robot.
+        Generate information about the robot useful for the dataset.
         Return a BaseRobotInfo object. (see models.dataset.BaseRobotInfo)
         Dict returned is info.json file at initialization
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def forward_kinematics(self) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Get the forward kinematics of the robot.
+        This method should return the position and orientation of the end effector.
+        Returns:
+            - position: np.array position of the end effector (3D)
+            - orientation: np.array Euler orientation of the end effector in radians
         """
         raise NotImplementedError
 
@@ -67,7 +79,7 @@ class BaseRobot(ABC):
         raise: Exception if the setup fails. For example, if the robot is not plugged in.
             This Exception will be caught by the __init__ method.
         """
-        raise NotImplementedError("The robot setup method must be implemented.")
+        raise NotImplementedError
 
     @abstractmethod
     def disconnect(self) -> None:
@@ -76,7 +88,7 @@ class BaseRobot(ABC):
 
         This method is called on __del__ to disconnect the robot.
         """
-        raise NotImplementedError("The robot setup method must be implemented.")
+        raise NotImplementedError
 
     @abstractmethod
     def move_robot(
@@ -96,7 +108,7 @@ class BaseRobot(ABC):
         """
         Return the robot class from the port information.
         """
-        logger.error(
+        logger.warning(
             f"For automatic detection of {cls.__name__}, the method from_port must be implemented. Skipping autodetection."
         )
         return None
@@ -106,6 +118,24 @@ class BaseRobot(ABC):
             name=self.name,
             usb_port=getattr(self, "SERIAL_ID", None),
         )
+
+    @abstractmethod
+    async def move_to_initial_position(self) -> None:
+        """
+        Move the robot to its initial position.
+        The initial position is a safe position for the robot, where it is moved before starting the calibration.
+        This method should be implemented by the robot class.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def move_to_sleep(self) -> None:
+        """
+        Move the robot to its sleep position.
+        The sleep position is a safe position for the robot, where it is moved before disabling the motors.
+        This method should be implemented by the robot class.
+        """
+        raise NotImplementedError
 
 
 class BaseRobotPIDGains(BaseModel):

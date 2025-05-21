@@ -398,10 +398,10 @@ class ACT(ActionModel):
                 raise Exception("No robot connected. Exiting AI control loop.")
 
             # Concatenate all robot states
-            state = robots[0].current_position(unit="rad")
+            state = robots[0].read_joints_position(unit="rad")
             for robot in robots[1:]:
                 state = np.concatenate(
-                    (state, robot.current_position(unit="rad")), axis=0
+                    (state, robot.read_joints_position(unit="rad")), axis=0
                 )
 
             inputs = {

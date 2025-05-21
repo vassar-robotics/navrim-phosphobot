@@ -395,7 +395,7 @@ class SO100Hardware(BaseManipulator):
             start_time = time.time()
 
             # Get leader's current joint positions
-            pos_rad = self.current_position(unit="rad")
+            pos_rad = self.read_joints_position(unit="rad")
 
             # Update PyBullet simulation for gravity calculation
             for i, idx in enumerate(joint_indices):

@@ -2670,10 +2670,10 @@ class InfoModel(BaseModel):
         From a robot configuration, create the appropriate InfoModel.
         This is because it depends on the number of joints etc.
         """
-        robot_info = robots[0].get_info()
+        robot_info = robots[0].get_info_for_dataset()
         if len(robots) > 1:
             for robot in robots[1:]:
-                new_info = robot.get_info()
+                new_info = robot.get_info_for_dataset()
                 robot_info = robot_info.merge_base_robot_info(new_info)
 
         features = InfoFeatures(

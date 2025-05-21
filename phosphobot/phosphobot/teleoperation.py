@@ -82,8 +82,7 @@ class TeleopManager:
             # For Agilex Piper, we need to connect after enabling torque
             if robot.name == "agilex-piper":
                 robot.connect()
-            zero_position = np.zeros(len(robot.SERVO_IDS))
-            robot.set_motors_positions(zero_position)
+            await robot.move_to_initial_position()
 
         # Hard block the code to wait for the robot to reach the initial position
         if any(robot.name == "agilex-piper" for robot in self.rcm.robots):

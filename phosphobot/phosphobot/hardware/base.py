@@ -5,6 +5,7 @@ import asyncio
 from abc import abstractmethod
 from typing import List, Literal, Optional, Union
 
+from fastapi import HTTPException
 import numpy as np
 import pybullet as p  # type: ignore
 from loguru import logger
@@ -397,9 +398,16 @@ Falling back to simulation mode.
 
         return current_gripper_torque
 
-    async def move_to_sleep(self, disconnect: bool = True):
+    async def move_to_initial_position(self):
         """
-        Cleanup the robot. This method is called on exit.
+        Move the robot to its initial position.
+        """
+        zero_position = np.zeros(len(self.SERVO_IDS))
+        self.set_motors_positions(zero_position)
+
+    async def move_to_sleep(self):
+        """
+        Move the robot to its sleep position and disable torque.
         """
         if self.is_connected:
             if self.SLEEP_POSITION:
@@ -412,8 +420,6 @@ Falling back to simulation mode.
             await asyncio.sleep(0.7)
             self.disable_torque()
             await asyncio.sleep(0.1)
-            if disconnect:
-                self.disconnect()
 
     def move_to_sleep_sync(self):
         asyncio.run(self.move_to_sleep())
@@ -428,7 +434,7 @@ Falling back to simulation mode.
             * ((2 * np.pi) / (self.RESOLUTION - 1))
         )
 
-    def _radians_vec_to_units(self, radians: np.ndarray) -> np.ndarray:
+    def _radians_vec_to_motor_units(self, radians: np.ndarray) -> np.ndarray:
         """
         Convert from radians to motor discrete units (0 -> RESOLUTION)
 
@@ -442,7 +448,7 @@ Falling back to simulation mode.
         ) + self.config.servos_offsets[: len(radians)]
         return x.astype(int)
 
-    def _radians_motor_to_units(self, radians: float, servo_id: int) -> int:
+    def _radians_to_motor_units(self, radians: float, servo_id: int) -> int:
         """
         Convert a single q position from radians to motor discrete units (0 -> RESOLUTION)
 
@@ -552,7 +558,9 @@ Falling back to simulation mode.
 
         # Move the robot in simulation to the position of the motors to correct for desync
         if self.is_connected and sync_robot_pos:
-            current_motor_positions = self.current_position(unit="rad", source="robot")
+            current_motor_positions = self.read_joints_position(
+                unit="rad", source="robot"
+            )
             p.setJointMotorControlArray(
                 bodyIndex=self.p_robot_id,
                 jointIndices=self.actuated_joints,
@@ -592,10 +600,11 @@ Falling back to simulation mode.
         effector_position, effector_orientation_rad = self.forward_kinematics()
         return effector_position, effector_orientation_rad, self.closing_gripper_value
 
-    def current_position(
+    def read_joints_position(
         self,
         unit: Literal["rad", "motor_units", "degrees"] = "rad",
         source: Literal["sim", "robot"] = "robot",
+        joints_ids: Optional[List[int]] = None,
     ) -> np.ndarray:
         """
         Read the current angles q of the joints of the robot.
@@ -614,9 +623,15 @@ Falling back to simulation mode.
 
         if source == "robot" and self.is_connected and not self.is_moving:
             # Check if the method was implemented in the child class
-            current_position = np.zeros(len(self.SERVO_IDS))
+            if joints_ids is None:
+                joints_ids = self.SERVO_IDS
+
+            current_position = np.zeros(len(joints_ids))
+
             if (
-                self.read_group_motor_position.__qualname__
+                # if we want to read all the motors at once
+                joints_ids == self.SERVO_IDS
+                and self.read_group_motor_position.__qualname__
                 != BaseManipulator.read_group_motor_position.__qualname__
             ):
                 # Read all the motors at once
@@ -625,7 +640,7 @@ Falling back to simulation mode.
                     logger.warning("Position contains None value")
             else:
                 # Read present position for each motor
-                for i, servo_id in enumerate(self.SERVO_IDS):
+                for i, servo_id in enumerate(joints_ids):
                     joint_position = self.read_motor_position(servo_id)
                     if joint_position is not None:
                         current_position[i] = joint_position
@@ -636,8 +651,12 @@ Falling back to simulation mode.
         else:
             # If the robot is not connected, we use the pybullet simulation
             # Retrieve joint angles using getJointStates
-            current_position_rad = np.zeros(self.num_actuated_joints)
-            for idx, joint_id in enumerate(self.actuated_joints):
+            if joints_ids is None:
+                joints_ids = list(range(self.num_actuated_joints))
+
+            current_position_rad = np.zeros(len(joints_ids))
+
+            for idx, joint_id in enumerate(joints_ids):
                 joint_state = p.getJointState(
                     bodyUniqueId=self.p_robot_id,
                     jointIndex=joint_id,
@@ -653,7 +672,7 @@ Falling back to simulation mode.
         elif unit == "motor_units":
             if source_unit == "rad":
                 # Convert from radians to motor units
-                output_position = self._radians_vec_to_units(output_position)
+                output_position = self._radians_vec_to_motor_units(output_position)
         elif unit == "degrees":
             if source_unit == "motor_units":
                 # Convert from motor units to radians
@@ -684,7 +703,7 @@ Falling back to simulation mode.
         q_target_rad is in radians.
         """
         if self.is_connected:
-            q_target = self._radians_vec_to_units(q_target_rad)
+            q_target = self._radians_vec_to_motor_units(q_target_rad)
             if (
                 self.write_group_motor_position.__qualname__
                 != BaseManipulator.write_group_motor_position.__qualname__
@@ -745,24 +764,60 @@ Falling back to simulation mode.
         return command
 
     def write_joint_positions(
-        self, angles: List[float], unit: Literal["rad", "motor_units", "degrees"]
+        self,
+        angles: List[float],
+        unit: Literal["rad", "motor_units", "degrees"],
+        joints_ids: Optional[List[int]] = None,
     ) -> None:
         """
         Move the robot's joints to the specified angles.
         """
-        if len(angles) != self.num_actuated_joints:
-            raise ValueError(
-                f"Number of joints {len(angles)} does not match the robot: {self.num_actuated_joints}"
-            )
 
-        # Convert to np
-        np_angles = np.array(angles)
+        # Convert to np and radians
+        np_angles_rad = np.array(angles)
         if unit == "deg":
-            np_angles = np.deg2rad(np_angles)
-        if unit == "motor_units":
-            np_angles = self._units_vec_to_radians(np_angles)
+            np_angles_rad = np.deg2rad(np_angles_rad)
+        elif unit == "motor_units":
+            np_angles_rad = self._units_vec_to_radians(np_angles_rad)
 
-        self.set_motors_positions(q_target_rad=np_angles, enable_gripper=True)
+        if joints_ids is None:
+            if len(np_angles_rad) == len(self.SERVO_IDS):
+                # If the number of angles is equal to the number of motors, we set the angles
+                # to the motors
+                self.set_motors_positions(
+                    q_target_rad=np_angles_rad, enable_gripper=True
+                )
+                return
+            else:
+                # Iterate over the angles and set the corresponding joint positions
+                for i, angle in enumerate(np_angles_rad):
+                    if i < len(self.SERVO_IDS):
+                        motor_units = self._radians_to_motor_units(
+                            angle, servo_id=self.SERVO_IDS[i]
+                        )
+                        self.write_motor_position(
+                            servo_id=self.SERVO_IDS[i], units=motor_units
+                        )
+                    else:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Joint ID {i} is out of range for the robot.",
+                        )
+
+        else:
+            # If we have joint ids, we get the current joint positions and edit the specified joints
+            current_joint_positions = self.read_joints_position(unit=unit)
+            for i, joint_id in enumerate(joints_ids):
+                if joint_id in self.SERVO_IDS:
+                    index = self.SERVO_IDS.index(joint_id)
+                    current_joint_positions[index] = angles[i]
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Joint ID {joint_id} is out of range for the robot.",
+                    )
+            # Write the joint positions
+            self.set_motors_positions(q_target_rad=np_angles_rad, enable_gripper=True)
 
     def write_gripper_command(self, command: float) -> None:
         """
@@ -962,7 +1017,7 @@ Falling back to simulation mode.
             self.connect()
             # Set the offset to the middle of the motor range
             self.calibrate_motors()
-            self.config.servos_offsets = self.current_position(
+            self.config.servos_offsets = self.read_joints_position(
                 unit="motor_units", source="robot"
             ).tolist()
             logger.info(
@@ -978,7 +1033,7 @@ Falling back to simulation mode.
             )
 
         if self.calibration_current_step == 2:
-            self.config.servos_calibration_position = self.current_position(
+            self.config.servos_calibration_position = self.read_joints_position(
                 unit="motor_units", source="robot"
             ).tolist()
             logger.info(
@@ -1131,9 +1186,9 @@ Falling back to simulation mode.
             or leader_follower_control.is_in_loop()
             or vr_control_signal.is_in_loop()
         ):
-            joints_position = self.current_position(unit="rad", source="sim")
+            joints_position = self.read_joints_position(unit="rad", source="sim")
         else:
-            joints_position = self.current_position(unit="rad", source="robot")
+            joints_position = self.read_joints_position(unit="rad", source="robot")
 
         if do_forward:
             effector_position, effector_orientation_euler_rad = (
@@ -1150,7 +1205,7 @@ Falling back to simulation mode.
         """
         Update simulation base on leader robot reading of joint position.
         """
-        joints_position = self.current_position(unit="rad")
+        joints_position = self.read_joints_position(unit="rad")
         gripper_command = self.read_gripper_command()
 
         # Update simulation
@@ -1166,7 +1221,7 @@ Falling back to simulation mode.
         step_simulation()
         self.control_gripper(gripper_command)
 
-    def get_info(self) -> BaseRobotInfo:
+    def get_info_for_dataset(self) -> BaseRobotInfo:
         """
         Get information about a robot.
 

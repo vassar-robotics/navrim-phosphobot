@@ -83,7 +83,7 @@ def test_inverse_kinematics(robot: BaseManipulator):
     position = robot.initial_position
     orientation = robot.initial_orientation_rad
 
-    q_robot_reference_rad = robot.current_position()
+    q_robot_reference_rad = robot.read_joints_position()
     logger.info(f"q_robot_reference_rad: {q_robot_reference_rad}")
 
     q_robot_rad = robot.inverse_kinematics(position, orientation)
@@ -100,7 +100,7 @@ def test_forward_inverse_kinematics(robot: BaseManipulator):
     Assert the functions forward kinematics is the inverse of inverse kinematics
     """
 
-    q_robot_rad_reference = robot.current_position()
+    q_robot_rad_reference = robot.read_joints_position()
 
     position, orientation = robot.forward_kinematics()
 
@@ -117,7 +117,7 @@ def test_forward_inverse_kinematics(robot: BaseManipulator):
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
 def test_initial_position(robot: BaseManipulator):
-    current_joint_positions = robot.current_position()
+    current_joint_positions = robot.read_joints_position()
 
     assert np.allclose(
         current_joint_positions,

@@ -229,7 +229,7 @@ class PiperHardware(BaseManipulator):
         Each position is mapped to an angle.
         """
         # Get current position
-        current_position = self.current_position(unit="motor_units", source="sim")
+        current_position = self.read_joints_position(unit="motor_units", source="sim")
         # Write the new position
         current_position[servo_id - 1] = units
 

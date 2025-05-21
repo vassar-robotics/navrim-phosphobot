@@ -20,6 +20,7 @@ from scipy.spatial.transform import Rotation as R
 from phosphobot.ai_control import CustomAIControlSignal, setup_ai_control
 from phosphobot.camera import AllCameras, get_all_cameras
 from phosphobot.control_signal import ControlSignal
+from phosphobot.hardware.base import BaseManipulator
 from phosphobot.leader_follower import RobotPair, leader_follower_loop
 from phosphobot.models import (
     AIControlStatusResponse,
@@ -29,6 +30,7 @@ from phosphobot.models import (
     CalibrateResponse,
     EndEffectorPosition,
     FeedbackRequest,
+    JointsReadRequest,
     JointsReadResponse,
     JointsWriteRequest,
     MoveAbsoluteRequest,
@@ -259,7 +261,6 @@ async def move_relative(
 ) -> StatusResponse:
     """
     Data: The delta sent by OpenVLA for example
-    Update the robot position based on the received data
     """
 
     # Convert units to meters
@@ -314,15 +315,6 @@ async def move_relative(
         rcm=rcm,
     )
 
-    # # Convert to radians
-    # delta_orientation_euler_rad = np.deg2rad(delta_orientation_euler_degrees)
-
-    # robot.relative_move_robot(
-    #     delta_position=delta_position,
-    #     delta_orientation_euler_rad=delta_orientation_euler_rad,
-    # )
-    # background_tasks.add_task(robot.control_gripper, open_command=open)
-
     return StatusResponse()
 
 
@@ -341,6 +333,12 @@ async def say_hello(
     """
     robot = rcm.get_robot(robot_id)
 
+    if not isinstance(robot, BaseManipulator):
+        raise HTTPException(
+            status_code=400,
+            detail="Robot is not a manipulator and does not have an end effector",
+        )
+
     # Open and close the gripper
     robot.control_gripper(open_command=1)
     await asyncio.sleep(0.5)
@@ -357,7 +355,7 @@ async def say_hello(
     "/move/sleep",
     response_model=StatusResponse,
     summary="Put the robot to its sleep position",
-    description="Put the robot to its sleep position by giving direct instructions to joints.",
+    description="Put the robot to its sleep position by giving direct instructions to joints. This function disables the torque.",
 )
 async def move_sleep(
     robot_id: int = 0,
@@ -367,7 +365,7 @@ async def move_sleep(
     Put the robot to its sleep position.
     """
     robot = rcm.get_robot(robot_id)
-    await robot.move_to_sleep(disconnect=False)
+    await robot.move_to_sleep()
     return StatusResponse()
 
 
@@ -375,7 +373,7 @@ async def move_sleep(
     "/end-effector/read",
     response_model=EndEffectorPosition,
     summary="Read End-Effector Position",
-    description="Retrieve the position, orientation, and open status of the robot's end effector.",
+    description="Retrieve the position, orientation, and open status of the robot's end effector. Only available for manipulators.",
 )
 async def end_effector_read(
     robot_id: int = 0,
@@ -386,8 +384,13 @@ async def end_effector_read(
     """
     robot = rcm.get_robot(robot_id)
 
+    if not isinstance(robot, BaseManipulator):
+        raise HTTPException(
+            status_code=400,
+            detail="Robot is not a manipulator and does not have an end effector",
+        )
+
     position, orientation, open_status = robot.get_end_effector_state()
-    logger.debug(f"End effector state: {position}, {orientation}, {open_status}")
     # Remove the initial position and orientation (used to zero the robot)
     position = position - robot.initial_position
     orientation = orientation - robot.initial_orientation_rad
@@ -494,6 +497,7 @@ async def toggle_torque(
     description="Read the current positions of the robot's joints in radians and motor units.",
 )
 async def read_joints(
+    request: JointsReadRequest,
     robot_id: int = 0,
     rcm: RobotConnectionManager = Depends(get_rcm),
 ) -> JointsReadResponse:
@@ -502,17 +506,19 @@ async def read_joints(
     """
     robot = rcm.get_robot(robot_id)
 
-    current_units_position = robot.current_position(unit="motor_units")
-    # Check if current_units_position has no NA
-    if any(np.isnan(current_units_position)):
-        current_rad_position = robot.current_position(unit="rad")
-    else:
-        # Convert to radians
-        current_rad_position = robot._units_vec_to_radians(current_units_position)
+    if not hasattr(robot, "read_joints_position"):
+        raise HTTPException(
+            status_code=400,
+            detail="Robot does not support reading joint positions",
+        )
+
+    current_units_position = robot.read_joints_position(
+        unit=request.unit, joints_ids=request.joints_ids
+    )
 
     return JointsReadResponse(
-        angles_rad=current_rad_position.tolist(),
-        angles_motor_units=current_units_position.tolist(),
+        angles=current_units_position.tolist(),
+        unit=request.unit,
     )
 
 
@@ -531,43 +537,14 @@ async def write_joints(
     Move the robot's joints to the specified angles.
     """
     robot = rcm.get_robot(robot_id)
+    if not hasattr(robot, "write_joint_positions"):
+        raise HTTPException(
+            status_code=400,
+            detail="Robot does not support writing joint positions",
+        )
 
-    if len(request.angles) == len(robot.SERVO_IDS):
-        robot.write_joint_positions(angles=request.angles, unit=request.unit)
-        return StatusResponse()
-
-    # Otherwise, get the current joint positions and set the specified angles
-    current_joint_positions: np.ndarray
-    if request.unit == "rad":
-        current_joint_positions = robot.current_position(unit="rad")
-    elif request.unit == "degrees":
-        current_joint_positions = robot.current_position(unit="degrees")
-        # Convert to radians
-        request.angles = np.deg2rad(current_joint_positions)
-    elif request.unit == "motor_units":
-        current_joint_positions = robot.current_position(unit="motor_units")
-
-    if request.joints_ids is not None:
-        # Get the current joint positions
-        for i, joint_id in enumerate(request.joints_ids):
-            if joint_id in robot.SERVO_IDS:
-                index = robot.SERVO_IDS.index(joint_id)
-                current_joint_positions[index] = request.angles[i]
-    else:
-        # Iterate over the angles and set the corresponding joint positions
-        for i, angle in enumerate(request.angles):
-            if i < len(robot.SERVO_IDS):
-                current_joint_positions[i] = angle
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Joint ID {i} is out of range for the robot.",
-                )
-
-    # Write the joint positions
     robot.write_joint_positions(
-        angles=list(current_joint_positions),
-        unit=request.unit,
+        angles=request.angles, unit=request.unit, joint_ids=request.joints_ids
     )
 
     return StatusResponse()
@@ -589,6 +566,13 @@ async def calibrate(
     This endpoints disable torque. Move the robot to the positions you see in the simulator and call this endpoint again, until the calibration is complete.
     """
     robot = rcm.get_robot(robot_id)
+
+    if not hasattr(robot, "calibrate"):
+        raise HTTPException(
+            status_code=400,
+            detail="Robot does not support calibration",
+        )
+
     if not robot.is_connected:
         raise HTTPException(status_code=400, detail="Robot is not connected")
 
