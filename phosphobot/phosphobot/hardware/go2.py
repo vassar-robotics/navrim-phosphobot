@@ -4,7 +4,6 @@ import numpy as np
 
 from phosphobot.hardware.base import BaseMobileRobot
 from phosphobot.models import RobotConfigStatus
-from loguru import logger
 
 
 class UnitreeGo2(BaseMobileRobot):
