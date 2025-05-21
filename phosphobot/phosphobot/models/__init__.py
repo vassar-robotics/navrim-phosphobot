@@ -401,6 +401,10 @@ class ServerInfoResponse(BaseModel):
     timeout: int
 
 
+class HFDownloadDatasetRequest(BaseModel):
+    dataset_name: str
+
+
 class DatasetRepairRequest(BaseModel):
     dataset_path: str = Field(
         ...,

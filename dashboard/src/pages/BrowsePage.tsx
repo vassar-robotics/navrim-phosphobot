@@ -59,6 +59,7 @@ import {
   Folder,
   LoaderCircle,
   MoreVertical,
+  Plus,
   Repeat,
   Trash2,
   Wrench,
@@ -304,6 +305,8 @@ export default function FileBrowser() {
     Record<string, DatasetInfoResponse | null>
   >({});
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [openDownloadModal, setOpenDownloadModal] = useState(false);
+  const [hfDatasetName, setHFDatasetName] = useState("");
   const [confirmRepairOpen, setConfirmRepairOpen] = useState(false);
 
   // Loading state for episode deletion
@@ -510,46 +513,53 @@ export default function FileBrowser() {
 
   return (
     <div className="container mx-auto py-6 px-4 md:px-6">
-      <Breadcrumb className="mb-4">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <BreadcrumbLink asChild>
-                    <Link to="/browse">phosphobot</Link>
-                  </BreadcrumbLink>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    Explore your datasets in{" "}
-                    <code>~/phosphobot/recordings</code>
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator>
-            <ChevronRight className="h-4 w-4" />
-          </BreadcrumbSeparator>
-          {pathParts.map((part, index) => (
-            <BreadcrumbItem key={index}>
-              <BreadcrumbLink asChild>
-                <Link
-                  to={`/browse?path=${pathParts.slice(0, index + 1).join("/")}`}
-                >
-                  {part}
-                </Link>
-              </BreadcrumbLink>
-              {index < pathParts.length - 1 && (
-                <BreadcrumbSeparator>
-                  <ChevronRight className="h-4 w-4" />
-                </BreadcrumbSeparator>
-              )}
+      <div className="flex items-center justify-between mb-4">
+        <Breadcrumb className="mb-4">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <BreadcrumbLink asChild>
+                      <Link to="/browse">phosphobot</Link>
+                    </BreadcrumbLink>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Explore your datasets in{" "}
+                      <code>~/phosphobot/recordings</code>
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </BreadcrumbItem>
-          ))}
-        </BreadcrumbList>
-      </Breadcrumb>
+            <BreadcrumbSeparator>
+              <ChevronRight className="h-4 w-4" />
+            </BreadcrumbSeparator>
+            {pathParts.map((part, index) => (
+              <BreadcrumbItem key={index}>
+                <BreadcrumbLink asChild>
+                  <Link
+                    to={`/browse?path=${pathParts.slice(0, index + 1).join("/")}`}
+                  >
+                    {part}
+                  </Link>
+                </BreadcrumbLink>
+                {index < pathParts.length - 1 && (
+                  <BreadcrumbSeparator>
+                    <ChevronRight className="h-4 w-4" />
+                  </BreadcrumbSeparator>
+                )}
+              </BreadcrumbItem>
+            ))}
+          </BreadcrumbList>
+        </Breadcrumb>
+
+        <Button variant="outline" onClick={() => setOpenDownloadModal(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Download dataset
+        </Button>
+      </div>
 
       {data.tokenError && (
         <Alert variant="destructive" className="mb-4">
@@ -755,10 +765,10 @@ export default function FileBrowser() {
 
       {selectedItems.length > 0 &&
         (path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1")) && (
-          <div className="flex flex-row">
+          <div className="flex flex-col md:flex-row md:space-x-2 mt-6">
             {path.endsWith("lerobot_v2.1") && (
               <Button
-                className="mb-4 mt-6"
+                className="mb-4"
                 variant="outline"
                 onClick={() => handleMergeCheck()}
               >
@@ -767,7 +777,7 @@ export default function FileBrowser() {
               </Button>
             )}
             <Button
-              className="mb-4 mt-6 ml-2"
+              className="mb-4"
               variant="outline"
               onClick={() => setConfirmRepairOpen(true)}
             >
@@ -775,7 +785,7 @@ export default function FileBrowser() {
               Repair Selected Datasets
             </Button>
             <Button
-              className="mb-4 mt-6 ml-2"
+              className="mb-4"
               variant="destructive"
               onClick={() => setConfirmDeleteOpen(true)}
             >
@@ -858,6 +868,69 @@ export default function FileBrowser() {
               ) : (
                 "Delete"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Download modal */}
+      <Dialog open={openDownloadModal} onOpenChange={setOpenDownloadModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dataset Download</DialogTitle>
+            <DialogDescription>
+              Enter the Hugging Dace dataset name to download: should be
+              hf_name/dataset_name
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Label htmlFor="dataset-select">Select Dataset</Label>
+            <Input
+              id="dataset-select"
+              value={hfDatasetName}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow only characters that are not whitespace
+                if (/^[^\s]*$/.test(value)) {
+                  setHFDatasetName(value);
+                }
+              }}
+              placeholder="Enter the name of the dataset to download"
+              className="w-full"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOpenDownloadModal(false)}
+            >
+              Close
+            </Button>
+            <Button
+              variant="default"
+              onClick={async () => {
+                if (hfDatasetName.trim() === "") {
+                  toast.error("No dataset selected for download");
+                  return;
+                }
+                const resp = await fetchWithBaseUrl(
+                  `/dataset/hf_download`,
+                  "POST",
+                  {
+                    dataset_name: hfDatasetName,
+                  },
+                );
+                if (resp.status !== "ok") {
+                  toast.error("Failed to download dataset: " + resp.message);
+                } else {
+                  toast.success("Dataset downloaded successfully");
+                }
+                setOpenDownloadModal(false);
+                mutate();
+                redirect(path);
+              }}
+            >
+              Download
             </Button>
           </DialogFooter>
         </DialogContent>
