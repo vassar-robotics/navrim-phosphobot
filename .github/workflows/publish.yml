@@ -611,17 +611,24 @@ jobs:
 
       - name: Run the built application in background
         run: |
-          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath "phosphobot-${{ steps.version.outputs.version }}-amd64.exe"
-          $logPath = "$env:TEMP\phosphobot_output.log"
+          $exePath = Join-Path -Path "phosphobot/dist" -ChildPath "phosphobot-0.3.9-amd64.exe"
+          $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
+          $stderrLog = "$env:TEMP\phosphobot_stderr.log"
 
-          Start-Process -FilePath $exePath `
+          # Start the process with separate output and error log files
+          $p = Start-Process -FilePath $exePath `
             -ArgumentList "run", "--simulation=headless", "--simulate-cameras", "--port=8080" `
-            -RedirectStandardOutput $logPath `
-            -RedirectStandardError $logPath `
-            -PassThru | Set-Content -Path "$env:TEMP\phosphobot_pid.txt"
+            -RedirectStandardOutput $stdoutLog `
+            -RedirectStandardError $stderrLog `
+            -NoNewWindow `
+            -PassThru
 
-          # Start tailing logs in background
-          Start-Job { Get-Content -Path $using:logPath -Wait }
+          # Store the PID for later termination
+          $p.Id | Set-Content -Path "$env:TEMP\phosphobot_pid.txt"
+
+          # Start tailing stdout log in background
+          Start-Job { Get-Content -Path $using:stdoutLog -Wait }
+          Start-Job { Get-Content -Path $using:stderrLog -Wait }
 
       - name: Wait for server to become ready
         run: |
