@@ -2,10 +2,17 @@ name: "Publish phosphobot server"
 on:
   workflow_dispatch:
     inputs:
-      clean_cache:
-        description: 'Set to "true" to run `uv cache clean` before building'
-        required: false
-        default: "false"
+      platform:
+        description: "Platform to build for"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - macos
+          - linux
+          - windows
+          - pypi
   release:
     types: [published]
 
@@ -38,6 +45,7 @@ env:
 
 jobs:
   build_macos:
+    if: ${{ github.event_name == 'release' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'macos' }}
     strategy:
       matrix:
         include:
@@ -272,6 +280,7 @@ jobs:
           retention-days: 1
 
   build_linux:
+    if: ${{ github.event_name == 'release' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
     strategy:
       matrix:
         include:
@@ -470,6 +479,7 @@ jobs:
           retention-days: 1
 
   build_windows:
+    if: ${{ github.event_name == 'release' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows' }}
     name: Build Windows EXE
     runs-on: windows-latest
     defaults:
@@ -670,8 +680,8 @@ jobs:
           retention-days: 1
 
   publish_pypi:
+    if: ${{ github.event_name == 'release' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'pypi' }}
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
