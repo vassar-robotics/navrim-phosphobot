@@ -142,10 +142,16 @@ async def start_training(
                 detail="A training is already in progress. Please wait until it is finished.",
             )
 
+        if response.status_code == 422:
+            raise HTTPException(
+                status_code=422,
+                detail=f"The training request is invalid. Please check your parameters. {response.text}",
+            )
+
         if response.status_code != 200:
             raise HTTPException(
-                status_code=400,
-                detail="Failed to start training on the backend.",
+                status_code=response.status_code,
+                detail=f"Failed to start training on the backend: {response.text}",
             )
 
     return StatusResponse(
