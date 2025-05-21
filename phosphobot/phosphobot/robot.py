@@ -11,7 +11,7 @@ from typing import List, Optional, Set
 import pybullet as p  # type: ignore
 from fastapi import HTTPException
 from loguru import logger
-from scapy.all import ARP, Ether, srp
+from scapy.all import ARP, Ether, srp  # type: ignore
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
