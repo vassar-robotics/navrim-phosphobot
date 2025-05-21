@@ -68,8 +68,6 @@ class BaseRobot(ABC):
     SERIAL_ID: str
 
     DEVICE_NAME: Optional[str]
-    DEVICE_PID: int
-    REGISTERED_SERIAL_ID: List[str]
 
     # List of servo IDs, used to write and read motor positions
     # They are in the same order as the joint links in the URDF file

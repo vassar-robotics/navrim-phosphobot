@@ -20,11 +20,7 @@ class SO100Hardware(BaseRobot):
         get_resources_path() / "urdf" / "so-100" / "urdf" / "so-100.urdf"
     )
 
-    DEVICE_PID: int = 21971
-
     AXIS_ORIENTATION = [0, 0, 1, 1]
-
-    REGISTERED_SERIAL_ID = ["58CD176683"]
 
     # Control commands (refer to the Feetech SCServo manual)
     TORQUE_ENABLE = 0x01
@@ -86,7 +82,7 @@ class SO100Hardware(BaseRobot):
         Detect if the device is a SO-100 robot.π
         """
         # The Feetech UART board CH340 has PID 29987
-        if port.pid == cls.DEVICE_PID or port.pid == 29987:
+        if port.pid == 21971 or port.pid == 29987:
             # The serial number is not always available
             serial_number = port.serial_number or "no_serial"
             robot = cls(device_name=port.device, serial_id=serial_number)

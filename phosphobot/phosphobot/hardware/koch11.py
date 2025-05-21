@@ -24,12 +24,7 @@ class KochHardware(BaseRobot):
 
     URDF_FILE_PATH = str(get_resources_path() / "urdf" / "koch" / "robot.urdf")
 
-    DEVICE_PID = 21971
-
     AXIS_ORIENTATION = [0, 0, 1, -1]
-
-    # Shipped phospho models have these serial numbers
-    REGISTERED_SERIAL_ID: list[str] = ["58CD176940"]
 
     TORQUE_ENABLE = 1  # Value to enable torque
     TORQUE_DISABLE = 0  # Value to disable torque
@@ -72,10 +67,7 @@ class KochHardware(BaseRobot):
         """
         Detect if the device is a Koch v1.1 robot.
         """
-        if (
-            port.pid == cls.DEVICE_PID
-            and port.serial_number in cls.REGISTERED_SERIAL_ID
-        ):
+        if port.pid == 21971 and port.serial_number in {"58CD176940"}:
             return cls(device_name=port.device, serial_id=port.serial_number)
         return None
 
