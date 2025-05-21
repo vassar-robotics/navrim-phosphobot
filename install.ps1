@@ -17,7 +17,7 @@ param (
 
 $app_name = "phosphobot"
 $repo_owner = "phospho-app"
-$repo_name = "phosphobot"
+$repo_name = "homebrew-phosphobot"
 $install_dir = Join-Path $env:USERPROFILE ".local/bin"
 
 function Install-Phosphobot {
