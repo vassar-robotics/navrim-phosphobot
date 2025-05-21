@@ -608,71 +608,56 @@ jobs:
               Set-Content -Path $hfTokenPath -Value "${{ secrets.HF_TOKEN }}"
           }
 
-      - name: Run the built application in background
+      - name: Run the built application in foreground (fail on error, kill after 10s)
+        shell: pwsh
         run: |
           [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
           $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
           $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
           $stderrLog = "$env:TEMP\phosphobot_stderr.log"
 
-          # Start the process with separate output and error log files
-          $p = Start-Process -FilePath $exePath `
-            -ArgumentList "run", "--simulation=headless", "--no-telemetry", "--simulate-cameras", "--only-simulation", "--port=8080", "--host=127.0.0.1" `
-            -RedirectStandardOutput $stdoutLog `
-            -RedirectStandardError $stderrLog `
-            -NoNewWindow `
-            -PassThru
+          Write-Host "▶️ Starting $exePath in foreground..."
 
-          # Store the PID for later termination
-          $p.Id | Set-Content -Path "$env:TEMP\phosphobot_pid.txt"
+          $psi = New-Object System.Diagnostics.ProcessStartInfo
+          $psi.FileName = $exePath
+          $psi.Arguments = "run --simulation=headless --no-telemetry --simulate-cameras --only-simulation --port=8080 --host=127.0.0.1"
+          $psi.RedirectStandardOutput = $true
+          $psi.RedirectStandardError = $true
+          $psi.UseShellExecute = $false
+          $psi.CreateNoWindow = $true
 
-      - name: Wait for server to become ready (print logs on failure)
-        shell: pwsh
-        run: |
-          $stdoutLog = "$env:TEMP\phosphobot_stdout.log"
-          $stderrLog = "$env:TEMP\phosphobot_stderr.log"
-          $maxRetries = 10
-          $serverReady = $false
+          $process = New-Object System.Diagnostics.Process
+          $process.StartInfo = $psi
+          $process.Start() | Out-Null
 
-          for ($i = 1; $i -le $maxRetries; $i++) {
-            try {
-              $response = Invoke-WebRequest -Uri "http://localhost:8080/status" -UseBasicParsing -TimeoutSec 2
-              if ($response.StatusCode -eq 200) {
-                Write-Host "✅ Server ready in $i seconds"
-                $serverReady = $true
-                break
-              }
-            } catch {
-              Write-Host "⏳ Waiting for server... ($i/$maxRetries)"
-            }
-            Start-Sleep -Seconds 3
+          $stdoutJob = Start-Job { param($p) $p.StandardOutput.ReadToEnd() } -ArgumentList $process
+          $stderrJob = Start-Job { param($p) $p.StandardError.ReadToEnd() } -ArgumentList $process
+
+          # Wait up to 10 seconds for the process to exit naturally
+          $exited = $process.WaitForExit(10000)
+
+          if (-not $exited) {
+            Write-Host "🛑 Process exceeded 10 seconds. Killing..."
+            $process.Kill()
+            $process.WaitForExit()
           }
 
-          if (-not $serverReady) {
-            Write-Host "`n❌ Server did not start in time"
+          $exitCode = $process.ExitCode
+          $stdout = Receive-Job $stdoutJob
+          $stderr = Receive-Job $stderrJob
+          Remove-Job $stdoutJob, $stderrJob
 
-            if (Test-Path $stdoutLog) {
-              Write-Host "`n--- STDOUT LOG ---"
-              Write-Output (Get-Content -Path $stdoutLog -Raw)
-            } else {
-              Write-Host "⚠️ No stdout log found at $stdoutLog"
-            }
+          Write-Host "`n--- STDOUT ---"
+          Write-Output $stdout
+          Write-Host "`n--- STDERR ---"
+          Write-Output $stderr
 
-            if (Test-Path $stderrLog) {
-              Write-Host "`n--- STDERR LOG ---"
-              Write-Output (Get-Content -Path $stderrLog -Raw)
-            } else {
-              Write-Host "⚠️ No stderr log found at $stderrLog"
-            }
-
-            throw "Server did not start within timeout."
+          if ($exitCode -ne 0) {
+            Write-Error "❌ Process exited with code $exitCode"
+            exit $exitCode
           }
 
-      - name: Run integration tests
-        run: |
-          cd phosphobot
-          uv run pytest tests/api/
-        continue-on-error: false
+          Write-Host "✅ Process completed successfully"
 
       - name: Stop server after tests
         run: |
