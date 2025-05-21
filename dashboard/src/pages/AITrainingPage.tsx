@@ -181,7 +181,7 @@ export default function AITrainingPage() {
   );
   const { data: datasetInfoResponse, isLoading: isDatasetInfoLoading } =
     useSWR<TrainingInfoResponse>(
-      selectedDataset
+      selectedDataset || selectedModelType === "custom"
         ? ["/training/info", selectedDataset, selectedModelType]
         : null,
       ([url]) =>
@@ -408,7 +408,7 @@ export default function AITrainingPage() {
                   <Select
                     defaultValue={selectedModelType}
                     onValueChange={(value) =>
-                      setSelectedModelType(value as "gr00t" | "ACT")
+                      setSelectedModelType(value as "gr00t" | "ACT" | "custom")
                     }
                   >
                     <SelectTrigger className="w-full border rounded-md p-2">
