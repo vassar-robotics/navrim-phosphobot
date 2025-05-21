@@ -943,6 +943,14 @@ jobs:
       - name: Set VERSION
         run: echo "VERSION=$(echo ${{ github.event.release.tag_name }} | sed 's/^v//')" >> $GITHUB_ENV
 
+      # If this version is None, then use the pyproject.toml
+      - name: If the github.event.release.tag_name is empty, use the pyproject.toml version
+        run: |
+          if [ -z "${{ github.event.release.tag_name }}" ]; then
+            VERSION=$(grep '^version =' phosphobot/pyproject.toml | cut -d '"' -f2)
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+          fi
+
       - name: Download Windows artifacts
         uses: actions/download-artifact@v4
         with:
@@ -951,7 +959,7 @@ jobs:
 
       - name: Wait for the release to be published by the homebrew action. Timeout after 5 minutes
         run: |
-          for i in {1..300}; do
+          for i in {1..30}; do
             if curl -s "https://api.github.com/repos/${{ env.HOMEBREW_TAP }}/releases/tags/v${{ env.VERSION }}" | grep -q '"published_at":'; then
               echo "Release published!"
               break
