@@ -401,6 +401,10 @@ class ServerInfoResponse(BaseModel):
     timeout: int
 
 
+class HFDownloadDatasetRequest(BaseModel):
+    dataset_name: str
+
+
 class SpawnStatusResponse(StatusResponse):
     """
     Response to spawn a server.

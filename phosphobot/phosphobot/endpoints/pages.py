@@ -2,6 +2,7 @@ import os
 import cv2
 import random
 import base64
+import traceback
 from pathlib import Path, PurePath
 from typing import Literal, cast
 
@@ -21,6 +22,7 @@ from phosphobot.models import (
     Dataset,
     DatasetListResponse,
     DeleteEpisodeRequest,
+    HFDownloadDatasetRequest,
     HuggingFaceTokenRequest,
     InfoResponse,
     MergeDatasetsRequest,
@@ -35,6 +37,7 @@ from phosphobot.models import (
     InfoModel,
 )
 from phosphobot.utils import (
+    get_hf_token,
     get_resources_path,
     get_home_app_path,
     is_running_on_pi,
@@ -746,3 +749,75 @@ async def get_training_info(
             status="error",
             message=f"Error fetching training info: {e}",
         )
+
+
+@router.post("/dataset/hf_download")
+async def hf_download_dataset(
+    query: HFDownloadDatasetRequest,
+) -> StatusResponse:
+    if os.path.exists(os.path.join(ROOT_DIR, "lerobot_v2.1", query.dataset_name)):
+        return StatusResponse(
+            status="error",
+            message=f"Dataset {query.dataset_name} already exists.",
+        )
+
+    token = get_hf_token()
+    if token is None:
+        return StatusResponse(
+            status="error",
+            message="Hugging Face token not found. Please set the token in the Admin page.",
+        )
+
+    # Check if the dataset exists
+    try:
+        api = HfApi(token=token)
+        info_file_path = api.hf_hub_download(
+            repo_id=query.dataset_name,
+            repo_type="dataset",
+            filename="meta/info.json",
+            force_download=True,
+        )
+        validated_info_model = InfoModel.from_json(
+            meta_folder_path=os.path.dirname(info_file_path)
+        )
+        if validated_info_model.codebase_version != "v2.1":
+            # Do not allow downloading a dataset that is not in the v2.1 format
+            # This is to prevent issues loading the stats file if the dataset comes from lerobot
+            # As sum and square_sum will not be present
+            return StatusResponse(
+                status="error",
+                message=(
+                    f"Dataset {query.dataset_name} is not in v2.1 format and is not compatible with this version of the app."
+                ),
+            )
+
+        dataset_name = query.dataset_name.split("/")[-1]
+
+        api.snapshot_download(
+            repo_id=query.dataset_name,
+            repo_type="dataset",
+            local_dir=os.path.join(ROOT_DIR, "lerobot_v2.1", dataset_name),
+            ignore_patterns=[".git", ".gitignore"],
+            force_download=True,
+        )
+
+        return StatusResponse(
+            status="ok",
+        )
+    except Exception:
+        error_message = traceback.format_exc()
+        # When HF fails, it just fails with read error log
+        # So we check it and return a more user friendly error
+        if "404 Client Error" in error_message:
+            return StatusResponse(
+                status="error",
+                message=f"Dataset {query.dataset_name} not found on Hugging Face.",
+            )
+        else:
+            logger.warning(
+                f"Error downloading dataset {query.dataset_name}: {error_message}"
+            )
+            return StatusResponse(
+                status="error",
+                message="Error downloading dataset, please check the logs",
+            )

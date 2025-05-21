@@ -304,6 +304,8 @@ export default function FileBrowser() {
     Record<string, DatasetInfoResponse | null>
   >({});
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [openDownloadModal, setOpenDownloadModal] = useState(false);
+  const [hfDatasetName, setHFDatasetName] = useState("");
 
   // Loading state for episode deletion
   const [loadingDeleteEpisode, setLoadingDeleteEpisode] = useState(false);
@@ -529,7 +531,7 @@ export default function FileBrowser() {
           </BreadcrumbList>
         </Breadcrumb>
 
-        <Button variant="outline">
+        <Button variant="outline" onClick={() => setOpenDownloadModal(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Download dataset
         </Button>
@@ -834,6 +836,69 @@ export default function FileBrowser() {
               ) : (
                 "Delete"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Download modal */}
+      <Dialog open={openDownloadModal} onOpenChange={setOpenDownloadModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dataset Download</DialogTitle>
+            <DialogDescription>
+              Enter the Hugging Dace dataset name to download: should be
+              hf_name/dataset_name
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Label htmlFor="dataset-select">Select Dataset</Label>
+            <Input
+              id="dataset-select"
+              value={hfDatasetName}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow only characters that are not whitespace
+                if (/^[^\s]*$/.test(value)) {
+                  setHFDatasetName(value);
+                }
+              }}
+              placeholder="Enter the name of the dataset to download"
+              className="w-full"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOpenDownloadModal(false)}
+            >
+              Close
+            </Button>
+            <Button
+              variant="default"
+              onClick={async () => {
+                if (hfDatasetName.trim() === "") {
+                  toast.error("No dataset selected for download");
+                  return;
+                }
+                const resp = await fetchWithBaseUrl(
+                  `/dataset/hf_download`,
+                  "POST",
+                  {
+                    dataset_name: hfDatasetName,
+                  },
+                );
+                if (resp.status !== "ok") {
+                  toast.error("Failed to download dataset: " + resp.message);
+                } else {
+                  toast.success("Dataset downloaded successfully");
+                }
+                setOpenDownloadModal(false);
+                mutate();
+                redirect(path);
+              }}
+            >
+              Download
             </Button>
           </DialogFooter>
         </DialogContent>
