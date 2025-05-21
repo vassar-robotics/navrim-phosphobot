@@ -421,9 +421,6 @@ Falling back to simulation mode.
             self.disable_torque()
             await asyncio.sleep(0.1)
 
-    def move_to_sleep_sync(self):
-        asyncio.run(self.move_to_sleep())
-
     def _units_vec_to_radians(self, units: np.ndarray) -> np.ndarray:
         """
         Convert from motor discrete units (0 -> RESOLUTION) to radians
@@ -1307,4 +1304,24 @@ class BaseMobileRobot(BaseRobot):
     E.g. LeKiwi, Unitree Go2
     """
 
-    pass
+    def __init__(
+        self,
+        only_simulation: bool = False,
+    ):
+        try:
+            if not only_simulation:
+                self.connect()
+                # Register the disconnect method to be called on exit
+                atexit.register(self.move_to_sleep_sync)
+            else:
+                logger.info("Only simulation: Not connecting to the robot.")
+                self.is_connected = False
+        except Exception as e:
+            logger.warning(
+                f"""Error when connecting to robot {self.__class__.__name__}: {e}
+Make sure the robot is connected and powered on.
+Falling back to simulation mode.
+"""
+            )
+            logger.info("Simulation mode enabled.")
+            self.is_connected = False

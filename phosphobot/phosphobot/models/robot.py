@@ -1,3 +1,4 @@
+import asyncio
 import json
 from abc import ABC, abstractmethod
 from typing import List, Optional, Union
@@ -125,6 +126,9 @@ class BaseRobot(ABC):
         This method should be implemented by the robot class.
         """
         raise NotImplementedError
+
+    def move_to_sleep_sync(self):
+        asyncio.run(self.move_to_sleep())
 
 
 class BaseRobotPIDGains(BaseModel):

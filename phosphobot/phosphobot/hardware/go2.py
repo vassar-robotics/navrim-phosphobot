@@ -73,10 +73,7 @@ class UnitreeGo2(BaseMobileRobot):
         """
         Return the robot class from the port information.
         """
-        logger.warning(
-            f"For automatic detection of {cls.__name__}, the method from_port must be implemented. Skipping autodetection."
-        )
-        return None
+        raise NotImplementedError
 
     def status(self) -> RobotConfigStatus:
         return RobotConfigStatus(
