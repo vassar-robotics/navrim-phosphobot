@@ -1,5 +1,3 @@
-"use client";
-
 import { AutoComplete, type Option } from "@/components/common/autocomplete";
 import { LogStream } from "@/components/custom/LogsStream";
 import { CopyButton, ModelsCard } from "@/components/custom/ModelsDialog";

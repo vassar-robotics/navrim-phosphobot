@@ -1,5 +1,3 @@
-"use client";
-
 import { CodeSnippet } from "@/components/common/code-snippet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
