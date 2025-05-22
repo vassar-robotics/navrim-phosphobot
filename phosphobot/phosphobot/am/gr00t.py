@@ -931,7 +931,10 @@ async def run_gr00t_training(
     logger.info(f"Starting training with command: {' '.join(cmd)}")
 
     process = await asyncio.create_subprocess_exec(
-        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        limit=1024 * 128,  # 128 KB buffer size, default is 64 but seems to be too small
     )
 
     output_lines = []
