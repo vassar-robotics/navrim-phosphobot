@@ -129,11 +129,13 @@ Some features such as connection to the phospho cloud are not available when ins
 
 We welcome contributions! Some of the ways you can contribute:
 
-- Add support for new controllers
+- Add support for new AI models
+- Add support for new teleoperation controllers
 - Add support for new robots and sensors
 - Add something you built to the examples
+- Improve the dataset collection and manipulation
 - Improve the documentation and tutorials
-- Contribute to the code
+- Improve code quality and refacto
 
 ## Support
 
