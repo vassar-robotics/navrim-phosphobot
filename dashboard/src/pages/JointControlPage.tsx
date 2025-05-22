@@ -76,8 +76,11 @@ export default function JointControl() {
   };
 
   const fetchJointPositions = async (): Promise<number[]> => {
-    const data = await fetchWithBaseUrl(`/joints/read`, "POST");
-    return Array.isArray(data) ? data : jointPositions;
+    const data = await fetchWithBaseUrl(`/joints/read`, "POST", {
+      unit: "rad",
+      joints_ids: null,
+    });
+    return Array.isArray(data.angles) ? data.angles : jointPositions;
   };
 
   const fetchJointTorques = async (): Promise<number[]> => {
