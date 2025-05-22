@@ -107,6 +107,10 @@ Connect with other developers and share your experience in our [Discord communit
 
 ## Install from source
 
+First, download and install [uv](https://docs.astral.sh/uv/getting-started/installation/) and [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
+
+Then, to build the frontend and backend, run:
+
 ```bash
 git clone https://github.com/phospho-app/phosphobot.git
 cd phosphobot
@@ -123,9 +127,7 @@ Some features such as connection to the phospho cloud are not available when ins
 
 ## Contributing
 
-We welcome contributions!
-
-Some of the ways you can contribute:
+We welcome contributions! Some of the ways you can contribute:
 
 - Add support for new controllers
 - Add support for new robots and sensors
