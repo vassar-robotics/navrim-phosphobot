@@ -11,7 +11,7 @@ export function Layout() {
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 container mx-auto py-6 px-4 md:px-6 overflow-y-auto pt-[120px] md:pt-[100px] pb-[60px]">
+        <main className="flex-1 container mx-auto py-6 px-4 md:px-6 overflow-y-auto pt-[150px] md:pt-[100px] pb-[60px]">
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>
