@@ -15,7 +15,7 @@ from pydantic import BaseModel, field_validator, model_validator
 from phosphobot.am.base import ActionModel
 from phosphobot.camera import AllCameras
 from phosphobot.control_signal import AIControlSignal
-from phosphobot.models.dataset import BaseRobot
+from phosphobot.hardware.base import BaseManipulator
 from phosphobot.utils import background_task_log_exceptions, get_hf_token
 
 
@@ -257,7 +257,7 @@ class ACT(ActionModel):
         cls,
         model_id: str,
         all_cameras: AllCameras,
-        robots: list[BaseRobot],
+        robots: list[BaseManipulator],
         cameras_keys_mapping: Dict[str, int] | None = None,
     ) -> ACTSpawnConfig:
         """
@@ -313,7 +313,7 @@ class ACT(ActionModel):
     async def control_loop(
         self,
         control_signal: AIControlSignal,
-        robots: list[BaseRobot],
+        robots: list[BaseManipulator],
         model_spawn_config: ACTSpawnConfig,
         all_cameras: AllCameras,
         fps: int = 30,
@@ -398,10 +398,10 @@ class ACT(ActionModel):
                 raise Exception("No robot connected. Exiting AI control loop.")
 
             # Concatenate all robot states
-            state = robots[0].current_position(unit="rad")
+            state = robots[0].read_joints_position(unit="rad")
             for robot in robots[1:]:
                 state = np.concatenate(
-                    (state, robot.current_position(unit="rad")), axis=0
+                    (state, robot.read_joints_position(unit="rad")), axis=0
                 )
 
             inputs = {

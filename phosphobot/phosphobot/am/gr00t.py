@@ -1,34 +1,36 @@
-from abc import ABC, abstractmethod
 import asyncio
+import json
+import os
 import pickle
 import time
+import traceback
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from io import BytesIO
+from pathlib import Path
 from typing import Any, Callable, Dict, Literal, Tuple
+
 import cv2
 import numpy as np
 import zmq
-import traceback
 from fastapi import HTTPException
+from huggingface_hub import HfApi, snapshot_download
 from loguru import logger
 from pydantic import BaseModel, Field, model_validator
-from pathlib import Path
-import os
-from huggingface_hub import HfApi, snapshot_download
-import json
 
-from phosphobot.am.base import ActionModel, BaseTrainer
-from phosphobot.camera import AllCameras
-from phosphobot.control_signal import AIControlSignal
-from phosphobot.models.dataset import BaseRobot
-from phosphobot.utils import background_task_log_exceptions, get_hf_token
 from phosphobot.am.base import (
+    ActionModel,
+    BaseTrainer,
+    BaseTrainerConfig,
     HuggingFaceTokenValidator,
+    TrainingParamsGr00T,
     generate_readme,
     resize_dataset,
-    BaseTrainerConfig,
-    TrainingParamsGr00T,
 )
+from phosphobot.camera import AllCameras
+from phosphobot.control_signal import AIControlSignal
+from phosphobot.hardware.base import BaseManipulator
+from phosphobot.utils import background_task_log_exceptions, get_hf_token
 
 # Code from: https://github.com/NVIDIA/Isaac-GR00T/blob/main/gr00t/eval/service.py#L111
 
@@ -612,7 +614,7 @@ class Gr00tN1(ActionModel):
         cls,
         model_id: str,
         all_cameras: AllCameras,
-        robots: list[BaseRobot],
+        robots: list[BaseManipulator],
         cameras_keys_mapping: Dict[str, int] | None = None,
     ) -> Gr00tSpawnConfig:
         """
@@ -684,7 +686,7 @@ class Gr00tN1(ActionModel):
     async def control_loop(
         self,
         control_signal: AIControlSignal,
-        robots: list[BaseRobot],
+        robots: list[BaseManipulator],
         model_spawn_config: Gr00tSpawnConfig,
         all_cameras: AllCameras,
         prompt: str | None = None,
@@ -770,10 +772,10 @@ class Gr00tN1(ActionModel):
                 raise Exception("No robot connected. Exiting AI control loop.")
 
             # Concatenate all robot states
-            state = robots[0].current_position(unit="rad")
+            state = robots[0].read_joints_position(unit="rad")
             for robot in robots[1:]:
                 state = np.concatenate(
-                    (state, robot.current_position(unit="rad")), axis=0
+                    (state, robot.read_joints_position(unit="rad")), axis=0
                 )
             if model_spawn_config.unit == "degrees":
                 state = np.deg2rad(state)

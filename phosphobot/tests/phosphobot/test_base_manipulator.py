@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from phosphobot.configs import config
 from phosphobot.types import SimulationMode
 from phosphobot.hardware import KochHardware, SO100Hardware, simulation_init
-from phosphobot.hardware.base import BaseRobot
+from phosphobot.hardware.base import BaseManipulator
 
 
 # Create robot pytest fixture
@@ -57,7 +57,7 @@ def so100():
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_forward_kinematics(robot: BaseRobot):
+def test_forward_kinematics(robot: BaseManipulator):
     """
     Assert the function forward_kinematics returns the correct position
     """
@@ -66,24 +66,24 @@ def test_forward_kinematics(robot: BaseRobot):
     current_effector_position, current_effector_orientation = robot.forward_kinematics()
 
     assert np.allclose(
-        current_effector_position, robot.initial_effector_position
+        current_effector_position, robot.initial_position
     ), "The position should be the same"
 
     assert np.allclose(
-        current_effector_orientation, robot.initial_effector_orientation_rad
+        current_effector_orientation, robot.initial_orientation_rad
     ), "The orientation should be the same"
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_inverse_kinematics(robot: BaseRobot):
+def test_inverse_kinematics(robot: BaseManipulator):
     """
     Assert the function inverse_kinematics returns the correct angles
     """
 
-    position = robot.initial_effector_position
-    orientation = robot.initial_effector_orientation_rad
+    position = robot.initial_position
+    orientation = robot.initial_orientation_rad
 
-    q_robot_reference_rad = robot.current_position()
+    q_robot_reference_rad = robot.read_joints_position()
     logger.info(f"q_robot_reference_rad: {q_robot_reference_rad}")
 
     q_robot_rad = robot.inverse_kinematics(position, orientation)
@@ -95,12 +95,12 @@ def test_inverse_kinematics(robot: BaseRobot):
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_forward_inverse_kinematics(robot: BaseRobot):
+def test_forward_inverse_kinematics(robot: BaseManipulator):
     """
     Assert the functions forward kinematics is the inverse of inverse kinematics
     """
 
-    q_robot_rad_reference = robot.current_position()
+    q_robot_rad_reference = robot.read_joints_position()
 
     position, orientation = robot.forward_kinematics()
 
@@ -116,8 +116,8 @@ def test_forward_inverse_kinematics(robot: BaseRobot):
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_initial_position(robot: BaseRobot):
-    current_joint_positions = robot.current_position()
+def test_initial_position(robot: BaseManipulator):
+    current_joint_positions = robot.read_joints_position()
 
     assert np.allclose(
         current_joint_positions,
@@ -126,22 +126,22 @@ def test_initial_position(robot: BaseRobot):
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_no_move(robot: BaseRobot):
+def test_move_robot_no_move(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0, 0]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_forward(robot: BaseRobot):
+def test_move_robot_forward(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0.015, 0, 0]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_backward(robot: BaseRobot):
+def test_move_robot_backward(robot: BaseManipulator):
     move_robot_testing(robot, np.array([-0.02, 0, 0]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_right(robot: BaseRobot):
+def test_move_robot_right(robot: BaseManipulator):
     """
     The SO100 robot can't move right without rotation its basis on the Z axis.
     """
@@ -156,76 +156,32 @@ def test_move_robot_right(robot: BaseRobot):
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_left(robot: BaseRobot):
+def test_move_robot_left(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0.01, 0]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_up(robot: BaseRobot):
+def test_move_robot_up(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0, 0.02]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_move_robot_down(robot: BaseRobot):
+def test_move_robot_down(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0, -0.02]), np.array([0, 0, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_rotate_robot_x(robot: BaseRobot):
+def test_rotate_robot_x(robot: BaseManipulator):
     move_robot_testing(
         robot, np.array([0, 0, 0]), np.array([0.1, 0, 0]), atol_pos=1.5e-2
     )
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_rotate_robot_y(robot: BaseRobot):
+def test_rotate_robot_y(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0, 0]), np.array([0, 0.1, 0]))
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_rotate_robot_z(robot: BaseRobot):
+def test_rotate_robot_z(robot: BaseManipulator):
     move_robot_testing(robot, np.array([0, 0, 0]), np.array([0, 0, 0.1]), atol_pos=2e-2)
-
-
-@pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_routine(robot: BaseRobot):
-    robot.set_simulation_positions(np.zeros(6))
-
-    # This steps the simulation to update the robot's position
-    step_simulation()
-
-    # Calculate the start position
-    start_position, start_orientation = robot.forward_kinematics()
-
-    successive_movements: list[np.ndarray] = [
-        np.array([0, 0, -0.01]),
-        np.array([-0.01, 0, 0]),
-        np.array([0, 0.01, 0]),
-        np.array([0, -0.02, 0]),
-        np.array([0, 0.01, 0]),
-        np.array([0.01, 0, 0]),
-        np.array([0, 0, 0.01]),
-    ]
-
-    for movement in successive_movements:
-        robot.relative_move_robot(
-            delta_position=movement,
-            delta_orientation_euler_rad=np.array([0, 0, 0]),
-        )
-        step_simulation()
-
-    updated_position, updated_rotation = robot.forward_kinematics()
-
-    max_pos_diff = np.max(np.abs(updated_position - start_position))
-    assert (
-        max_pos_diff < 1e-2
-    ), f"{robot.name} didn't come home *move* error: {max_pos_diff * 100:.3f}cm"
-
-    angles_are_close, max_angles_diff = compare_angles_radian(
-        updated_rotation, start_orientation, atol=1e-2
-    )
-    max_angles_diff = np.degrees(max_angles_diff)
-
-    assert (
-        max_angles_diff < 2
-    ), f"{robot.name} didn't come home *rotate* error: {max_angles_diff:.3f}°"

@@ -16,8 +16,8 @@ export default function ControlPage() {
   return (
     <div>
       <Tabs defaultValue="keyboard">
-        <div className="flex justify-between">
-          <TabsList className="flex flex-col md:flex-row gap-4 border-1">
+        <div className="flex flex-col md:flex-row justify-between gap-2">
+          <TabsList className="flex gap-4 border-1">
             <TabsTrigger value="keyboard" className="cursor-pointer">
               <Keyboard className="size-4 mr-2" />
               Keyboard control
