@@ -819,6 +819,16 @@ class Gr00tN1(ActionModel):
                 # Send the new joint position to the robot
                 action_list = action.tolist()
                 for robot_index in range(len(robots)):
+                    # If the action are all -pi in rad or -180 in degrees, skip
+                    if all(
+                        np.isclose(
+                            action_list[robot_index * 6 : robot_index * 6 + 6],
+                            -np.pi if model_spawn_config.unit == "rad" else -180,
+                        )
+                    ):
+                        logger.warning("All predicted actions are -pi. Skipping.")
+                        continue
+
                     robots[robot_index].write_joint_positions(
                         angles=action_list[robot_index * 6 : robot_index * 6 + 6],
                         unit=model_spawn_config.unit,
