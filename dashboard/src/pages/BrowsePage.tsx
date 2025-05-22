@@ -13,7 +13,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -58,6 +57,7 @@ import {
   Eye,
   File,
   Folder,
+  LoaderCircle,
   MoreVertical,
   Plus,
   Repeat,
@@ -103,6 +103,7 @@ interface MergeDialogProps {
     mergedName: string,
     imageKeyMappings: Record<string, string>,
   ) => void;
+  loading: boolean;
 }
 
 const MergeDialog: React.FC<MergeDialogProps> = ({
@@ -110,6 +111,7 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
   datasetInfos,
   setMergeModalOpen,
   mergeMultipleDatasets,
+  loading,
 }) => {
   const [mergedDatasetName, setMergedDatasetName] = useState("");
 
@@ -276,7 +278,10 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
           onClick={handleMerge}
           disabled={!mergedDatasetName.trim() || !allKeysMapped}
         >
-          Merge
+          {loading ? (
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+          ) : null}
+          {loading ? "Merging..." : "Merge"}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -316,7 +321,7 @@ export default function FileBrowser() {
   const [secondSplitName, setSecondSplitName] = useState("");
 
   // Loading state for episode deletion
-  const [loadingDeleteEpisode, setLoadingDeleteEpisode] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const { data: serverStatus } = useSWR<ServerStatus>(
     ["/status"],
@@ -388,6 +393,7 @@ export default function FileBrowser() {
       toast.error("No datasets selected for deletion");
       return;
     }
+    setLoading(true);
     const deletePromises = selectedItems.map(async (item) => {
       const resp = await fetchWithBaseUrl(
         `/dataset/delete?path=${encodeURIComponent(item)}`,
@@ -400,6 +406,7 @@ export default function FileBrowser() {
       toast.success(`Dataset deleted successfully: ${item}`);
     });
     await Promise.all(deletePromises);
+    setLoading(false);
     setConfirmDeleteOpen(false);
     setSelectedItems([]);
     mutate();
@@ -453,12 +460,17 @@ export default function FileBrowser() {
     newDatasetName: string,
     imageKeyMappings?: Record<string, string>,
   ) => {
-    fetchWithBaseUrl(`/dataset/merge`, "POST", {
-      first_dataset: selectedItems[0],
-      second_dataset: selectedItems[1],
-      new_dataset_name: newDatasetName,
-      image_key_mappings: imageKeyMappings,
-    }).then((response) => {
+    setLoading(true);
+    console.log("Merging datasets:", selectedItems);
+
+    try {
+      const response = await fetchWithBaseUrl(`/dataset/merge`, "POST", {
+        first_dataset: selectedItems[0],
+        second_dataset: selectedItems[1],
+        new_dataset_name: newDatasetName,
+        image_key_mappings: imageKeyMappings,
+      });
+
       if (response.status !== "ok") {
         toast.error("Failed to merge datasets");
       } else {
@@ -466,8 +478,15 @@ export default function FileBrowser() {
         mutate();
         redirect(path);
       }
-    });
-    setMergeModalOpen(false);
+      console.log("Merged datasets:", selectedItems);
+    } catch (error) {
+      toast.error("Failed to merge datasets");
+      console.error("Merge error:", error);
+    } finally {
+      // This ensures loading is set to false after the operation completes
+      setLoading(false);
+      setMergeModalOpen(false);
+    }
   };
 
   const handleRepairDataset = async () => {
@@ -475,6 +494,7 @@ export default function FileBrowser() {
       toast.error("No datasets selected for repair");
       return;
     }
+    setLoading(true);
     const repairPromises = selectedItems.map(async (item) => {
       console.log("Repairing dataset:", item);
       const resp = await fetchWithBaseUrl(`/dataset/repair`, "POST", {
@@ -487,6 +507,7 @@ export default function FileBrowser() {
       toast.success(`Dataset repaired successfully: ${item}`);
     });
     await Promise.all(repairPromises);
+    setLoading(false);
     setConfirmRepairOpen(false);
     setSelectedItems([]);
     mutate();
@@ -821,40 +842,30 @@ export default function FileBrowser() {
         )}
 
       {/* Dataset deletion dialog */}
-      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Delete Dataset</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete the selected datasets:
-              <br />
-              {selectedItems.length > 0
-                ? selectedItems.map((item) => (
-                    <span key={item}>
-                      <strong>{item}</strong>
-                      <br />
-                    </span>
-                  ))
-                : null}
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmDeleteOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteMultipleDatasets}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Confirm Delete Dataset"
+        description={
+          <>
+            Are you sure you want to delete the selected datasets:
+            <br />
+            {selectedItems.length > 0
+              ? selectedItems.map((item) => (
+                  <span key={item}>
+                    <strong>{item}</strong>
+                    <br />
+                  </span>
+                ))
+              : null}
+            This action cannot be undone.
+          </>
+        }
+        confirmLabel={loading ? "Deleting..." : "Delete"}
+        confirmVariant="destructive"
+        isLoading={loading}
+        onConfirm={handleDeleteMultipleDatasets}
+      />
 
       {/* Episode deletion dialog */}
       <Modal
@@ -867,14 +878,14 @@ export default function FileBrowser() {
             <strong>{selectedEpisode}</strong>? This action cannot be undone.
           </>
         }
-        confirmLabel={loadingDeleteEpisode ? "Deleting..." : "Delete"}
+        confirmLabel={loading ? "Deleting..." : "Delete"}
         confirmVariant="destructive"
-        isLoading={loadingDeleteEpisode}
+        isLoading={loading}
         onConfirm={async () => {
-          setLoadingDeleteEpisode(true);
+          setLoading(true);
           await handleDeleteEpisode();
           setConfirmEpisodeDeleteOpen(false);
-          setLoadingDeleteEpisode(false);
+          setLoading(false);
           redirect(path);
         }}
       />
@@ -885,12 +896,13 @@ export default function FileBrowser() {
         onOpenChange={setOpenSplitModel}
         title="Split Dataset"
         description="This will split the selected dataset into separate datasets."
-        confirmLabel="Split"
+        confirmLabel={loading ? "Splitting..." : "Split"}
         onConfirm={async () => {
           if (selectedItems.length !== 1) {
             toast.error("Please select exactly 1 dataset to split");
             return;
           }
+          setLoading(true);
           const resp = await fetchWithBaseUrl(`/dataset/split`, "POST", {
             dataset_path: selectedItems[0],
             split_ratio: selectedSplitRatio,
@@ -900,10 +912,12 @@ export default function FileBrowser() {
           if (resp.status !== "ok") {
             toast.error("Failed to split dataset: " + resp.message);
           }
+          setLoading(false);
           setOpenSplitModel(false);
           mutate();
           redirect(path);
         }}
+        isLoading={loading}
       >
         <div className="grid gap-4 py-4">
           <Label htmlFor="split-ratio">Split Ratio</Label>
@@ -965,12 +979,14 @@ export default function FileBrowser() {
         onOpenChange={setOpenDownloadModal}
         title="Dataset Download"
         description="Enter the Hugging Face dataset name to download: should be hf_name/dataset_name"
-        confirmLabel="Download"
+        confirmLabel={loading ? "Downloading..." : "Download"}
+        isLoading={loading}
         onConfirm={async () => {
           if (hfDatasetName.trim() === "") {
             toast.error("No dataset selected for download");
             return;
           }
+          setLoading(true);
           const resp = await fetchWithBaseUrl(`/dataset/hf_download`, "POST", {
             dataset_name: hfDatasetName,
           });
@@ -979,6 +995,7 @@ export default function FileBrowser() {
           } else {
             toast.success("Dataset downloaded successfully");
           }
+          setLoading(false);
           setOpenDownloadModal(false);
           mutate();
           redirect(path);
@@ -1023,7 +1040,8 @@ export default function FileBrowser() {
             data.
           </>
         }
-        confirmLabel="Repair"
+        confirmLabel={loading ? "Repairing..." : "Repair"}
+        isLoading={loading}
         onConfirm={handleRepairDataset}
       />
 
@@ -1034,6 +1052,7 @@ export default function FileBrowser() {
           datasetInfos={datasetInfos}
           setMergeModalOpen={setMergeModalOpen}
           mergeMultipleDatasets={mergeMultipleDatasets}
+          loading={loading}
         />
       </Dialog>
     </div>

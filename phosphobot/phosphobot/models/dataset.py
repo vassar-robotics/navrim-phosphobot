@@ -604,9 +604,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(task_index)
-            assert (
-                step.action is not None
-            ), "The action must be set for each step before saving"
+            assert step.action is not None, (
+                "The action must be set for each step before saving"
+            )
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -1679,9 +1679,7 @@ It's compatible with LeRobot and RLDS.
             with open(readme_path, "w", encoding=DEFAULT_FILE_ENCODING) as readme_file:
                 readme_file.write(self.generate_read_me_string(new_dataset_name))
 
-        logger.info(
-            f"Dataset {new_dataset_name} created with {len(self.episodes)} episodes and {len(second_dataset.episodes)} episodes successfully"
-        )
+        logger.info(f"Dataset {new_dataset_name} created successfully")
 
     def split_dataset(
         self, split_ratio: float, first_split_name: str, second_split_name: str
