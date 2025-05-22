@@ -269,32 +269,32 @@ class RobotConnectionManager:
                 self._all_robots.append(robot)
                 logger.success(f"Connected to Agilex Piper on {can_name}")
 
-        devices = None
-        try:
-            devices = fast_arp_scan(subnet="192.168.1.0/24")
-        except PermissionError:
-            logger.warning(
-                "Can't run fast ARP scan. Please run as root or use sudo. Falling back to slow scan."
-            )
-        except Exception as e:
-            logger.error(f"ARP scan failed: {e}. Falling back to slow scan.")
-        if devices is None:
-            devices = slow_arp_scan(subnet="192.168.1.0/24")
+        # devices = None
+        # try:
+        #     devices = fast_arp_scan(subnet="192.168.1.0/24")
+        # except PermissionError:
+        #     logger.warning(
+        #         "Can't run fast ARP scan. Please run as root or use sudo. Falling back to slow scan."
+        #     )
+        # except Exception as e:
+        #     logger.error(f"ARP scan failed: {e}. Falling back to slow scan.")
+        # if devices is None:
+        #     devices = slow_arp_scan(subnet="192.168.1.0/24")
 
-        for device in devices:
-            logger.debug(f"Found device: {device}")
-            mac = device["mac"]
-            ip = device["ip"]
-            if any(
-                mac.startswith(prefix) for prefix in UnitreeGo2.UNITREE_MAC_PREFIXES
-            ):
-                logger.success(f"Detected Unitree robot at {ip} with MAC {mac}")
-                # You could initiate a connection attempt here if Unitree supports it (e.g., ping, TCP, or SSH)
-                robot = UnitreeGo2.from_ip(ip=ip)
-                if robot is not None:
-                    self._all_robots.append(robot)
-                # Only 1 Go2 connection supported
-                break
+        # for device in devices:
+        #     logger.debug(f"Found device: {device}")
+        #     mac = device["mac"]
+        #     ip = device["ip"]
+        #     if any(
+        #         mac.startswith(prefix) for prefix in UnitreeGo2.UNITREE_MAC_PREFIXES
+        #     ):
+        #         logger.success(f"Detected Unitree robot at {ip} with MAC {mac}")
+        #         # You could initiate a connection attempt here if Unitree supports it (e.g., ping, TCP, or SSH)
+        #         robot = UnitreeGo2.from_ip(ip=ip)
+        #         if robot is not None:
+        #             self._all_robots.append(robot)
+        #         # Only 1 Go2 connection supported
+        #         break
 
         if not self._all_robots:
             logger.info("No robot connected.")
