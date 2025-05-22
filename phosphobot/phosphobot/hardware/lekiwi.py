@@ -1,13 +1,12 @@
-import asyncio
-import json
 from collections import deque
 from dataclasses import dataclass
+import logging
+import json
+import numpy as np
 from typing import Deque, Optional
 
-import numpy as np
-from go2_webrtc_driver.constants import RTC_TOPIC, SPORT_CMD
-from go2_webrtc_driver.webrtc_driver import Go2WebRTCConnection, WebRTCConnectionMethod
-from loguru import logger
+import zmq
+
 
 from phosphobot.hardware.base import BaseMobileRobot
 from phosphobot.models import RobotConfigStatus
@@ -19,12 +18,10 @@ class MovementCommand:
     orientation: np.ndarray | None = None
 
 
-class UnitreeGo2(BaseMobileRobot):
-    name = "unitree-go2"
+class LeKiwi(BaseMobileRobot):
+    name = "lekiwi"
 
-    UNITREE_MAC_PREFIXES = ["78:22:88"]
-
-    def __init__(self, ip: str = "192.168.1.42", max_history_len: int = 100, **kwargs):
+    def __init__(self, ip: str, port: int, max_history_len: int = 100, **kwargs):
         """
         Initialize the UnitreeGo2 robot.
 
@@ -34,10 +31,14 @@ class UnitreeGo2(BaseMobileRobot):
         """
         super().__init__(**kwargs)
         self.ip = ip
+        self.port = port
         self.conn = None
         self.current_position = np.zeros(3)  # [x, y, z]
         self.current_orientation = np.zeros(3)  # [roll, pitch, yaw]
         self._is_connected = False
+
+        # Configure logging
+        self.logger = logging.getLogger("UnitreeGo2")
 
         # Track movement instructions
         self.movement_queue: Deque[MovementCommand] = deque(maxlen=max_history_len)
@@ -68,70 +69,35 @@ class UnitreeGo2(BaseMobileRobot):
     def connect(self) -> None:
         """
         Initialize communication with the robot.
-
-        This method creates a WebRTC connection to the robot.
+        This method creates a zmq context and connects to the robot's data channel.
 
         Raises:
             Exception: If the connection fails
         """
         try:
-            # Create a synchronous event loop to run the connect method
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            # Create connection and connect
-            self.conn = Go2WebRTCConnection(WebRTCConnectionMethod.LocalSTA, ip=self.ip)
-            if self.conn is None:
-                raise Exception("Failed to create WebRTC connection")
-
-            loop.run_until_complete(self.conn.connect())
-
-            # Check if in normal mode and switch if needed
-            response = loop.run_until_complete(
-                self.conn.datachannel.pub_sub.publish_request_new(
-                    RTC_TOPIC["MOTION_SWITCHER"], {"api_id": 1001}
-                )
-            )
-
-            if response["data"]["header"]["status"]["code"] == 0:
-                data = json.loads(response["data"]["data"])
-                current_motion_switcher_mode = data["name"]
-
-                if current_motion_switcher_mode != "normal":
-                    logger.info(
-                        f"Switching from {current_motion_switcher_mode} to 'normal' mode"
-                    )
-                    loop.run_until_complete(
-                        self.conn.datachannel.pub_sub.publish_request_new(
-                            RTC_TOPIC["MOTION_SWITCHER"],
-                            {"api_id": 1002, "parameter": {"name": "normal"}},
-                        )
-                    )
-                    # Wait for mode switch
-                    loop.run_until_complete(asyncio.sleep(5))
+            self.context = zmq.Context()
+            self.cmd_socket = self.context.socket(zmq.PUSH)
+            connection_string = f"tcp://{self.ip}:{self.port}"
+            self.cmd_socket.connect(connection_string)
+            self.cmd_socket.setsockopt(zmq.CONFLATE, 1)
 
             self.is_connected = True
-            logger.info("Successfully connected to UnitreeGo2")
+            self.logger.info("Successfully connected to UnitreeGo2")
 
         except Exception as e:
-            logger.error(f"Failed to connect to UnitreeGo2: {e}")
+            self.logger.error(f"Failed to connect to UnitreeGo2: {e}")
             raise Exception(f"Failed to connect to UnitreeGo2: {e}")
-        finally:
-            loop.close()
 
     def disconnect(self) -> None:
         """
         Close the connection to the robot.
         """
         if self.conn:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            self.cmd_socket.close()
+            self.context.term()
 
-            # There's no explicit disconnect method, but we can clean up
             self.conn = None
             self.is_connected = False
-            logger.info("Disconnected from UnitreeGo2")
-            loop.close()
 
     def get_observation(self) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -174,12 +140,22 @@ class UnitreeGo2(BaseMobileRobot):
 
         Args:
             target_position: Target position as [x, y, z]
+                x = forward/backward
+                y = right/left
+                z = rotate right/ rotate left
             target_orientation_rad: Target orientation in radians [roll, pitch, yaw]
+                ignored for this robot due to physics
             **kwargs: Additional arguments
         """
         if not self.is_connected or self.conn is None:
-            logger.error("Robot is not connected")
+            self.logger.error("Robot is not connected")
             return
+
+        x_cmd = target_position[0]  # forward/backward
+        y_cmd = target_position[1]  # right/left
+        theta_cmd = target_position[2]  # rotate right/rotate left
+
+        wheel_commands = self.body_to_wheel_raw(x_cmd, y_cmd, theta_cmd)
 
         self.movement_queue.append(
             MovementCommand(
@@ -191,43 +167,21 @@ class UnitreeGo2(BaseMobileRobot):
         )
 
         self.current_position = target_position
-
-        await self.conn.datachannel.pub_sub.publish_request_new(
-            RTC_TOPIC["SPORT_MOD"],
-            {
-                "api_id": SPORT_CMD["Move"],
-                "parameter": {
-                    "x": float(target_position[0]),
-                    "y": float(target_position[1]),
-                    "z": float(target_position[2]),
-                },
-            },
-        )
-
         if target_orientation_rad is not None:
             self.current_orientation = target_orientation_rad
-            target_orientation_deg = np.degrees(target_orientation_rad[2])
 
-            await self.conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["SPORT_MOD"],
-                {
-                    "api_id": SPORT_CMD["Euler"],
-                    "parameter": {
-                        "x": float(target_orientation_rad[0]),
-                        "y": float(target_orientation_rad[1]),
-                        "z": float(target_orientation_deg),
-                    },
-                },
-            )
+        # Send the command to the robot
+        message = {"raw_velocity": wheel_commands, "arm_positions": []}
+        self.cmd_socket.send_string(json.dumps(message))
 
-        logger.info(
+        self.logger.info(
             f"Moved to position {target_position} with orientation {target_orientation_rad}"
         )
 
     @classmethod
-    def from_ip(cls, ip: str, **kwargs) -> Optional["UnitreeGo2"]:
+    def from_ip(cls, ip: str, port: int, **kwargs) -> Optional["LeKiwi"]:
         """
-        Create a UnitreeGo2 instance from an IP address.
+        Create an instance from an IP and port
 
         Args:
             ip: IP address of the robot
@@ -237,10 +191,10 @@ class UnitreeGo2(BaseMobileRobot):
             UnitreeGo2 instance or None if the connection fails
         """
         try:
-            robot = cls(ip=ip, **kwargs)
+            robot = cls(ip=ip, port=port, **kwargs)
             return robot
         except Exception as e:
-            logger.error(f"Failed to connect to UnitreeGo2 at {ip}: {e}")
+            logging.error(f"Failed to connect to LeKiwi at {ip}:{port} {e}")
             return None
 
     def status(self) -> RobotConfigStatus:
@@ -258,30 +212,9 @@ class UnitreeGo2(BaseMobileRobot):
     async def move_to_initial_position(self) -> None:
         """
         Move the robot to its initial position.
-
         This puts the robot in a stand position ready for operation.
         """
-        if not self.is_connected or self.conn is None:
-            logger.error("Robot is not connected")
-            return
-
-        # Stand up the robot
-        await self.conn.datachannel.pub_sub.publish_request_new(
-            RTC_TOPIC["SPORT_MOD"],
-            {"api_id": SPORT_CMD["StandUp"], "parameter": {"data": True}},
-        )
-
-        # Wait for the robot to stand up
-        await asyncio.sleep(5)
-
-        # Reset position tracking
-        self.current_position = np.zeros(3)
-        self.current_orientation = np.zeros(3)
-
-        # Clear movement history
-        self.movement_queue.clear()
-
-        logger.info("Robot moved to initial position")
+        pass
 
     async def move_to_sleep(self) -> None:
         """
@@ -290,16 +223,82 @@ class UnitreeGo2(BaseMobileRobot):
         This makes the robot sit down before potentially disconnecting.
         """
         if not self.is_connected or self.conn is None:
-            logger.error("Robot is not connected")
+            self.logger.error("Robot is not connected")
             return
 
-        # Make the robot sit
-        await self.conn.datachannel.pub_sub.publish_request_new(
-            RTC_TOPIC["SPORT_MOD"],
-            {"api_id": SPORT_CMD["Sit"], "parameter": {"data": True}},
-        )
+    def body_to_wheel_raw(
+        self,
+        x_cmd: float,
+        y_cmd: float,
+        theta_cmd: float,
+        wheel_radius: float = 0.05,
+        base_radius: float = 0.125,
+        max_raw: int = 3000,
+    ) -> dict:
+        """
+        Convert desired body-frame velocities into wheel raw commands.
 
-        # Wait for the robot to sit
-        await asyncio.sleep(3)
+        Parameters:
+          x_cmd      : Linear velocity in x (m/s).
+          y_cmd      : Linear velocity in y (m/s).
+          theta_cmd  : Rotational velocity (deg/s).
+          wheel_radius: Radius of each wheel (meters).
+          base_radius : Distance from the center of rotation to each wheel (meters).
+          max_raw    : Maximum allowed raw command (ticks) per wheel.
 
-        logger.info("Robot moved to sleep position")
+        Returns:
+          A dictionary with wheel raw commands:
+             {"left_wheel": value, "back_wheel": value, "right_wheel": value}.
+
+        Notes:
+          - Internally, the method converts theta_cmd to rad/s for the kinematics.
+          - The raw command is computed from the wheels angular speed in deg/s
+            using degps_to_raw(). If any command exceeds max_raw, all commands
+            are scaled down proportionally.
+        """
+        # Convert rotational velocity from deg/s to rad/s.
+        theta_rad = theta_cmd * (np.pi / 180.0)
+        # Create the body velocity vector [x, y, theta_rad].
+        velocity_vector = np.array([x_cmd, y_cmd, theta_rad])
+
+        # Define the wheel mounting angles (defined from y axis cw)
+        angles = np.radians(np.array([300, 180, 60]))
+        # Build the kinematic matrix: each row maps body velocities to a wheel’s linear speed.
+        # The third column (base_radius) accounts for the effect of rotation.
+        m = np.array([[np.cos(a), np.sin(a), base_radius] for a in angles])
+
+        # Compute each wheel’s linear speed (m/s) and then its angular speed (rad/s).
+        wheel_linear_speeds = m.dot(velocity_vector)
+        wheel_angular_speeds = wheel_linear_speeds / wheel_radius
+
+        # Convert wheel angular speeds from rad/s to deg/s.
+        wheel_degps = wheel_angular_speeds * (180.0 / np.pi)
+
+        # Scaling
+        steps_per_deg = 4096.0 / 360.0
+        raw_floats = [abs(degps) * steps_per_deg for degps in wheel_degps]
+        max_raw_computed = max(raw_floats)
+        if max_raw_computed > max_raw:
+            scale = max_raw / max_raw_computed
+            wheel_degps = wheel_degps * scale
+
+        # Convert each wheel’s angular speed (deg/s) to a raw integer.
+        wheel_raw = [LeKiwi.degps_to_raw(deg) for deg in wheel_degps]
+
+        return {
+            "left_wheel": wheel_raw[0],
+            "back_wheel": wheel_raw[1],
+            "right_wheel": wheel_raw[2],
+        }
+
+    @staticmethod
+    def degps_to_raw(degps: float) -> int:
+        steps_per_deg = 4096.0 / 360.0
+        speed_in_steps = abs(degps) * steps_per_deg
+        speed_int = int(round(speed_in_steps))
+        if speed_int > 0x7FFF:
+            speed_int = 0x7FFF
+        if degps < 0:
+            return speed_int | 0x8000
+        else:
+            return speed_int & 0x7FFF
