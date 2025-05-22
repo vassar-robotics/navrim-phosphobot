@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from phosphobot.hardware.base import BaseManipulator
 from phosphobot.utils import step_simulation
 
@@ -31,7 +32,8 @@ def compare_angles_radian(
     return np.allclose(closest_zero_or_2pi, 0, atol=atol), max_error
 
 
-def move_robot_testing(
+@pytest.mark.asyncio
+async def move_robot_testing(
     robot: BaseManipulator,
     delta_position: np.ndarray,
     delta_orientation_rad: np.ndarray,
@@ -54,7 +56,7 @@ def move_robot_testing(
     theoretical_position = start_position + delta_position
     theoretical_rotation = start_orientation + delta_orientation_rad
 
-    robot.move_robot_absolute(
+    await robot.move_robot_absolute(
         target_position=theoretical_position,
         target_orientation_rad=theoretical_rotation,
     )

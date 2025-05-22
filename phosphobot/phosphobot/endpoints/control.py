@@ -236,7 +236,7 @@ async def move_to_absolute_position(
 
                 logger.debug(f"Trial {num_trials + 1}")
                 num_trials += 1
-                robot.move_robot_absolute(
+                await robot.move_robot_absolute(
                     target_position=target_position,
                     target_orientation_rad=target_orientation_rad,
                     interpolate_trajectory=False,
@@ -251,7 +251,7 @@ async def move_to_absolute_position(
         await try_moving_to_target()
     else:
         # Otherwise, run the move_robot_absolute method directly
-        robot.move_robot_absolute(
+        await robot.move_robot_absolute(
             target_position=np.array([query.x, query.y, query.z]),
             target_orientation_rad=np.deg2rad(np.array([query.rx, query.ry, query.rz])),
         )

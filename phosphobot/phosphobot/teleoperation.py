@@ -136,16 +136,10 @@ class TeleopManager:
         ):
             await asyncio.sleep(0.0001)
 
-        loop = asyncio.get_event_loop()
         try:
             # off-load blocking move_robot into threadpool + enforce timeout
             await asyncio.wait_for(
-                loop.run_in_executor(
-                    None,
-                    robot.move_robot_absolute,
-                    target_position,
-                    target_orientation_rad,
-                ),
+                robot.move_robot_absolute(target_position, target_orientation_rad),
                 timeout=self.MOVE_TIMEOUT,
             )
         except asyncio.TimeoutError:

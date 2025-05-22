@@ -170,14 +170,14 @@ class UnitreeGo2(BaseMobileRobot):
         """
         raise NotImplementedError
 
-    def move_robot_absolute(
+    async def move_robot_absolute(
         self,
-        target_position: np.ndarray,  # cartesian np.array
-        target_orientation_rad: np.ndarray | None,  # rad np.array
+        target_position: np.ndarray,
+        target_orientation_rad: np.ndarray | None,
         **kwargs,
     ) -> None:
         """
-        Move the robot to the target position and orientation.
+        Move the robot to the target position and orientation asynchronously.
 
         Args:
             target_position: Target position as [x, y, z]
@@ -188,61 +188,46 @@ class UnitreeGo2(BaseMobileRobot):
             self.logger.error("Robot is not connected")
             return
 
-        # Create a synchronous event loop to run the async commands
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        # Store the movement command
-        self.movement_history.append(
+        self.movement_queue.append(
             MovementCommand(
                 position=target_position.copy(),
-                orientation=target_orientation_rad.copy(),
+                orientation=target_orientation_rad.copy()
+                if target_orientation_rad is not None
+                else None,
             )
         )
 
-        # Update current position
         self.current_position = target_position
 
-        # Move to the position using the Move command
-        loop.run_until_complete(
-            self.conn.datachannel.pub_sub.publish_request_new(
+        await self.conn.datachannel.pub_sub.publish_request_new(
+            RTC_TOPIC["SPORT_MOD"],
+            {
+                "api_id": SPORT_CMD["Move"],
+                "parameter": {
+                    "x": float(target_position[0]),
+                    "y": float(target_position[1]),
+                    "z": float(target_position[2]),
+                },
+            },
+        )
+
+        if target_orientation_rad is not None:
+            self.current_orientation = target_orientation_rad
+            target_orientation_deg = np.degrees(target_orientation_rad[2])
+
+            await self.conn.datachannel.pub_sub.publish_request_new(
                 RTC_TOPIC["SPORT_MOD"],
                 {
-                    "api_id": SPORT_CMD["Move"],
+                    "api_id": SPORT_CMD["Euler"],
                     "parameter": {
-                        "x": float(target_position[0]),
-                        "y": float(target_position[1]),
-                        "z": float(target_position[2]),
+                        "x": float(target_orientation_rad[0]),
+                        "y": float(target_orientation_rad[1]),
+                        "z": float(target_orientation_deg),
                     },
                 },
             )
-        )
 
-        # If orientation is provided, also rotate the robot
-        if target_orientation_rad is not None:
-            # Update current orientation
-            self.current_orientation = target_orientation_rad
-
-            # Convert radians to degrees for the Z rotation (yaw)
-            target_orientation_deg = np.degrees(target_orientation_rad[2])
-
-            loop.run_until_complete(
-                self.conn.datachannel.pub_sub.publish_request_new(
-                    RTC_TOPIC["SPORT_MOD"],
-                    {
-                        "api_id": SPORT_CMD["Euler"],
-                        "parameter": {
-                            "x": float(target_orientation_rad[0]),
-                            "y": float(target_orientation_rad[1]),
-                            "z": float(target_orientation_deg),
-                        },
-                    },
-                )
-            )
-
-        # Wait for movement to complete
-        loop.run_until_complete(asyncio.sleep(3))
-
+        await asyncio.sleep(3)
         self.logger.info(
             f"Moved to position {target_position} with orientation {target_orientation_rad}"
         )

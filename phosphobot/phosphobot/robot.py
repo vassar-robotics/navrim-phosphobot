@@ -272,7 +272,7 @@ class RobotConnectionManager:
         devices = None
         try:
             devices = fast_arp_scan(subnet="192.168.1.0/24")
-        except PermissionError as e:
+        except PermissionError:
             logger.warning(
                 "Can't run fast ARP scan. Please run as root or use sudo. Falling back to slow scan."
             )

@@ -81,7 +81,7 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def move_robot_absolute(
+    async def move_robot_absolute(
         self,
         target_position: np.ndarray,  # cartesian np.array
         target_orientation_rad: np.ndarray | None,  # rad np.array
