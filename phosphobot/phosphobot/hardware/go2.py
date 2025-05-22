@@ -22,11 +22,7 @@ class MovementCommand:
 class UnitreeGo2(BaseMobileRobot):
     name = "unitree-go2"
 
-    UNITREE_MAC_PREFIXES = [
-        "00:04:4b",  # Jetson Nano (NVIDIA MAC block)
-        "48:b0:2d",  # Jetson Xavier NX (common)
-        "08:7c:be",  # Unitree Go1 confirmed prefix
-    ]
+    UNITREE_MAC_PREFIXES = ["78:22:88"]
 
     def __init__(self, ip: str = "192.168.1.42", max_history_len: int = 100, **kwargs):
         """

@@ -282,6 +282,7 @@ class RobotConnectionManager:
             devices = slow_arp_scan(subnet="192.168.1.0/24")
 
         for device in devices:
+            logger.debug(f"Found device: {device}")
             mac = device["mac"]
             ip = device["ip"]
             if any(

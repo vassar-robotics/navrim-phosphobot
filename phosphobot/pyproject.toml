@@ -45,6 +45,7 @@ dependencies = [
     "httpx>=0.28.1",
     "go2-webrtc-connect>=0.1.0",
     "scapy>=2.6.1",
+    "netifaces>=0.11.0",
 ]
 
 [dependency-groups]
