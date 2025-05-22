@@ -64,7 +64,7 @@ class BaseManipulator(BaseRobot):
 
     SERIAL_ID: str
 
-    DEVICE_NAME: Optional[str]
+    device_name: Optional[str]
 
     # List of servo IDs, used to write and read motor positions
     # They are in the same order as the joint links in the URDF file
@@ -207,7 +207,7 @@ class BaseManipulator(BaseRobot):
 
         if device_name is not None:
             # Override the device name if provided
-            self.DEVICE_NAME = device_name
+            self.device_name = device_name
 
         self._add_debug_lines = add_debug_lines
 

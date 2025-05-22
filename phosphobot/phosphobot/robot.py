@@ -381,8 +381,8 @@ class RobotConnectionManager:
         for status, robot in zip(robots_status, self.robots):
             if status is None:
                 logger.warning(f"Robot {robot.name} is not connected. Disconnecting.")
-                if hasattr(robot, "DEVICE_NAME") and robot.DEVICE_NAME is not None:
-                    self.robot_ports_without_power.add(robot.DEVICE_NAME)
+                if hasattr(robot, "device_name") and robot.device_name is not None:
+                    self.robot_ports_without_power.add(robot.device_name)
 
                 robot.disconnect()
                 self._all_robots.remove(robot)

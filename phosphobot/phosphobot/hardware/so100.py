@@ -108,9 +108,9 @@ class SO100Hardware(BaseManipulator):
         """
         Connect to the robot.
         """
-        if not hasattr(self, "DEVICE_NAME"):
+        if not hasattr(self, "device_name"):
             logger.warning(
-                "Can't connect: no plugged robot detected (no DEVICE_NAME). Please plug the robot, then restart the server."
+                "Can't connect: no plugged robot detected (no device_name). Please plug the robot, then restart the server."
             )
             return
 
