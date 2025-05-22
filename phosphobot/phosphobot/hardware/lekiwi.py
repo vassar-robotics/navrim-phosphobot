@@ -1,12 +1,12 @@
+import json
+import logging
 from collections import deque
 from dataclasses import dataclass
-import logging
-import json
-import numpy as np
 from typing import Deque, Optional
 
+import numpy as np
 import zmq
-
+from loguru import logger
 
 from phosphobot.hardware.base import BaseMobileRobot
 from phosphobot.models import RobotConfigStatus
@@ -36,9 +36,6 @@ class LeKiwi(BaseMobileRobot):
         self.current_position = np.zeros(3)  # [x, y, z]
         self.current_orientation = np.zeros(3)  # [roll, pitch, yaw]
         self._is_connected = False
-
-        # Configure logging
-        self.logger = logging.getLogger("UnitreeGo2")
 
         # Track movement instructions
         self.movement_queue: Deque[MovementCommand] = deque(maxlen=max_history_len)
@@ -82,10 +79,10 @@ class LeKiwi(BaseMobileRobot):
             self.cmd_socket.setsockopt(zmq.CONFLATE, 1)
 
             self.is_connected = True
-            self.logger.info("Successfully connected to UnitreeGo2")
+            logger.info("Successfully connected to UnitreeGo2")
 
         except Exception as e:
-            self.logger.error(f"Failed to connect to UnitreeGo2: {e}")
+            logger.error(f"Failed to connect to UnitreeGo2: {e}")
             raise Exception(f"Failed to connect to UnitreeGo2: {e}")
 
     def disconnect(self) -> None:
@@ -148,7 +145,7 @@ class LeKiwi(BaseMobileRobot):
             **kwargs: Additional arguments
         """
         if not self.is_connected or self.conn is None:
-            self.logger.error("Robot is not connected")
+            logger.error("Robot is not connected")
             return
 
         x_cmd = target_position[0]  # forward/backward
@@ -174,7 +171,7 @@ class LeKiwi(BaseMobileRobot):
         message = {"raw_velocity": wheel_commands, "arm_positions": []}
         self.cmd_socket.send_string(json.dumps(message))
 
-        self.logger.info(
+        logger.info(
             f"Moved to position {target_position} with orientation {target_orientation_rad}"
         )
 
@@ -223,7 +220,7 @@ class LeKiwi(BaseMobileRobot):
         This makes the robot sit down before potentially disconnecting.
         """
         if not self.is_connected or self.conn is None:
-            self.logger.error("Robot is not connected")
+            logger.error("Robot is not connected")
             return
 
     def body_to_wheel_raw(
