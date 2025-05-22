@@ -15,7 +15,5 @@ dependencies = [
     "pyarrow>=19.0.1",
     "torch>=2.6.0",
     "torchvision>=0.21.0",
-    "pyav>=14.2.1",
+    "av>=14.2.1",
 ]
-
-phosphobot = { path = "../../phosphobot", editable = true }
