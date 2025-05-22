@@ -97,11 +97,13 @@ export type TrainingParamsGR00T = {
   learning_rate?: number;
   epochs?: number;
   train_test_split?: number;
+  validation_data_dir?: string | null;
 };
 
 export type TrainingRequest = {
   model_type: "gr00t" | "ACT" | "custom";
   dataset_name: string;
+  validation_dataset_name?: string;
   model_name: string;
   wandb_api_key?: string;
   training_params?: TrainingParamsACT | TrainingParamsGR00T;

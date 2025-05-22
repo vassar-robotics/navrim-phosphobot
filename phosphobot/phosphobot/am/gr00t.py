@@ -908,6 +908,7 @@ async def run_gr00t_training(
     number_of_cameras,
     learning_rate,
     wandb_enabled: bool,
+    validation_data_dir=None,
     timeout_seconds: int | None = None,
     gr00t_repo_path: str = ".",
 ):
@@ -916,6 +917,13 @@ async def run_gr00t_training(
         f"{gr00t_repo_path}/scripts/gr00t_finetune.py",
         "--dataset-path",
         str(data_dir),
+    ]
+    if validation_data_dir is not None:
+        cmd.extend([
+            "--validation-dataset-path",
+            str(validation_data_dir),
+        ])
+    cmd.extend([
         # Only 1 GPU for now
         # Open an issue for multi-GPU support
         "--num-gpus",
@@ -1063,6 +1071,48 @@ class Gr00tTrainer(BaseTrainer):
         logger.info("Generating modality.json file")
         number_of_robots, number_of_cameras = generate_modality_json(data_dir)
 
+        val_data_dir: Path | None = None
+        if self.config.validation_dataset_name is not None:
+            val_data_dir = Path(
+                self.config.training_params.validation_data_dir or data_dir / "validation"
+            )
+            os.makedirs(val_data_dir, exist_ok=True)
+            for attempt in range(max_retries):
+                try:
+                    dataset_path_val_str = snapshot_download(
+                        repo_id=self.config.validation_dataset_name,
+                        repo_type="dataset",
+                        revision=selected_branch,
+                        local_dir=str(val_data_dir),
+                        token=os.getenv("HF_TOKEN"),
+                    )
+                    VAL_DATASET_PATH = Path(dataset_path_val_str)
+                    logger.info(
+                        f"Validation dataset {self.config.validation_dataset_name} downloaded to {VAL_DATASET_PATH}"
+                    )
+                    break
+                except Exception as e:
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}")
+                    if attempt < max_retries - 1:
+                        time.sleep(1)
+                    else:
+                        raise RuntimeError(
+                            f"Failed to download dataset {self.config.validation_dataset_name} after {max_retries} attempts, is Hugging Face down ? : {e}"
+                        )
+
+            resized_successful, _ = resize_dataset(
+                dataset_root_path=VAL_DATASET_PATH, resize_to=(224, 224)
+            )
+            if not resized_successful:
+                raise RuntimeError(
+                    f"Resizing dataset {self.config.validation_dataset_name} to 224x224 failed: {resized_successful}"
+                )
+            logger.info(
+                f"Resized dataset {self.config.validation_dataset_name} to 224x224"
+            )
+            logger.info("Generating modality.json file for validation dataset")
+            generate_modality_json(val_data_dir)
+
         # Find the total number of frames in the dataset in meta / info.json
         with open(data_dir / "meta" / "info.json", "r") as f:
             info = json.load(f)
@@ -1089,6 +1139,7 @@ class Gr00tTrainer(BaseTrainer):
                 number_of_cameras=number_of_cameras,
                 learning_rate=self.config.training_params.learning_rate,
                 wandb_enabled=self.config.wandb_api_key is not None,
+                validation_data_dir=val_data_dir,
                 timeout_seconds=timeout_seconds,
                 gr00t_repo_path=self.config.training_params.path_to_gr00t_repo,
             )

@@ -127,6 +127,11 @@ class TrainingParamsGr00T(BaseModel):
         default="data/", description="The directory to save the dataset to"
     )
 
+    validation_data_dir: str | None = Field(
+        default=None,
+        description="Optional directory to save the validation dataset to",
+    )
+
     output_dir: str = Field(
         default="outputs/", description="The directory to save the model to"
     )
@@ -148,6 +153,11 @@ class BaseTrainerConfig(BaseModel):
     dataset_name: str = Field(
         ...,
         description="Dataset repository ID on Hugging Face, should be a public dataset",
+    )
+
+    validation_dataset_name: str | None = Field(
+        default=None,
+        description="Optional dataset repository ID on Hugging Face to use for validation",
     )
     model_name: Optional[str] = Field(
         default=None,
@@ -199,6 +209,21 @@ class TrainingRequest(BaseTrainerConfig):
 
     @field_validator("dataset_name", mode="before")
     def validate_dataset(cls, dataset_name: str) -> str:
+        try:
+            url = f"https://huggingface.co/api/datasets/{dataset_name}/tree/main"
+            response = requests.get(url, timeout=5)
+            if response.status_code != 200:
+                raise ValueError()
+            return dataset_name
+        except Exception:
+            raise ValueError(
+                f"Dataset {dataset_name} is not a valid, public Hugging Face dataset. Please check the URL and try again. Your dataset name should be in the format <username>/<dataset_name>",
+            )
+
+    @field_validator("validation_dataset_name", mode="before")
+    def validate_validation_dataset(cls, dataset_name: str | None) -> str | None:
+        if dataset_name is None:
+            return None
         try:
             url = f"https://huggingface.co/api/datasets/{dataset_name}/tree/main"
             response = requests.get(url, timeout=5)

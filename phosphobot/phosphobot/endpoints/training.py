@@ -121,6 +121,23 @@ async def start_training(
             detail=f"Failed to download and parse meta/info.json.\n{e}",
         )
 
+    if request.validation_dataset_name:
+        try:
+            info_file_path = api.hf_hub_download(
+                repo_id=request.validation_dataset_name,
+                repo_type="dataset",
+                filename="meta/info.json",
+                force_download=True,
+            )
+            meta_folder_path = os.path.dirname(info_file_path)
+            InfoModel.from_json(meta_folder_path=meta_folder_path)
+        except Exception as e:
+            logger.warning(f"Error accessing validation dataset info: {e}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Failed to download and parse validation meta/info.json.\n{e}",
+            )
+
     # Send training request to modal API
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
