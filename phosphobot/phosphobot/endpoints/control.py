@@ -3,6 +3,7 @@ import datetime
 import json
 from copy import copy
 from typing import Literal
+from dateutil import parser
 
 import json_numpy  # type: ignore
 import numpy as np
@@ -838,9 +839,9 @@ async def fetch_auto_control_status(request: AIStatusRequest) -> AIStatusRespons
         )
     ):
         # if started less than 10 minutes ago, return the backend status
+        created_at = parser.isoparse(supabase_data["created_at"])
         if (
-            datetime.datetime.now(datetime.timezone.utc)
-            - datetime.datetime.fromisoformat(supabase_data["created_at"])
+            datetime.datetime.now(datetime.timezone.utc) - created_at
         ).total_seconds() < 600:
             ai_control_signal.id = supabase_id
             return AIStatusResponse(id=supabase_id, status=supabase_status)

@@ -1,6 +1,6 @@
 [project]
 name = "phosphobot"
-version = "0.3.10"
+version = "0.3.11"
 description = "The AI-ready robotics dev kit, with built-in remote control and VLA support."
 authors = [{ name = "phospho", email = "contact@phospho.ai" }]
 license = "MIT"
@@ -62,6 +62,7 @@ dev = [
     "pytest-xdist>=3.6.1",
     "pytest-asyncio>=0.25.1",
     "pytest-dependency>=0.6.0",
+    "types-python-dateutil>=2.9.0.20250516",
 ]
 
 
