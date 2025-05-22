@@ -138,6 +138,7 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
   const handleMerge = () => {
     // Pass both the dataset name and the image key mappings
     mergeMultipleDatasets(mergedDatasetName, imageKeyMappings);
+    setImageKeyMappings({});
   };
 
   const allKeysMapped =
@@ -154,7 +155,7 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
         <p className="text-xs mb-1">{sourceOrTarget}</p>
         <div className="h-20 flex items-center justify-center">
           <img
-            src={`data:image/jpeg;base64,${datasetInfos[selectedItems[0]]?.image_frames?.[imageKey] ?? ""}`}
+            src={`data:image/jpeg;base64,${datasetInfos[selectedItems[sourceOrTarget == "Source" ? 0 : 1]]?.image_frames?.[imageKey] ?? ""}`}
             alt={`Preview of ${imageKey}`}
             className="max-h-full max-w-full object-contain"
           />
