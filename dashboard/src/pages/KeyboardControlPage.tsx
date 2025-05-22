@@ -90,7 +90,7 @@ export default function RobotControllerPage() {
 
   const robotIDFromName = (name?: string | null) => {
     if (name === undefined || name === null || !serverStatus?.robot_status) {
-      return 0; // Default to the first robot 
+      return 0; // Default to the first robot
     }
     // Return the index in the robot_status array
     return serverStatus?.robot_status.findIndex(
@@ -291,14 +291,14 @@ export default function RobotControllerPage() {
       icon: <ArrowDown className="size-6" />,
     },
     {
-      key: "ArrowRight",
-      description: "Rotate Z clockwise (yaw)",
-      icon: <ArrowRight className="size-6" />,
-    },
-    {
       key: "ArrowLeft",
       description: "Rotate Z counter-clockwise (yaw)",
       icon: <ArrowLeft className="size-6" />,
+    },
+    {
+      key: "ArrowRight",
+      description: "Rotate Z clockwise (yaw)",
+      icon: <ArrowRight className="size-6" />,
     },
     {
       key: "F",
@@ -398,12 +398,12 @@ export default function RobotControllerPage() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Card
-                  className={`flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-accent transition-colors ${activeKey === control.key
-                    ? "bg-primary text-primary-foreground"
-                    : ""
-                    }`}
+                  className={`flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-accent transition-colors ${
+                    activeKey === control.key
+                      ? "bg-primary text-primary-foreground"
+                      : ""
+                  }`}
                   onClick={() => {
-
                     // Use the same logic as in the keyDown handler
                     if (control.key === " ") {
                       // Toggle the open state and send a zero-movement command.
