@@ -754,6 +754,18 @@ export default function FileBrowser() {
         </TableBody>
       </Table>
 
+      {data.items.length > 0 && data.items[0].previewUrl && (
+        <Alert variant="default" className="mt-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Preview Feature</AlertTitle>
+          <AlertDescription>
+            To use the preview feature, please upload your dataset to Hugging
+            Face first.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Show episode selection and replay/delete buttons */}
       {data.episode_ids && data.episode_ids.length > 0 && (
         <div className="mt-6">
           <div className="flex items-end gap-2">
