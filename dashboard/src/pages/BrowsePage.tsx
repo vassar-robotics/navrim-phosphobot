@@ -1,4 +1,5 @@
 import { LoadingPage } from "@/components/common/loading";
+import { Modal } from "@/components/common/modal";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Breadcrumb,
@@ -12,7 +13,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -61,6 +61,7 @@ import {
   MoreVertical,
   Plus,
   Repeat,
+  Split,
   Trash2,
   Wrench,
 } from "lucide-react";
@@ -102,6 +103,7 @@ interface MergeDialogProps {
     mergedName: string,
     imageKeyMappings: Record<string, string>,
   ) => void;
+  loading: boolean;
 }
 
 const MergeDialog: React.FC<MergeDialogProps> = ({
@@ -109,6 +111,7 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
   datasetInfos,
   setMergeModalOpen,
   mergeMultipleDatasets,
+  loading,
 }) => {
   const [mergedDatasetName, setMergedDatasetName] = useState("");
 
@@ -135,6 +138,7 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
   const handleMerge = () => {
     // Pass both the dataset name and the image key mappings
     mergeMultipleDatasets(mergedDatasetName, imageKeyMappings);
+    setImageKeyMappings({});
   };
 
   const allKeysMapped =
@@ -151,7 +155,7 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
         <p className="text-xs mb-1">{sourceOrTarget}</p>
         <div className="h-20 flex items-center justify-center">
           <img
-            src={`data:image/jpeg;base64,${datasetInfos[selectedItems[0]]?.image_frames?.[imageKey] ?? ""}`}
+            src={`data:image/jpeg;base64,${datasetInfos[selectedItems[sourceOrTarget == "Source" ? 0 : 1]]?.image_frames?.[imageKey] ?? ""}`}
             alt={`Preview of ${imageKey}`}
             className="max-h-full max-w-full object-contain"
           />
@@ -272,11 +276,13 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
           Cancel
         </Button>
         <Button
-          variant="destructive"
           onClick={handleMerge}
           disabled={!mergedDatasetName.trim() || !allKeysMapped}
         >
-          Merge
+          {loading ? (
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+          ) : null}
+          {loading ? "Merging..." : "Merge"}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -309,8 +315,14 @@ export default function FileBrowser() {
   const [hfDatasetName, setHFDatasetName] = useState("");
   const [confirmRepairOpen, setConfirmRepairOpen] = useState(false);
 
+  // Split modal
+  const [openSplitModel, setOpenSplitModel] = useState(false);
+  const [selectedSplitRatio, setSelectedSplitRatio] = useState(0.8);
+  const [firstSplitName, setFirstSplitName] = useState("");
+  const [secondSplitName, setSecondSplitName] = useState("");
+
   // Loading state for episode deletion
-  const [loadingDeleteEpisode, setLoadingDeleteEpisode] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const { data: serverStatus } = useSWR<ServerStatus>(
     ["/status"],
@@ -382,6 +394,7 @@ export default function FileBrowser() {
       toast.error("No datasets selected for deletion");
       return;
     }
+    setLoading(true);
     const deletePromises = selectedItems.map(async (item) => {
       const resp = await fetchWithBaseUrl(
         `/dataset/delete?path=${encodeURIComponent(item)}`,
@@ -394,6 +407,7 @@ export default function FileBrowser() {
       toast.success(`Dataset deleted successfully: ${item}`);
     });
     await Promise.all(deletePromises);
+    setLoading(false);
     setConfirmDeleteOpen(false);
     setSelectedItems([]);
     mutate();
@@ -434,16 +448,30 @@ export default function FileBrowser() {
     setMergeModalOpen(true);
   };
 
+  const handleSplitCheck = async () => {
+    if (selectedItems.length !== 1) {
+      toast.error("Please select exactly 1 dataset to split");
+      return;
+    }
+
+    setOpenSplitModel(true);
+  };
+
   const mergeMultipleDatasets = async (
     newDatasetName: string,
     imageKeyMappings?: Record<string, string>,
   ) => {
-    fetchWithBaseUrl(`/dataset/merge`, "POST", {
-      first_dataset: selectedItems[0],
-      second_dataset: selectedItems[1],
-      new_dataset_name: newDatasetName,
-      image_key_mappings: imageKeyMappings,
-    }).then((response) => {
+    setLoading(true);
+    console.log("Merging datasets:", selectedItems);
+
+    try {
+      const response = await fetchWithBaseUrl(`/dataset/merge`, "POST", {
+        first_dataset: selectedItems[0],
+        second_dataset: selectedItems[1],
+        new_dataset_name: newDatasetName,
+        image_key_mappings: imageKeyMappings,
+      });
+
       if (response.status !== "ok") {
         toast.error("Failed to merge datasets");
       } else {
@@ -451,8 +479,15 @@ export default function FileBrowser() {
         mutate();
         redirect(path);
       }
-    });
-    setMergeModalOpen(false);
+      console.log("Merged datasets:", selectedItems);
+    } catch (error) {
+      toast.error("Failed to merge datasets");
+      console.error("Merge error:", error);
+    } finally {
+      // This ensures loading is set to false after the operation completes
+      setLoading(false);
+      setMergeModalOpen(false);
+    }
   };
 
   const handleRepairDataset = async () => {
@@ -460,6 +495,7 @@ export default function FileBrowser() {
       toast.error("No datasets selected for repair");
       return;
     }
+    setLoading(true);
     const repairPromises = selectedItems.map(async (item) => {
       console.log("Repairing dataset:", item);
       const resp = await fetchWithBaseUrl(`/dataset/repair`, "POST", {
@@ -472,6 +508,7 @@ export default function FileBrowser() {
       toast.success(`Dataset repaired successfully: ${item}`);
     });
     await Promise.all(repairPromises);
+    setLoading(false);
     setConfirmRepairOpen(false);
     setSelectedItems([]);
     mutate();
@@ -717,6 +754,18 @@ export default function FileBrowser() {
         </TableBody>
       </Table>
 
+      {data.items.length > 0 && data.items[0].previewUrl && (
+        <Alert variant="default" className="mt-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Preview Feature</AlertTitle>
+          <AlertDescription>
+            To use the preview feature, please upload your dataset to Hugging
+            Face first.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Show episode selection and replay/delete buttons */}
       {data.episode_ids && data.episode_ids.length > 0 && (
         <div className="mt-6">
           <div className="flex items-end gap-2">
@@ -767,14 +816,24 @@ export default function FileBrowser() {
         (path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1")) && (
           <div className="flex flex-col md:flex-row md:space-x-2 mt-6">
             {path.endsWith("lerobot_v2.1") && (
-              <Button
-                className="mb-4"
-                variant="outline"
-                onClick={() => handleMergeCheck()}
-              >
-                <Repeat className="mr-2 h-4 w-3" />
-                Merge Selected Datasets
-              </Button>
+              <>
+                <Button
+                  className="mb-4"
+                  variant="outline"
+                  onClick={() => handleMergeCheck()}
+                >
+                  <Repeat className="mr-2 h-4 w-3" />
+                  Merge Selected Datasets
+                </Button>
+                <Button
+                  className="mb-4"
+                  variant="outline"
+                  onClick={() => handleSplitCheck()}
+                >
+                  <Split className="mr-2 h-4 w-3" />
+                  Split Selected Datasets
+                </Button>
+              </>
             )}
             <Button
               className="mb-4"
@@ -796,179 +855,208 @@ export default function FileBrowser() {
         )}
 
       {/* Dataset deletion dialog */}
-      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Delete Dataset</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete the selected datasets:
-              <br />
-              {selectedItems.length > 0
-                ? selectedItems.map((item) => (
-                    <span key={item}>
-                      <strong>{item}</strong>
-                      <br />
-                    </span>
-                  ))
-                : null}
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmDeleteOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteMultipleDatasets}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Confirm Delete Dataset"
+        description={
+          <>
+            Are you sure you want to delete the selected datasets:
+            <br />
+            {selectedItems.length > 0
+              ? selectedItems.map((item) => (
+                  <span key={item}>
+                    <strong>{item}</strong>
+                    <br />
+                  </span>
+                ))
+              : null}
+            This action cannot be undone.
+          </>
+        }
+        confirmLabel={loading ? "Deleting..." : "Delete"}
+        confirmVariant="destructive"
+        isLoading={loading}
+        onConfirm={handleDeleteMultipleDatasets}
+      />
 
       {/* Episode deletion dialog */}
-      <Dialog
+      <Modal
         open={confirmEpisodeDeleteOpen}
         onOpenChange={setConfirmEpisodeDeleteOpen}
+        title="Confirm Delete Episode"
+        description={
+          <>
+            Are you sure you want to delete episode{" "}
+            <strong>{selectedEpisode}</strong>? This action cannot be undone.
+          </>
+        }
+        confirmLabel={loading ? "Deleting..." : "Delete"}
+        confirmVariant="destructive"
+        isLoading={loading}
+        onConfirm={async () => {
+          setLoading(true);
+          await handleDeleteEpisode();
+          setConfirmEpisodeDeleteOpen(false);
+          setLoading(false);
+          redirect(path);
+        }}
+      />
+
+      {/* Split modal */}
+      <Modal
+        open={openSplitModel}
+        onOpenChange={setOpenSplitModel}
+        title="Split Dataset"
+        description="This will split the selected dataset into separate datasets."
+        confirmLabel={loading ? "Splitting..." : "Split"}
+        onConfirm={async () => {
+          if (selectedItems.length !== 1) {
+            toast.error("Please select exactly 1 dataset to split");
+            return;
+          }
+          setLoading(true);
+          const resp = await fetchWithBaseUrl(`/dataset/split`, "POST", {
+            dataset_path: selectedItems[0],
+            split_ratio: selectedSplitRatio,
+            first_split_name: firstSplitName,
+            second_split_name: secondSplitName,
+          });
+          if (resp.status !== "ok") {
+            toast.error("Failed to split dataset: " + resp.message);
+          }
+          setLoading(false);
+          setOpenSplitModel(false);
+          mutate();
+          redirect(path);
+        }}
+        isLoading={loading}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Delete Episode</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete episode{" "}
-              <strong>{selectedEpisode}</strong>? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmEpisodeDeleteOpen(false)}
-              disabled={loadingDeleteEpisode}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                setLoadingDeleteEpisode(true);
-                await handleDeleteEpisode();
-                setConfirmEpisodeDeleteOpen(false);
-                setLoadingDeleteEpisode(false);
-                redirect(path);
-              }}
-              disabled={loadingDeleteEpisode}
-            >
-              {loadingDeleteEpisode ? (
-                <LoaderCircle> Deleting...</LoaderCircle>
-              ) : (
-                "Delete"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <div className="grid gap-4 py-4">
+          <Label htmlFor="split-ratio">Split Ratio</Label>
+          <p className="text-sm text-muted-foreground">
+            The ratio of the first split to the total dataset. For example, a
+            value of 0.8 means 80% of the data will go to the first split and
+            20% to the second.
+          </p>
+          <Input
+            id="split-ratio"
+            type="number"
+            value={selectedSplitRatio}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              if (!isNaN(value) && value >= 0 && value <= 1) {
+                setSelectedSplitRatio(value);
+              }
+            }}
+            step="0.01"
+            min="0"
+            max="1"
+            placeholder="Enter the split ratio (0-1)"
+            className="w-full"
+          />
+          <Label htmlFor="first-split-name">First Split Name</Label>
+          <Input
+            id="first-split-name"
+            value={firstSplitName}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow only characters that are not whitespace
+              if (/^[^\s]*$/.test(value)) {
+                setFirstSplitName(value);
+              }
+            }}
+            placeholder="Enter the name for the first split"
+            className="w-full"
+          />
+          <Label htmlFor="second-split-name">Second Split Name</Label>
+          <Input
+            id="second-split-name"
+            value={secondSplitName}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow only characters that are not whitespace
+              if (/^[^\s]*$/.test(value)) {
+                setSecondSplitName(value);
+              }
+            }}
+            placeholder="Enter the name for the second split"
+            className="w-full"
+          />
+        </div>
+      </Modal>
 
       {/* Download modal */}
-      <Dialog open={openDownloadModal} onOpenChange={setOpenDownloadModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Dataset Download</DialogTitle>
-            <DialogDescription>
-              Enter the Hugging Dace dataset name to download: should be
-              hf_name/dataset_name
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <Label htmlFor="dataset-select">Select Dataset</Label>
-            <Input
-              id="dataset-select"
-              value={hfDatasetName}
-              onChange={(e) => {
-                const value = e.target.value;
-                // Allow only characters that are not whitespace
-                if (/^[^\s]*$/.test(value)) {
-                  setHFDatasetName(value);
-                }
-              }}
-              placeholder="Enter the name of the dataset to download"
-              className="w-full"
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setOpenDownloadModal(false)}
-            >
-              Close
-            </Button>
-            <Button
-              variant="default"
-              onClick={async () => {
-                if (hfDatasetName.trim() === "") {
-                  toast.error("No dataset selected for download");
-                  return;
-                }
-                const resp = await fetchWithBaseUrl(
-                  `/dataset/hf_download`,
-                  "POST",
-                  {
-                    dataset_name: hfDatasetName,
-                  },
-                );
-                if (resp.status !== "ok") {
-                  toast.error("Failed to download dataset: " + resp.message);
-                } else {
-                  toast.success("Dataset downloaded successfully");
-                }
-                setOpenDownloadModal(false);
-                mutate();
-                redirect(path);
-              }}
-            >
-              Download
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        open={openDownloadModal}
+        onOpenChange={setOpenDownloadModal}
+        title="Dataset Download"
+        description="Enter the Hugging Face dataset name to download: should be hf_name/dataset_name"
+        confirmLabel={loading ? "Downloading..." : "Download"}
+        isLoading={loading}
+        onConfirm={async () => {
+          if (hfDatasetName.trim() === "") {
+            toast.error("No dataset selected for download");
+            return;
+          }
+          setLoading(true);
+          const resp = await fetchWithBaseUrl(`/dataset/hf_download`, "POST", {
+            dataset_name: hfDatasetName,
+          });
+          if (resp.status !== "ok") {
+            toast.error("Failed to download dataset: " + resp.message);
+          } else {
+            toast.success("Dataset downloaded successfully");
+          }
+          setLoading(false);
+          setOpenDownloadModal(false);
+          mutate();
+          redirect(path);
+        }}
+      >
+        <div className="grid gap-4 py-4">
+          <Label htmlFor="dataset-select">Select Dataset</Label>
+          <Input
+            id="dataset-select"
+            value={hfDatasetName}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow only characters that are not whitespace
+              if (/^[^\s]*$/.test(value)) {
+                setHFDatasetName(value);
+              }
+            }}
+            placeholder="Enter the name of the dataset to download"
+            className="w-full"
+          />
+        </div>
+      </Modal>
 
       {/* Dataset repair dialog */}
-      <Dialog open={confirmRepairOpen} onOpenChange={setConfirmRepairOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Repair Dataset</DialogTitle>
-            <DialogDescription>
-              This will attempt to repair the selected datasets:
-              <br />
-              {selectedItems.length > 0
-                ? selectedItems.map((item) => (
-                    <span key={item}>
-                      <strong>{item}</strong>
-                      <br />
-                    </span>
-                  ))
-                : null}
-              For now, this will only recalculate the parquets files, not the
-              meta data.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmRepairOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={() => handleRepairDataset()}>
-              Repair
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        open={confirmRepairOpen}
+        onOpenChange={setConfirmRepairOpen}
+        title="Repair Dataset"
+        description={
+          <>
+            This will attempt to repair the selected datasets:
+            <br />
+            {selectedItems.length > 0
+              ? selectedItems.map((item) => (
+                  <span key={item}>
+                    <strong>{item}</strong>
+                    <br />
+                  </span>
+                ))
+              : null}
+            For now, this will only recalculate the parquets files, not the meta
+            data.
+          </>
+        }
+        confirmLabel={loading ? "Repairing..." : "Repair"}
+        isLoading={loading}
+        onConfirm={handleRepairDataset}
+      />
 
       {/* Merge modal */}
       <Dialog open={mergeModalOpen} onOpenChange={setMergeModalOpen}>
@@ -977,6 +1065,7 @@ export default function FileBrowser() {
           datasetInfos={datasetInfos}
           setMergeModalOpen={setMergeModalOpen}
           mergeMultipleDatasets={mergeMultipleDatasets}
+          loading={loading}
         />
       </Dialog>
     </div>

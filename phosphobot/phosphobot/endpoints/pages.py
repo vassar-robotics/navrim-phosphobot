@@ -22,6 +22,7 @@ from phosphobot.models import (
     Dataset,
     DatasetListResponse,
     DatasetRepairRequest,
+    DatasetSplitRequest,
     DeleteEpisodeRequest,
     HFDownloadDatasetRequest,
     HuggingFaceTokenRequest,
@@ -53,7 +54,7 @@ router = APIRouter(tags=["pages"])
 
 # Root directory for the file browser
 ROOT_DIR = str(get_home_app_path() / "recordings")
-INDEX_PATH = str(get_resources_path() / "dist" / "index.html")
+INDEX_PATH = get_resources_path() / "dist" / "index.html"
 
 
 # Optionally, if you want the dashboard to be served at the root endpoint:
@@ -75,7 +76,7 @@ INDEX_PATH = str(get_resources_path() / "dist" / "index.html")
 @router.get("/inference", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
 async def serve_dashboard(request: Request):
-    with open(INDEX_PATH, "r") as f:
+    with open(INDEX_PATH.resolve(), "r") as f:
         content = f.read()
     return HTMLResponse(content=content)
 
@@ -851,3 +852,41 @@ async def repair_dataset(query: DatasetRepairRequest):
         return StatusResponse(
             status="error", message="Please check the logs for more details."
         )
+
+
+@router.post("/dataset/split", response_model=StatusResponse)
+async def split_dataset(query: DatasetSplitRequest):
+    """
+    Split a dataset into two datasets.
+    Used for creating training and validation datasets.
+    """
+    dataset_path = os.path.join(ROOT_DIR, query.dataset_path)
+    # Check if the path exists and is a directory
+    if not os.path.exists(dataset_path) or not os.path.isdir(dataset_path):
+        return StatusResponse(
+            status="error", message=f"Dataset {query.dataset_path} not found"
+        )
+
+    datatype = query.dataset_path.split("/")[0]
+    if datatype != "lerobot_v2.1":
+        return StatusResponse(
+            status="error",
+            message="You can only split datasets of type v2.1",
+        )
+
+    # Split the dataset
+    dataset = Dataset(path=dataset_path)
+
+    try:
+        dataset.split_dataset(
+            split_ratio=query.split_ratio,
+            first_split_name=query.first_split_name,
+            second_split_name=query.second_split_name,
+        )
+    except Exception as e:
+        logger.warning(f"Error splitting dataset: {e}")
+        return StatusResponse(
+            status="error",
+            message=f"Error splitting dataset: {e}",
+        )
+    return StatusResponse(status="ok", message="Dataset split successfully")
