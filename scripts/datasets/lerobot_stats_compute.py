@@ -73,8 +73,7 @@ class ParquetEpisodesDataset(Dataset):
             ]
             # TODO: Use REGEX to split the path instead of chunk-000
             related_video_files_dict = {
-                str(video_path).split("chunk-000/")[-1].split("/")[0]: video_path
-                for video_path in related_video_files
+                video_path.parent.name: video_path for video_path in related_video_files
             }
 
             for i in range(nb_steps):
@@ -89,8 +88,13 @@ class ParquetEpisodesDataset(Dataset):
         self.total_length = sum(self.episode_nb_steps)
 
         # video keys are the unique names of the folders in the videos directory
-        videos_folders = os.path.join(self.videos_dir, "chunk-000")
-        self.video_keys = str(os.listdir(videos_folders)).split("chunk-000.")[-1]
+        videos_folders = self.videos_dir / "chunk-000"
+        if not videos_folders.exists():
+            raise FileNotFoundError(
+                f"Videos folders not found: {videos_folders}. "
+                "Please check the videos directory structure."
+            )
+        self.video_keys = os.listdir(videos_folders)
 
     def __len__(self):
         return self.total_length
