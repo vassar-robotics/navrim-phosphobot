@@ -20,9 +20,6 @@ class WX250SHardware(KochHardware):
         get_resources_path() / "urdf" / "wx-250s" / "urdf" / "wx250s.urdf"
     )
 
-    REGISTERED_SERIAL_ID: list[str] = ["FT94W6U7"]
-    DEVICE_PID: int = 24596
-
     # Axis orientation
     AXIS_ORIENTATION = [0, 0, 0, 1]  # Adjust if needed
 
@@ -106,6 +103,7 @@ class WX250SHardware(KochHardware):
         """
         Detect if the device is a WX-250s
         """
-        if port.pid == cls.DEVICE_PID:
+        # Serialid: FT94W6U7
+        if port.pid == 24596:
             return cls(device_name=port.device, serial_id=port.serial_number)
         return None

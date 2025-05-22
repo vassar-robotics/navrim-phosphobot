@@ -1,15 +1,17 @@
-import av
 import random
 import string
-import requests  # type: ignore
-import numpy as np
+from abc import ABC, abstractmethod
 from pathlib import Path
-from loguru import logger
-from huggingface_hub import HfApi
-from abc import abstractmethod, ABC
 from typing import Literal, Optional
-from phosphobot.models import InfoModel
+
+import av
+import numpy as np
+import requests  # type: ignore
+from huggingface_hub import HfApi
+from loguru import logger
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+from phosphobot.models import InfoModel
 
 
 class ActionModel(ABC):
@@ -385,9 +387,9 @@ def resize_dataset(
                             codec_name="h264",
                             rate=input_stream.base_rate,
                         )
-                        output_stream.width = resize_to[0]
-                        output_stream.height = resize_to[1]
-                        output_stream.pix_fmt = input_stream.pix_fmt
+                        output_stream.width = resize_to[0]  # type: ignore
+                        output_stream.height = resize_to[1]  # type: ignore
+                        output_stream.pix_fmt = input_stream.pix_fmt  # type: ignore
 
                         # Process frames
                         for frame in input_container.decode(video=0):
@@ -398,11 +400,11 @@ def resize_dataset(
                             )
 
                             # Encode frame
-                            packet = output_stream.encode(frame)
+                            packet = output_stream.encode(frame)  # type: ignore
                             output_container.mux(packet)
 
                         # Flush encoder
-                        for value in output_stream.encode(None):
+                        for value in output_stream.encode(None):  # type: ignore
                             output_container.mux(value)
 
                         input_container.close()

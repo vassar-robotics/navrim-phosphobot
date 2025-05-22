@@ -8,10 +8,7 @@ from phosphobot.types import VideoCodecs
 
 from .camera import AllCamerasStatus, SingleCameraStatus
 from .dataset import (
-    BaseRobot,
-    BaseRobotConfig,
     BaseRobotInfo,
-    BaseRobotPIDGains,
     Dataset,
     Episode,
     EpisodesFeatures,
@@ -31,15 +28,7 @@ from .dataset import (
     VideoFeatureDetails,
     VideoInfo,
 )
-
-
-class RobotConfigStatus(BaseModel):
-    """
-    Contains the configuration of a robot.
-    """
-
-    name: str
-    usb_port: str | None
+from .robot import BaseRobot, BaseRobotConfig, BaseRobotPIDGains, RobotConfigStatus
 
 
 class ServerStatus(BaseModel):
@@ -300,6 +289,21 @@ class CalibrateResponse(BaseModel):
     total_nb_steps: int
 
 
+class JointsReadRequest(BaseModel):
+    """
+    Request to read the joints of the robot.
+    """
+
+    unit: Literal["rad", "motor_units", "degrees"] = Field(
+        "rad",
+        description="The unit of the angles. Defaults to radian.",
+    )
+    joints_ids: List[int] | None = Field(
+        None,
+        description="If set, only read the joints with these ids. If None, read all joints.",
+    )
+
+
 class JointsWriteRequest(BaseModel):
     """
     Request to set the joints of the robot.
@@ -325,13 +329,13 @@ class JointsReadResponse(BaseModel):
     Response to read the joints of the robot.
     """
 
-    angles_rad: List[float] = Field(
+    angles: List[float] = Field(
         ...,
         description="A list of length 6, with the position of each joint in radian.",
     )
-    angles_motor_units: List[int] = Field(
-        ...,
-        description="A list of length 6, with the position of each joint in motor units.",
+    unit: Literal["rad", "motor_units", "degrees"] = Field(
+        "rad",
+        description="The unit of the angles. Defaults to radian.",
     )
 
 

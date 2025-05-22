@@ -104,7 +104,7 @@ async def leader_follower_loop(
             joint_indices = list(range(num_joints))
 
             # Get leader's current joint positions
-            pos_rad = leader.current_position(unit="rad")
+            pos_rad = leader.read_joints_position(unit="rad")
 
             if any(np.isnan(pos_rad)):
                 logger.warning(

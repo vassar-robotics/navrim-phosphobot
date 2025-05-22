@@ -7,11 +7,11 @@ import { Outlet } from "react-router-dom";
 
 export function Layout() {
   return (
-    <div className="flex flex-col min-h-screen bg-muted">
+    <div className="flex flex-col h-screen bg-muted overflow-hidden">
       <TopBar />
-      <div className="flex flex-1 mt-[160px] md:mt-[60px] mb-[60px]">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="container mx-auto py-6 px-4 md:px-6 overflow-y-auto">
+        <main className="flex-1 container mx-auto py-6 px-4 md:px-6 overflow-y-auto pt-[150px] md:pt-[100px] pb-[60px]">
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>

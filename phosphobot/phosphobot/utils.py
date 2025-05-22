@@ -1,6 +1,7 @@
 import base64
 import functools
 import inspect
+import ipaddress
 import json
 import os
 import re
@@ -15,6 +16,7 @@ from typing import Annotated, Any, Literal, Tuple, Union
 
 import av
 import cv2
+import netifaces
 import numpy as np
 import pandas as pd
 import requests
@@ -552,10 +554,11 @@ def create_video_file(
         )  # type: ignore
         # Force a minimum bitrate for mpeg4 to avoid artifacts
         if codec_av == "mpeg4":
-            stream.bit_rate = 5_000_000  # ~5 Mb/s
+            # ~5 Mb/s
+            stream.bit_rate = 5_000_000  # type: ignore
 
-        stream.width, stream.height = size
-        stream.pix_fmt = "yuv420p"
+        stream.width, stream.height = size  # type: ignore
+        stream.pix_fmt = "yuv420p"  # type: ignore
         return container, stream
 
     def process_and_encode(frame: np.ndarray, stream, container, size: Tuple[int, int]):
@@ -872,3 +875,16 @@ def get_local_network_ip():
     finally:
         s.close()
     return ip
+
+
+def get_local_subnet():
+    for iface in netifaces.interfaces():
+        addrs = netifaces.ifaddresses(iface)
+        if netifaces.AF_INET in addrs:
+            for addr_info in addrs[netifaces.AF_INET]:
+                ip = addr_info.get("addr")
+                netmask = addr_info.get("netmask")
+                if ip and netmask and not ip.startswith("127."):
+                    network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
+                    return str(network)
+    return None

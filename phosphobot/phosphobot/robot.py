@@ -1,11 +1,17 @@
-from functools import lru_cache
+import ipaddress
+import platform
+import re
+import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import List, Optional, Set
 
 import pybullet as p  # type: ignore
 from fastapi import HTTPException
 from loguru import logger
+from scapy.all import ARP, Ether, srp  # type: ignore
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
@@ -16,6 +22,7 @@ from phosphobot.hardware import (
     PiperHardware,
     SO100Hardware,
     SO100LeaderHardware,
+    UnitreeGo2,
     WX250SHardware,
 )
 from phosphobot.models import RobotConfigStatus
@@ -30,6 +37,78 @@ class NewAndOldPorts:
     old_ports: List[ListPortInfo]
     new_can_ports: List[str]
     old_can_ports: List[str]
+
+
+def fast_arp_scan(subnet="192.168.1.0/24", timeout=0.5):
+    """
+    Perform a fast ARP scan of the subnet to detect active hosts.
+    """
+    ether = Ether(dst="ff:ff:ff:ff:ff:ff")
+    arp = ARP(pdst=subnet)
+    packet = ether / arp
+
+    answered, _ = srp(packet, timeout=timeout, verbose=False)
+    devices = []
+
+    for _, received in answered:
+        devices.append({"ip": received.psrc, "mac": received.hwsrc.lower()})
+
+    return devices
+
+
+def slow_arp_scan(subnet="192.168.1.0/24", timeout=0.5, max_workers=64):
+    """
+    Parallelized ARP scan using ping and arp -a.
+    Returns a list of {'ip': ..., 'mac': ...} entries.
+    """
+    ip_net = ipaddress.ip_network(subnet, strict=False)
+    is_windows = platform.system().lower() == "windows"
+
+    def ping_ip(ip_str):
+        try:
+            if is_windows:
+                subprocess.run(
+                    ["ping", "-n", "1", "-w", str(timeout), ip_str],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            else:
+                subprocess.run(
+                    ["ping", "-c", "1", "-W", str(int(timeout / 1000)), ip_str],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+        except Exception:
+            pass  # Ignore ping errors
+
+    logger.info(
+        f"Pinging {ip_net.num_addresses} IPs in parallel (up to {max_workers} workers)..."
+    )
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(ping_ip, str(ip)) for ip in ip_net.hosts()]
+        for _ in as_completed(futures):
+            pass  # Wait for all pings to complete
+
+    logger.info("Pings complete. Reading ARP table...")
+
+    try:
+        if is_windows:
+            output = subprocess.check_output("arp -a", shell=True).decode()
+            pattern = re.compile(r"(\d+\.\d+\.\d+\.\d+)\s+([\w-]+)\s+dynamic")
+        else:
+            output = subprocess.check_output(["arp", "-a"]).decode()
+            pattern = re.compile(r"\(([\d.]+)\) at ([0-9a-f:]{17})", re.IGNORECASE)
+
+        matches = pattern.findall(output)
+        devices = [
+            {"ip": ip, "mac": mac.lower().replace("-", ":")} for ip, mac in matches
+        ]
+        return devices
+
+    except Exception as e:
+        logger.error(f"Failed to read ARP cache: {e}")
+        return []
 
 
 class RobotConnectionManager:
@@ -140,7 +219,9 @@ class RobotConnectionManager:
         for port in self.available_ports:
             serial_num = getattr(port, "serial_number", None)
             # Skip if this port or its serial has already been connected
-            if port.device in connected_devices or (serial_num and serial_num in connected_serials):
+            if port.device in connected_devices or (
+                serial_num and serial_num in connected_serials
+            ):
                 logger.debug(f"Skipping {port.device}: already connected (or alias).")
                 continue
 
@@ -155,14 +236,18 @@ class RobotConnectionManager:
                 ):
                     continue
 
-                logger.debug(f"Trying to connect to {robot_class.name} on {port.device}.")
+                logger.debug(
+                    f"Trying to connect to {robot_class.name} on {port.device}."
+                )
                 try:
                     robot = robot_class.from_port(
                         port,
                         robot_ports_without_power=self.robot_ports_without_power,
                     )
                 except Exception as e:
-                    logger.warning(f"Error connecting to {robot_class.name} on {port.device}: {e}")
+                    logger.warning(
+                        f"Error connecting to {robot_class.name} on {port.device}: {e}"
+                    )
                     continue
 
                 if robot is not None:
@@ -176,7 +261,6 @@ class RobotConnectionManager:
                     self.robot_ports_without_power.discard(port.device)
                     break  # stop trying other classes on this port
 
-
         # Detect CAN-based Agilex Piper robots
         for can_name in self.available_can_ports:
             logger.info(f"Attempting to connect to Agilex Piper on {can_name}")
@@ -185,9 +269,35 @@ class RobotConnectionManager:
                 self._all_robots.append(robot)
                 logger.success(f"Connected to Agilex Piper on {can_name}")
 
+        # devices = None
+        # try:
+        #     devices = fast_arp_scan(subnet="192.168.1.0/24")
+        # except PermissionError:
+        #     logger.warning(
+        #         "Can't run fast ARP scan. Please run as root or use sudo. Falling back to slow scan."
+        #     )
+        # except Exception as e:
+        #     logger.error(f"ARP scan failed: {e}. Falling back to slow scan.")
+        # if devices is None:
+        #     devices = slow_arp_scan(subnet="192.168.1.0/24")
+
+        # for device in devices:
+        #     logger.debug(f"Found device: {device}")
+        #     mac = device["mac"]
+        #     ip = device["ip"]
+        #     if any(
+        #         mac.startswith(prefix) for prefix in UnitreeGo2.UNITREE_MAC_PREFIXES
+        #     ):
+        #         logger.success(f"Detected Unitree robot at {ip} with MAC {mac}")
+        #         # You could initiate a connection attempt here if Unitree supports it (e.g., ping, TCP, or SSH)
+        #         robot = UnitreeGo2.from_ip(ip=ip)
+        #         if robot is not None:
+        #             self._all_robots.append(robot)
+        #         # Only 1 Go2 connection supported
+        #         break
+
         if not self._all_robots:
             logger.info("No robot connected.")
-
 
     @property
     def robots(self) -> list[BaseRobot]:
@@ -271,8 +381,8 @@ class RobotConnectionManager:
         for status, robot in zip(robots_status, self.robots):
             if status is None:
                 logger.warning(f"Robot {robot.name} is not connected. Disconnecting.")
-                if hasattr(robot, "DEVICE_NAME") and robot.DEVICE_NAME is not None:
-                    self.robot_ports_without_power.add(robot.DEVICE_NAME)
+                if hasattr(robot, "device_name") and robot.device_name is not None:
+                    self.robot_ports_without_power.add(robot.device_name)
 
                 robot.disconnect()
                 self._all_robots.remove(robot)
