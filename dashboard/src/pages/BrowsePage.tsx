@@ -1,4 +1,5 @@
 import { LoadingPage } from "@/components/common/loading";
+import { Modal } from "@/components/common/modal";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Breadcrumb,
@@ -57,10 +58,10 @@ import {
   Eye,
   File,
   Folder,
-  LoaderCircle,
   MoreVertical,
   Plus,
   Repeat,
+  Split,
   Trash2,
   Wrench,
 } from "lucide-react";
@@ -272,7 +273,6 @@ const MergeDialog: React.FC<MergeDialogProps> = ({
           Cancel
         </Button>
         <Button
-          variant="destructive"
           onClick={handleMerge}
           disabled={!mergedDatasetName.trim() || !allKeysMapped}
         >
@@ -308,6 +308,12 @@ export default function FileBrowser() {
   const [openDownloadModal, setOpenDownloadModal] = useState(false);
   const [hfDatasetName, setHFDatasetName] = useState("");
   const [confirmRepairOpen, setConfirmRepairOpen] = useState(false);
+
+  // Split modal
+  const [openSplitModel, setOpenSplitModel] = useState(false);
+  const [selectedSplitRatio, setSelectedSplitRatio] = useState(0.8);
+  const [firstSplitName, setFirstSplitName] = useState("");
+  const [secondSplitName, setSecondSplitName] = useState("");
 
   // Loading state for episode deletion
   const [loadingDeleteEpisode, setLoadingDeleteEpisode] = useState(false);
@@ -432,6 +438,15 @@ export default function FileBrowser() {
     }
 
     setMergeModalOpen(true);
+  };
+
+  const handleSplitCheck = async () => {
+    if (selectedItems.length !== 1) {
+      toast.error("Please select exactly 1 dataset to split");
+      return;
+    }
+
+    setOpenSplitModel(true);
   };
 
   const mergeMultipleDatasets = async (
@@ -767,14 +782,24 @@ export default function FileBrowser() {
         (path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1")) && (
           <div className="flex flex-col md:flex-row md:space-x-2 mt-6">
             {path.endsWith("lerobot_v2.1") && (
-              <Button
-                className="mb-4"
-                variant="outline"
-                onClick={() => handleMergeCheck()}
-              >
-                <Repeat className="mr-2 h-4 w-3" />
-                Merge Selected Datasets
-              </Button>
+              <>
+                <Button
+                  className="mb-4"
+                  variant="outline"
+                  onClick={() => handleMergeCheck()}
+                >
+                  <Repeat className="mr-2 h-4 w-3" />
+                  Merge Selected Datasets
+                </Button>
+                <Button
+                  className="mb-4"
+                  variant="outline"
+                  onClick={() => handleSplitCheck()}
+                >
+                  <Split className="mr-2 h-4 w-3" />
+                  Split Selected Datasets
+                </Button>
+              </>
             )}
             <Button
               className="mb-4"
@@ -832,143 +857,175 @@ export default function FileBrowser() {
       </Dialog>
 
       {/* Episode deletion dialog */}
-      <Dialog
+      <Modal
         open={confirmEpisodeDeleteOpen}
         onOpenChange={setConfirmEpisodeDeleteOpen}
+        title="Confirm Delete Episode"
+        description={
+          <>
+            Are you sure you want to delete episode{" "}
+            <strong>{selectedEpisode}</strong>? This action cannot be undone.
+          </>
+        }
+        confirmLabel={loadingDeleteEpisode ? "Deleting..." : "Delete"}
+        confirmVariant="destructive"
+        isLoading={loadingDeleteEpisode}
+        onConfirm={async () => {
+          setLoadingDeleteEpisode(true);
+          await handleDeleteEpisode();
+          setConfirmEpisodeDeleteOpen(false);
+          setLoadingDeleteEpisode(false);
+          redirect(path);
+        }}
+      />
+
+      {/* Split modal */}
+      <Modal
+        open={openSplitModel}
+        onOpenChange={setOpenSplitModel}
+        title="Split Dataset"
+        description="This will split the selected dataset into separate datasets."
+        confirmLabel="Split"
+        onConfirm={async () => {
+          if (selectedItems.length !== 1) {
+            toast.error("Please select exactly 1 dataset to split");
+            return;
+          }
+          const resp = await fetchWithBaseUrl(`/dataset/split`, "POST", {
+            dataset_path: selectedItems[0],
+            split_ratio: selectedSplitRatio,
+            first_split_name: firstSplitName,
+            second_split_name: secondSplitName,
+          });
+          if (resp.status !== "ok") {
+            toast.error("Failed to split dataset: " + resp.message);
+          }
+          setOpenSplitModel(false);
+          mutate();
+          redirect(path);
+        }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Delete Episode</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete episode{" "}
-              <strong>{selectedEpisode}</strong>? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmEpisodeDeleteOpen(false)}
-              disabled={loadingDeleteEpisode}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                setLoadingDeleteEpisode(true);
-                await handleDeleteEpisode();
-                setConfirmEpisodeDeleteOpen(false);
-                setLoadingDeleteEpisode(false);
-                redirect(path);
-              }}
-              disabled={loadingDeleteEpisode}
-            >
-              {loadingDeleteEpisode ? (
-                <LoaderCircle> Deleting...</LoaderCircle>
-              ) : (
-                "Delete"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <div className="grid gap-4 py-4">
+          <Label htmlFor="split-ratio">Split Ratio</Label>
+          <p className="text-sm text-muted-foreground">
+            The ratio of the first split to the total dataset. For example, a
+            value of 0.8 means 80% of the data will go to the first split and
+            20% to the second.
+          </p>
+          <Input
+            id="split-ratio"
+            type="number"
+            value={selectedSplitRatio}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              if (!isNaN(value) && value >= 0 && value <= 1) {
+                setSelectedSplitRatio(value);
+              }
+            }}
+            step="0.01"
+            min="0"
+            max="1"
+            placeholder="Enter the split ratio (0-1)"
+            className="w-full"
+          />
+          <Label htmlFor="first-split-name">First Split Name</Label>
+          <Input
+            id="first-split-name"
+            value={firstSplitName}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow only characters that are not whitespace
+              if (/^[^\s]*$/.test(value)) {
+                setFirstSplitName(value);
+              }
+            }}
+            placeholder="Enter the name for the first split"
+            className="w-full"
+          />
+          <Label htmlFor="second-split-name">Second Split Name</Label>
+          <Input
+            id="second-split-name"
+            value={secondSplitName}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow only characters that are not whitespace
+              if (/^[^\s]*$/.test(value)) {
+                setSecondSplitName(value);
+              }
+            }}
+            placeholder="Enter the name for the second split"
+            className="w-full"
+          />
+        </div>
+      </Modal>
 
       {/* Download modal */}
-      <Dialog open={openDownloadModal} onOpenChange={setOpenDownloadModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Dataset Download</DialogTitle>
-            <DialogDescription>
-              Enter the Hugging Dace dataset name to download: should be
-              hf_name/dataset_name
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <Label htmlFor="dataset-select">Select Dataset</Label>
-            <Input
-              id="dataset-select"
-              value={hfDatasetName}
-              onChange={(e) => {
-                const value = e.target.value;
-                // Allow only characters that are not whitespace
-                if (/^[^\s]*$/.test(value)) {
-                  setHFDatasetName(value);
-                }
-              }}
-              placeholder="Enter the name of the dataset to download"
-              className="w-full"
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setOpenDownloadModal(false)}
-            >
-              Close
-            </Button>
-            <Button
-              variant="default"
-              onClick={async () => {
-                if (hfDatasetName.trim() === "") {
-                  toast.error("No dataset selected for download");
-                  return;
-                }
-                const resp = await fetchWithBaseUrl(
-                  `/dataset/hf_download`,
-                  "POST",
-                  {
-                    dataset_name: hfDatasetName,
-                  },
-                );
-                if (resp.status !== "ok") {
-                  toast.error("Failed to download dataset: " + resp.message);
-                } else {
-                  toast.success("Dataset downloaded successfully");
-                }
-                setOpenDownloadModal(false);
-                mutate();
-                redirect(path);
-              }}
-            >
-              Download
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        open={openDownloadModal}
+        onOpenChange={setOpenDownloadModal}
+        title="Dataset Download"
+        description="Enter the Hugging Face dataset name to download: should be hf_name/dataset_name"
+        confirmLabel="Download"
+        onConfirm={async () => {
+          if (hfDatasetName.trim() === "") {
+            toast.error("No dataset selected for download");
+            return;
+          }
+          const resp = await fetchWithBaseUrl(`/dataset/hf_download`, "POST", {
+            dataset_name: hfDatasetName,
+          });
+          if (resp.status !== "ok") {
+            toast.error("Failed to download dataset: " + resp.message);
+          } else {
+            toast.success("Dataset downloaded successfully");
+          }
+          setOpenDownloadModal(false);
+          mutate();
+          redirect(path);
+        }}
+      >
+        <div className="grid gap-4 py-4">
+          <Label htmlFor="dataset-select">Select Dataset</Label>
+          <Input
+            id="dataset-select"
+            value={hfDatasetName}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow only characters that are not whitespace
+              if (/^[^\s]*$/.test(value)) {
+                setHFDatasetName(value);
+              }
+            }}
+            placeholder="Enter the name of the dataset to download"
+            className="w-full"
+          />
+        </div>
+      </Modal>
 
       {/* Dataset repair dialog */}
-      <Dialog open={confirmRepairOpen} onOpenChange={setConfirmRepairOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Repair Dataset</DialogTitle>
-            <DialogDescription>
-              This will attempt to repair the selected datasets:
-              <br />
-              {selectedItems.length > 0
-                ? selectedItems.map((item) => (
-                    <span key={item}>
-                      <strong>{item}</strong>
-                      <br />
-                    </span>
-                  ))
-                : null}
-              For now, this will only recalculate the parquets files, not the
-              meta data.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmRepairOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={() => handleRepairDataset()}>
-              Repair
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        open={confirmRepairOpen}
+        onOpenChange={setConfirmRepairOpen}
+        title="Repair Dataset"
+        description={
+          <>
+            This will attempt to repair the selected datasets:
+            <br />
+            {selectedItems.length > 0
+              ? selectedItems.map((item) => (
+                  <span key={item}>
+                    <strong>{item}</strong>
+                    <br />
+                  </span>
+                ))
+              : null}
+            For now, this will only recalculate the parquets files, not the meta
+            data.
+          </>
+        }
+        confirmLabel="Repair"
+        onConfirm={handleRepairDataset}
+      />
 
       {/* Merge modal */}
       <Dialog open={mergeModalOpen} onOpenChange={setMergeModalOpen}>
