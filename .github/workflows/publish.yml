@@ -970,6 +970,7 @@ jobs:
             echo "Timed out waiting for release to be published."
             exit 1
           fi
+        continue-on-error: false
 
       - name: Upload Windows EXE to Release
         uses: softprops/action-gh-release@v1
