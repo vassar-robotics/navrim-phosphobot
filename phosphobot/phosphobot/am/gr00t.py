@@ -139,7 +139,7 @@ class BaseInferenceServer:
                         "status": "error",
                         "error_type": type(e).__name__,
                         "message": str(e),
-                        # omit traceback if you don’t want to expose internals
+                        # omit traceback if you don't want to expose internals
                         "traceback": tb,
                     }
                     self.socket.send(TorchSerializer.to_bytes(error_resp))
@@ -258,7 +258,7 @@ class BaseInferenceClient:
                 raise RuntimeError(f"{et}: {msg}\n\n{tb}")
             return resp.get("result", {})
         else:
-            # legacy: the handler’s own dict
+            # legacy: the handler's own dict
             return resp
 
     def __del__(self):
@@ -738,7 +738,7 @@ class Gr00tN1(ActionModel):
                     image = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
                     # Add a batch dimension (from (240, 320, 3) to (1, 240, 320, 3))
                     converted_array = np.expand_dims(image, axis=0)
-                    # Ensure dtype is uint8 (if it isn’t already)
+                    # Ensure dtype is uint8 (if it isn't already)
                     converted_array = converted_array.astype(np.uint8)
                     image_inputs[f"video.{camera_name}"] = converted_array
 
@@ -916,13 +916,16 @@ async def run_gr00t_training(
         "python",
         f"{gr00t_repo_path}/scripts/gr00t_finetune.py",
         "--dataset-path",
-        str(data_dir),
+        str(data_dir)
     ]
+    
     if validation_data_dir is not None:
         cmd.extend([
             "--validation-dataset-path",
-            str(validation_data_dir),
+            str(validation_data_dir)
         ])
+    
+    # Add remaining arguments
     cmd.extend([
         # Only 1 GPU for now
         # Open an issue for multi-GPU support
@@ -945,8 +948,8 @@ async def run_gr00t_training(
         "--report_to",
         "wandb" if wandb_enabled else "tensorboard",
         "--video_backend",
-        "torchvision_av",
-    ]
+        "torchvision_av"
+    ])
 
     logger.info(f"Starting training with command: {' '.join(cmd)}")
 
