@@ -860,8 +860,25 @@ jobs:
               --source="$DEB_FILE"
           done
 
+  create_release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          repository: ${{ env.HOMEBREW_TAP }}
+          tag_name: "v${{ env.VERSION }}"
+          name: "Release v${{ env.VERSION }}"
+          draft: false
+          prerelease: false
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
   publish_homebrew:
-    needs: build_macos
+    needs: [build_macos, create_release]
     runs-on: ubuntu-latest
     steps:
       - name: Set VERSION
@@ -943,7 +960,7 @@ jobs:
           git push
 
   publish_windows:
-    needs: build_windows
+    needs: [build_windows, create_release]
     runs-on: ubuntu-latest
     steps:
       - name: Set VERSION
@@ -954,23 +971,6 @@ jobs:
         with:
           pattern: phosphobot-*.exe
           merge-multiple: true
-
-      - name: Wait for the release to be published by the homebrew action. Timeout after 15 minutes
-        run: |
-          for i in {1..90}; do
-            if curl -s "https://api.github.com/repos/${{ env.HOMEBREW_TAP }}/releases/tags/v${{ env.VERSION }}" | grep -q '"published_at":'; then
-              echo "Release published!"
-              break
-            else
-              echo "Waiting for release to be published..."
-              sleep 10
-            fi
-          done
-          if [ $? -ne 0 ]; then
-            echo "Timed out waiting for release to be published."
-            exit 1
-          fi
-        continue-on-error: false
 
       - name: Upload Windows EXE to Release
         uses: softprops/action-gh-release@v1
