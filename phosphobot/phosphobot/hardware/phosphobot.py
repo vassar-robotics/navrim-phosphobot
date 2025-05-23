@@ -159,11 +159,12 @@ class RemotePhosphobot(BaseRobot):
             "z": target_position[2] * 100,
         }
         if target_orientation_rad is not None:
+            target_orientation_deg = np.rad2deg(target_orientation_rad)
             body = {
                 **body,
-                "rx": target_orientation_rad[0],
-                "ry": target_orientation_rad[1],
-                "rz": target_orientation_rad[2],
+                "rx": target_orientation_deg[0],
+                "ry": target_orientation_deg[1],
+                "rz": target_orientation_deg[2],
             }
 
         response = await self.async_client.post(
@@ -186,11 +187,12 @@ class RemotePhosphobot(BaseRobot):
             "z": target_position[2] * 100,
         }
         if target_orientation_rad is not None:
+            target_orientation_deg = np.rad2deg(target_orientation_rad)
             body = {
                 **body,
-                "rx": target_orientation_rad[0],
-                "ry": target_orientation_rad[1],
-                "rz": target_orientation_rad[2],
+                "rx": target_orientation_deg[0],
+                "ry": target_orientation_deg[1],
+                "rz": target_orientation_deg[2],
             }
 
         response = await self.async_client.post(
@@ -225,7 +227,7 @@ class RemotePhosphobot(BaseRobot):
                 end_effector_position["z"],
             ]
         )
-        current_effector_orientation_rad = np.array(
+        current_effector_orientation_deg = np.array(
             [
                 end_effector_position["rx"],
                 end_effector_position["ry"],
@@ -233,7 +235,7 @@ class RemotePhosphobot(BaseRobot):
             ]
         )
         # Convert to radians
-        current_effector_orientation_rad = np.deg2rad(current_effector_orientation_rad)
+        current_effector_orientation_rad = np.deg2rad(current_effector_orientation_deg)
 
         return (
             current_effector_position,
