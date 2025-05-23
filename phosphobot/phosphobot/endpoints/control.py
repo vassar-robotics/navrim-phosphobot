@@ -291,9 +291,10 @@ async def move_relative(
 
     if hasattr(robot, "move_robot_relative"):
         # If the robot has a move_robot_relative method, use it
+        target_orientation_rad = np.deg2rad(np.array([data.rx, data.ry, data.rz]))
         await robot.move_robot_relative(
             target_position=np.array([data.x, data.y, data.z]),
-            target_orientation_rad=np.deg2rad(np.array([data.rx, data.ry, data.rz])),
+            target_orientation_rad=target_orientation_rad,
         )
         return StatusResponse()
 
