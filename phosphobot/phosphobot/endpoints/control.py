@@ -544,13 +544,16 @@ async def toggle_torque(
     description="Read the current positions of the robot's joints in radians and motor units.",
 )
 async def read_joints(
-    request: JointsReadRequest,
+    request: JointsReadRequest | None = None,
     robot_id: int = 0,
     rcm: RobotConnectionManager = Depends(get_rcm),
 ) -> JointsReadResponse:
     """
     Read joint position.
     """
+    if request is None:
+        request = JointsReadRequest(unit="rad", joints_ids=None)
+
     robot = rcm.get_robot(robot_id)
 
     if not hasattr(robot, "read_joints_position"):

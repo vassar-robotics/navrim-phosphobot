@@ -63,10 +63,25 @@ interface RobotConfigModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
 interface NetworkDevice {
   ip: string;
   mac: string;
+}
+
+interface NetworkReponse {
+  devices: NetworkDevice[];
+}
+
+interface LocalDevice {
+  name: string;
+  device: string;
+  serial_number?: string;
+  pid?: number;
+  interface?: string;
+}
+
+interface LocalResponse {
+  devices: LocalDevice[];
 }
 
 export function RobotConfigModal({
@@ -83,28 +98,20 @@ export function RobotConfigModal({
   );
 
   // Fetch IP addresses for autocomplete
-  const { data: networkDevices, isLoading: isLoadingDevices } = useSWR<
-    NetworkDevice[]
-  >(
-    selectedRobot?.fields.some((f) => f.type === "ip")
-      ? ["/network/list-devices"]
-      : null,
-    fetcher,
-  );
+  const { data: networkDevices, isLoading: isLoadingDevices } =
+    useSWR<NetworkReponse>(
+      selectedRobot?.fields.some((f) => f.type === "ip")
+        ? ["/network/scan-devices"]
+        : null,
+      ([endpoint]) => fetcher(endpoint, "POST"),
+    );
 
   // Fetch USB ports for autocomplete
-  const { data: usbPorts, isLoading: isLoadingUsb } = useSWR(
+  const { data: usbPorts, isLoading: isLoadingUsb } = useSWR<LocalResponse>(
     selectedRobot?.fields.some((f) => f.type === "usb_port")
-      ? "/api/available-usb-ports"
+      ? ["/local/scan-devices"]
       : null,
-    fetcher,
-    {
-      fallbackData: [
-        { value: "/dev/ttyUSB0", label: "/dev/ttyUSB0" },
-        { value: "/dev/ttyUSB1", label: "/dev/ttyUSB1" },
-        { value: "COM3", label: "COM3 (Windows)" },
-      ],
-    },
+    ([endpoint]) => fetcher(endpoint, "POST"),
   );
 
   const handleRobotTypeChange = (value: string) => {
@@ -229,7 +236,7 @@ export function RobotConfigModal({
                   {field.type === "ip" && (
                     <AutoComplete
                       options={
-                        networkDevices?.map((device) => ({
+                        networkDevices?.devices.map((device) => ({
                           value: device.ip,
                           label: `${device.ip} (${device.mac})`,
                         })) || []
@@ -247,7 +254,25 @@ export function RobotConfigModal({
 
                   {field.type === "usb_port" && (
                     <AutoComplete
-                      options={usbPorts || []}
+                      options={
+                        usbPorts?.devices.map((device) => {
+                          let label = `${device.device}`;
+                          if (device.serial_number) {
+                            label += ` (${device.serial_number}`;
+                          }
+                          if (device.pid) {
+                            label += ` | ${device.pid}`;
+                          }
+                          // add closing parenthesis if it was opened
+                          if (label.includes("(")) {
+                            label += ")";
+                          }
+                          return {
+                            value: device.device,
+                            label: label,
+                          };
+                        }) || []
+                      }
                       value={formValues[field.name]}
                       onValueChange={(value) =>
                         handleFieldChange(field.name, value)

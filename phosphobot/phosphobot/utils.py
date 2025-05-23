@@ -1003,7 +1003,7 @@ def scan_network_devices(
 
     try:
         devices = fast_arp_scan(subnet, timeout)
-    except PermissionError:
+    except Exception:
         logger.warning(
             "Permission denied for fast ARP scan. Run phopshobot as root to use this feature:\nsudo phosphobot run\n"
             + "Falling back to slow scan."

@@ -1014,3 +1014,22 @@ class ScanNetworkResponse(BaseModel):
         description="Subnet of the network.",
         examples=["192.168.1.1/24"],
     )
+
+
+class LocalDevice(BaseModel):
+    name: str
+    device: str
+    serial_number: str | None = None
+    pid: int | None = None
+    interface: str | None = None
+
+
+class ScanDevicesResponse(BaseModel):
+    """
+    Response to the USB devices scan request.
+    """
+
+    devices: List[LocalDevice] = Field(
+        ...,
+        description="List of connected USB devices.",
+    )

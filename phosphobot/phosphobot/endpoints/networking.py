@@ -4,9 +4,13 @@ import subprocess
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from loguru import logger
+from serial.tools import list_ports
+
 
 from phosphobot.models import (
+    LocalDevice,
     NetworkCredentials,
+    ScanDevicesResponse,
     ScanNetworkRequest,
     ScanNetworkResponse,
     StatusResponse,
@@ -180,12 +184,16 @@ async def switch_to_network(
     )
 
 
-@router.post("/network/list-devices", response_model=ScanNetworkResponse)
-async def list_local_network_ips(query: ScanNetworkRequest) -> ScanNetworkResponse:
+@router.post("/network/scan-devices", response_model=ScanNetworkResponse)
+async def list_local_network_ips(
+    query: ScanNetworkRequest | None = None,
+) -> ScanNetworkResponse:
     """
     Endpoint to list all IP addresses on the local network.
     Returns a list of IP addresses.
     """
+    if query is None:
+        query = ScanNetworkRequest(robot_name=None)
     subnet = get_local_subnet()
     if not subnet:
         raise HTTPException(
@@ -197,4 +205,34 @@ async def list_local_network_ips(query: ScanNetworkRequest) -> ScanNetworkRespon
     return ScanNetworkResponse(
         devices=devices,
         subnet=subnet,
+    )
+
+
+@router.post("/local/scan-devices", response_model=ScanDevicesResponse)
+async def list_connected_devices() -> ScanDevicesResponse:
+    """
+    Endpoint to list all devices connected to the system.
+    """
+    available_ports = list_ports.comports()
+    # Available info in PortInfo object:
+    # - device: The device name (e.g., '/dev/ttyUSB0')
+    # - name: The device name (e.g., 'USB Serial Device')
+    # - description: A description of the device (e.g., 'USB Serial Device (COM3)')
+    # - hwid: The hardware ID of the device (e.g., 'USB VID:PID=0403:6001')
+    # - location: The location of the device (e.g., 'USB Port 1')
+    # - manufacturer: The manufacturer of the device (e.g., 'FTDI')
+    # - serial_number: The serial number of the device (e.g., 'FT123456')
+    # - interface: The interface of the device (e.g., 'USB')
+
+    return ScanDevicesResponse(
+        devices=[
+            LocalDevice(
+                name=port.name,
+                device=port.device,
+                serial_number=port.serial_number,
+                pid=port.pid,
+                interface=port.interface,
+            )
+            for port in available_ports
+        ]
     )
