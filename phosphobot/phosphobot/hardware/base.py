@@ -194,9 +194,9 @@ class BaseManipulator(BaseRobot):
 
         # When creating a new robot, you should add default values for these
         # These values depends on the hardware
-        assert (
-            self.CALIBRATION_POSITION is not None
-        ), "CALIBRATION_POSITION must be defined in the class"
+        assert self.CALIBRATION_POSITION is not None, (
+            "CALIBRATION_POSITION must be defined in the class"
+        )
         assert self.RESOLUTION is not None, "RESOLUTION must be defined in the class"
         assert self.SERVO_IDS is not None, "SERVO_IDS must be defined in the class"
 
