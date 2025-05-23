@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 from copy import copy
+from typing import cast
 from typing import Literal
 from dateutil import parser
 
@@ -619,6 +620,7 @@ async def write_joints(
             detail="Robot does not support writing joint positions",
         )
 
+    robot = cast(BaseManipulator, robot)
     robot.write_joint_positions(
         angles=request.angles, unit=request.unit, joints_ids=request.joints_ids
     )
@@ -922,9 +924,9 @@ async def spawn_inference_server(
             )
             robots_to_control.remove(robot)
 
-    assert all(
-        isinstance(robot, BaseManipulator) for robot in robots_to_control
-    ), "All robots must be manipulators for AI control"
+    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
+        "All robots must be manipulators for AI control"
+    )
 
     # Get the modal host and port here
     _, _, server_info = await setup_ai_control(
@@ -998,9 +1000,9 @@ async def start_auto_control(
             )
             robots_to_control.remove(robot)
 
-    assert all(
-        isinstance(robot, BaseManipulator) for robot in robots_to_control
-    ), "All robots must be manipulators for AI control"
+    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
+        "All robots must be manipulators for AI control"
+    )
 
     # Get the modal host and port here
     model, model_spawn_config, server_info = await setup_ai_control(

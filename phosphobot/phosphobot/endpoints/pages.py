@@ -709,13 +709,14 @@ async def get_training_info(
 
         number_of_cameras = validated_info.total_videos // validated_info.total_episodes
         training_params = {}
-        if request.model_type == "gr00t":
-            training_params["batch_size"] = (
-                110 // number_of_cameras - 3 * number_of_cameras
-            )
-        elif request.model_type == "ACT":
-            training_params["batch_size"] = 120 // number_of_cameras
-            training_params["steps"] = 8_000
+        if number_of_cameras > 0:
+            if request.model_type == "gr00t":
+                training_params["batch_size"] = (
+                    110 // number_of_cameras - 3 * number_of_cameras
+                )
+            elif request.model_type == "ACT":
+                training_params["batch_size"] = 120 // number_of_cameras
+                training_params["steps"] = 8_000
 
         # These are heuristics used to determine the training parameters
         random_suffix = "".join(

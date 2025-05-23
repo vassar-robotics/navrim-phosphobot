@@ -149,14 +149,14 @@ class ACT(ActionModel):
     ):
         super().__init__(server_url, server_port)
         self.async_client = httpx.AsyncClient(
-            base_url=server_url,
+            base_url=server_url + f":{server_port}",
             timeout=10,
             headers={"Content-Type": "application/json"},
             limits=httpx.Limits(max_keepalive_connections=10, max_connections=100),
             http2=True,  # Enables HTTP/2 for better performance if supported
         )
         self.sync_client = httpx.Client(
-            base_url=server_url,
+            base_url=server_url + f":{server_port}",
             timeout=10,
             headers={"Content-Type": "application/json"},
             limits=httpx.Limits(max_keepalive_connections=10, max_connections=100),
