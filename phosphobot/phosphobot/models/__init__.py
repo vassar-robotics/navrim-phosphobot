@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from phosphobot._version import __version__
 from phosphobot.types import VideoCodecs
+from phosphobot.utils import NetworkDevice
 
 from .camera import AllCamerasStatus, SingleCameraStatus
 from .dataset import (
@@ -985,4 +986,31 @@ class CustomTrainingRequest(BaseModel):
     custom_command: str = Field(
         ...,
         description="Will run this custom command as a subprocess when pressing the train button.",
+    )
+
+
+class ScanNetworkRequest(BaseModel):
+    """
+    Request to scan the network for devices.
+    """
+
+    robot_name: str | None = Field(
+        None,
+        description="Name of the robot to scan for. If None, scans for all devices on the network.",
+    )
+
+
+class ScanNetworkResponse(BaseModel):
+    """
+    Response to the network scan request.
+    """
+
+    devices: List[NetworkDevice] = Field(
+        ...,
+        description="List of devices found on the network.",
+    )
+    subnet: str | None = Field(
+        ...,
+        description="Subnet of the network.",
+        examples=["192.168.1.1/24"],
     )

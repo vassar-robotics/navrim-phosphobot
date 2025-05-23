@@ -4,12 +4,14 @@ import inspect
 import ipaddress
 import json
 import os
+import platform
 import re
 import socket
 import subprocess
 import sys
 import traceback
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal, Tuple, Union
@@ -24,7 +26,8 @@ import toml
 from fastapi import HTTPException
 from huggingface_hub import HfApi, login
 from loguru import logger
-from pydantic import BeforeValidator, PlainSerializer
+from pydantic import BaseModel, BeforeValidator, PlainSerializer
+from scapy.all import ARP, Ether, srp  # type: ignore
 
 from phosphobot.types import VideoCodecs
 
@@ -877,7 +880,13 @@ def get_local_network_ip():
     return ip
 
 
-def get_local_subnet():
+def get_local_subnet() -> str | None:
+    """
+    Get the local subnet in CIDR notation.
+    Returns:
+        str: The local subnet in CIDR notation (e.g., "192.168.1.0/24").
+        None: If no valid subnet is found.
+    """
     for iface in netifaces.interfaces():
         addrs = netifaces.ifaddresses(iface)
         if netifaces.AF_INET in addrs:
@@ -888,3 +897,117 @@ def get_local_subnet():
                     network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
                     return str(network)
     return None
+
+
+class NetworkDevice(BaseModel):
+    ip: str
+    mac: str
+
+
+def scan_network_devices(
+    subnet: str, timeout: float = 0.5, max_worker: int = 64
+) -> list[NetworkDevice]:
+    """
+    Scan the local network for active IPs and MAC addresses.
+
+    Uses ARP requests to detect devices on the network. To use the fast scan, you need to run phosphobot as root.
+    If you don't have root access, it will fall back to a slower method using ping and reading the ARP table.
+
+    Args:
+        subnet (str): The subnet to scan in CIDR notation (e.g., "192.168.1.0/24")
+        timeout (float): Timeout for ARP requests in seconds (default: 0.5)
+        max_worker (int): Maximum number of workers for parallel pinging (default: 64)
+    Returns:
+        list[NetworkDevice]: A list of NetworkDevice objects containing IP and MAC addresses.
+    """
+
+    def fast_arp_scan(
+        subnet: str = "192.168.1.0/24", timeout: float = 0.5
+    ) -> list[NetworkDevice]:
+        """
+        Perform a fast ARP scan of the subnet to detect active hosts.
+        """
+        ether = Ether(dst="ff:ff:ff:ff:ff:ff")
+        arp = ARP(pdst=subnet)
+        packet = ether / arp
+
+        answered, _ = srp(packet, timeout=timeout, verbose=False)
+        devices: list[NetworkDevice] = []
+
+        for _, received in answered:
+            devices.append(
+                NetworkDevice(
+                    ip=received.psrc,
+                    mac=received.hwsrc.lower().replace("-", ":"),
+                )
+            )
+
+        return devices
+
+    def slow_arp_scan(
+        subnet: str = "192.168.1.0/24", timeout: float = 0.5, max_workers: int = 64
+    ) -> list[NetworkDevice]:
+        """
+        Parallelized ARP scan using ping and arp -a.
+        Returns a list of {'ip': ..., 'mac': ...} entries.
+        """
+        ip_net = ipaddress.ip_network(subnet, strict=False)
+        is_windows = platform.system().lower() == "windows"
+
+        def ping_ip(ip_str):
+            try:
+                if is_windows:
+                    subprocess.run(
+                        ["ping", "-n", "1", "-w", str(timeout), ip_str],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                else:
+                    subprocess.run(
+                        ["ping", "-c", "1", "-W", str(int(timeout / 1000)), ip_str],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+            except Exception:
+                pass  # Ignore ping errors
+
+        logger.debug(
+            f"Pinging {ip_net.num_addresses} IPs in parallel (up to {max_workers} workers)..."
+        )
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(ping_ip, str(ip)) for ip in ip_net.hosts()]
+            for _ in as_completed(futures):
+                pass  # Wait for all pings to complete
+
+        logger.debug("Pings complete. Reading ARP table...")
+
+        try:
+            if is_windows:
+                output = subprocess.check_output("arp -a", shell=True).decode()
+                pattern = re.compile(r"(\d+\.\d+\.\d+\.\d+)\s+([\w-]+)\s+dynamic")
+            else:
+                output = subprocess.check_output(["arp", "-a"]).decode()
+                pattern = re.compile(r"\(([\d.]+)\) at ([0-9a-f:]{17})", re.IGNORECASE)
+
+            matches = pattern.findall(output)
+            devices = [
+                NetworkDevice(ip=ip, mac=mac.lower().replace("-", ":"))
+                for ip, mac in matches
+            ]
+            return devices
+
+        except Exception as e:
+            logger.error(f"Failed to read ARP cache: {e}")
+            return []
+
+    try:
+        devices = fast_arp_scan(subnet, timeout)
+    except PermissionError:
+        logger.warning(
+            "Permission denied for fast ARP scan. Run phopshobot as root to use this feature:\nsudo phosphobot run\n"
+            + "Falling back to slow scan."
+        )
+        devices = slow_arp_scan(subnet, timeout, max_worker)
+
+    return devices

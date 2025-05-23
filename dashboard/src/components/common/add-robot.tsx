@@ -64,6 +64,11 @@ interface RobotConfigModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface NetworkDevice {
+  ip: string;
+  mac: string;
+}
+
 export function RobotConfigModal({
   open,
   onOpenChange,
@@ -78,18 +83,13 @@ export function RobotConfigModal({
   );
 
   // Fetch IP addresses for autocomplete
-  const { data: ipAddresses, isLoading: isLoadingIps } = useSWR(
+  const { data: networkDevices, isLoading: isLoadingDevices } = useSWR<
+    NetworkDevice[]
+  >(
     selectedRobot?.fields.some((f) => f.type === "ip")
-      ? "/api/available-ips"
+      ? ["/network/list-devices"]
       : null,
     fetcher,
-    {
-      fallbackData: [
-        { value: "192.168.1.100", label: "192.168.1.100 (Robot 1)" },
-        { value: "192.168.1.101", label: "192.168.1.101 (Robot 2)" },
-        { value: "10.0.0.50", label: "10.0.0.50 (Lab Robot)" },
-      ],
-    },
   );
 
   // Fetch USB ports for autocomplete
@@ -228,12 +228,17 @@ export function RobotConfigModal({
 
                   {field.type === "ip" && (
                     <AutoComplete
-                      options={ipAddresses || []}
+                      options={
+                        networkDevices?.map((device) => ({
+                          value: device.ip,
+                          label: `${device.ip} (${device.mac})`,
+                        })) || []
+                      }
                       value={formValues[field.name]}
                       onValueChange={(value) =>
                         handleFieldChange(field.name, value)
                       }
-                      isLoading={isLoadingIps}
+                      isLoading={isLoadingDevices}
                       placeholder="Select or enter IP address"
                       emptyMessage="No IP addresses found"
                       allowCustomValue={true}

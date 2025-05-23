@@ -1,9 +1,4 @@
-import ipaddress
-import platform
-import re
-import subprocess
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import List, Optional, Set
@@ -11,7 +6,6 @@ from typing import List, Optional, Set
 import pybullet as p  # type: ignore
 from fastapi import HTTPException
 from loguru import logger
-from scapy.all import ARP, Ether, srp  # type: ignore
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
@@ -37,78 +31,6 @@ class NewAndOldPorts:
     old_ports: List[ListPortInfo]
     new_can_ports: List[str]
     old_can_ports: List[str]
-
-
-def fast_arp_scan(subnet="192.168.1.0/24", timeout=0.5):
-    """
-    Perform a fast ARP scan of the subnet to detect active hosts.
-    """
-    ether = Ether(dst="ff:ff:ff:ff:ff:ff")
-    arp = ARP(pdst=subnet)
-    packet = ether / arp
-
-    answered, _ = srp(packet, timeout=timeout, verbose=False)
-    devices = []
-
-    for _, received in answered:
-        devices.append({"ip": received.psrc, "mac": received.hwsrc.lower()})
-
-    return devices
-
-
-def slow_arp_scan(subnet="192.168.1.0/24", timeout=0.5, max_workers=64):
-    """
-    Parallelized ARP scan using ping and arp -a.
-    Returns a list of {'ip': ..., 'mac': ...} entries.
-    """
-    ip_net = ipaddress.ip_network(subnet, strict=False)
-    is_windows = platform.system().lower() == "windows"
-
-    def ping_ip(ip_str):
-        try:
-            if is_windows:
-                subprocess.run(
-                    ["ping", "-n", "1", "-w", str(timeout), ip_str],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-            else:
-                subprocess.run(
-                    ["ping", "-c", "1", "-W", str(int(timeout / 1000)), ip_str],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-        except Exception:
-            pass  # Ignore ping errors
-
-    logger.info(
-        f"Pinging {ip_net.num_addresses} IPs in parallel (up to {max_workers} workers)..."
-    )
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(ping_ip, str(ip)) for ip in ip_net.hosts()]
-        for _ in as_completed(futures):
-            pass  # Wait for all pings to complete
-
-    logger.info("Pings complete. Reading ARP table...")
-
-    try:
-        if is_windows:
-            output = subprocess.check_output("arp -a", shell=True).decode()
-            pattern = re.compile(r"(\d+\.\d+\.\d+\.\d+)\s+([\w-]+)\s+dynamic")
-        else:
-            output = subprocess.check_output(["arp", "-a"]).decode()
-            pattern = re.compile(r"\(([\d.]+)\) at ([0-9a-f:]{17})", re.IGNORECASE)
-
-        matches = pattern.findall(output)
-        devices = [
-            {"ip": ip, "mac": mac.lower().replace("-", ":")} for ip, mac in matches
-        ]
-        return devices
-
-    except Exception as e:
-        logger.error(f"Failed to read ARP cache: {e}")
-        return []
 
 
 class RobotConnectionManager:
