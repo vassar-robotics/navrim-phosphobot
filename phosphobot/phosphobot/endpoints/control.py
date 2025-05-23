@@ -71,12 +71,14 @@ vr_control_signal = ControlSignal()
     summary="Initialize Robot",
     description="Initialize the robot to its initial position before starting the teleoperation.",
 )
-async def move_init(rcm: RobotConnectionManager = Depends(get_rcm)):
+async def move_init(
+    robot_id: int | None = None, rcm: RobotConnectionManager = Depends(get_rcm)
+):
     """
     Initialize the robot to its initial position before starting the teleoperation.
     """
     manager = TeleopManager(rcm)
-    await manager.move_init()
+    await manager.move_init(robot_id=robot_id)
     return StatusResponse()
 
 
@@ -168,9 +170,9 @@ async def move_to_absolute_position(
     robot = rcm.get_robot(robot_id)
 
     # Divide by 100 to convert from cm to m
-    query.x /= 100
-    query.y /= 100
-    query.z /= 100
+    query.x = query.x / 100 if query.x is not None else 0
+    query.y = query.y / 100 if query.y is not None else 0
+    query.z = query.z / 100 if query.z is not None else 0
 
     if hasattr(robot, "control_gripper") and query.open is not None:
         # If the robot has a control_gripper method, use it to open/close the gripper
@@ -278,15 +280,18 @@ async def move_relative(
     """
 
     # Convert units to meters
-    data.x /= 100
-    data.y /= 100
-    data.z /= 100
+    data.x = data.x / 100 if data.x is not None else 0
+    data.y = data.y / 100 if data.y is not None else 0
+    data.z = data.z / 100 if data.z is not None else 0
+    data.rx = data.rx if data.rx is not None else 0
+    data.ry = data.ry if data.ry is not None else 0
+    data.rz = data.rz if data.rz is not None else 0
 
     robot = rcm.get_robot(robot_id)
 
     if hasattr(robot, "move_robot_relative"):
         # If the robot has a move_robot_relative method, use it
-        robot.move_robot_relative(
+        await robot.move_robot_relative(
             target_position=np.array([data.x, data.y, data.z]),
             target_orientation_rad=np.deg2rad(np.array([data.rx, data.ry, data.rz])),
         )
@@ -302,7 +307,7 @@ async def move_relative(
     logger.info(f"Received relative data: {data}")
     delta_position = np.array([data.x, data.y, data.z])
     delta_orientation_euler_degrees = np.array([data.rx, data.ry, data.rz])
-    open = data.open
+    open = data.open if data.open is not None else None
 
     # Call /move/absolute by adding the delta to the current position
     current_position, current_orientation = robot.forward_kinematics(

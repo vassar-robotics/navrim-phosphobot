@@ -1,3 +1,5 @@
+"use client";
+
 import {
   CommandGroup,
   CommandInput,
@@ -55,15 +57,19 @@ export const AutoComplete = ({
         if (match) {
           setSelected(match);
           onValueChange?.(match);
+        } else if (allowCustomValue) {
+          // Create and select custom value
+          const customOption = { label: input.value, value: input.value };
+          setSelected(customOption);
+          onValueChange?.(customOption);
         }
-        // Else, rely on clicking the suggested "Use ..." tip
       }
 
       if (event.key === "Escape") {
         input.blur();
       }
     },
-    [isOpen, options, onValueChange],
+    [isOpen, options, onValueChange, allowCustomValue],
   );
 
   const handleBlur = useCallback(() => {
@@ -93,7 +99,7 @@ export const AutoComplete = ({
         <CommandInput
           ref={inputRef}
           value={inputValue}
-          onValueChange={isLoading ? undefined : setInputValue}
+          onValueChange={setInputValue} // Always allow typing, even when loading
           onBlur={handleBlur}
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
@@ -109,9 +115,9 @@ export const AutoComplete = ({
           )}
         >
           <CommandList className="rounded-lg ring-1 ring-slate-200">
-            <CommandLoading isLoading={isLoading} />
+            {isLoading && <CommandLoading isLoading={isLoading} />}
 
-            {!isLoading && options.length > 0 && (
+            {options.length > 0 && (
               <CommandGroup>
                 {options.map((option) => {
                   const isSelected = selected?.value === option.value;
@@ -137,7 +143,7 @@ export const AutoComplete = ({
               </CommandGroup>
             )}
 
-            {!isLoading && hasCustom && (
+            {hasCustom && (
               <CommandGroup>
                 <CommandItem
                   value={inputValue}

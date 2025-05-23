@@ -72,11 +72,13 @@ class TeleopManager:
 
         return None
 
-    async def move_init(self):
+    async def move_init(self, robot_id: int | None = None) -> None:
         """
         Move the robot to the initial position.
         """
-        for robot in self.rcm.robots:
+        for i, robot in enumerate(self.rcm.robots):
+            if robot_id is not None and i != robot_id:
+                continue
             robot.init_config()
             robot.enable_torque()
             # For Agilex Piper, we need to connect after enabling torque
@@ -90,11 +92,13 @@ class TeleopManager:
         else:
             await asyncio.sleep(0.5)
 
-        for robot in self.rcm.robots:
-            initial_position, initial_orientation_rad = robot.forward_kinematics()
-
-            robot.initial_position = initial_position
-            robot.initial_orientation_rad = initial_orientation_rad
+        for i, robot in enumerate(self.rcm.robots):
+            if robot_id is not None and i != robot_id:
+                continue
+            if hasattr(robot, "forward_kinematics"):
+                initial_position, initial_orientation_rad = robot.forward_kinematics()
+                robot.initial_position = initial_position
+                robot.initial_orientation_rad = initial_orientation_rad
 
     async def process_control_data(self, control_data: AppControlData) -> bool:
         """Process control data and return if it was processed"""

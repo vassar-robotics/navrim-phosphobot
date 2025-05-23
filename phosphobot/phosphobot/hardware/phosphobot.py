@@ -162,6 +162,9 @@ class RemotePhosphobot(BaseRobot):
                 "rz": target_orientation_rad[2],
             }
 
+        # TODO: remove
+        body["open"] = 0
+
         response = await self.async_client.post(
             "/move/absolute",
             json=body,
@@ -172,6 +175,70 @@ class RemotePhosphobot(BaseRobot):
                 f"Failed to move robot to absolute position: {response.text}"
             )
             raise Exception(f"Move failed: {response.text}")
+
+    async def move_robot_relative(
+        self, target_position: np.ndarray, target_orientation_rad: np.ndarray | None
+    ) -> None:
+        body = {
+            "x": target_position[0],
+            "y": target_position[1],
+            "z": target_position[2],
+        }
+        if target_orientation_rad is not None:
+            body = {
+                **body,
+                "rx": target_orientation_rad[0],
+                "ry": target_orientation_rad[1],
+                "rz": target_orientation_rad[2],
+            }
+
+        # TODO: remove
+        body["open"] = 0
+
+        response = await self.async_client.post(
+            "/move/relative",
+            json=body,
+            params={"robot_id": self.robot_id},
+        )
+        if response.status_code != 200:
+            logger.warning(
+                f"Failed to move robot to relative position: {response.text}"
+            )
+            raise Exception(f"Move failed: {response.text}")
+
+    def forward_kinematics(
+        self, sync_robot_pos: bool = False
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Get the end effector position and orientation of the robot.
+        """
+        if not self.is_connected:
+            logger.warning("Robot is not connected")
+            return np.zeros(3), np.zeros(3)
+
+        end_effector_position = self.client.post(
+            "/end-effector/read", params={"robot_id": self.robot_id}
+        ).json()
+
+        current_effector_position = np.array(
+            [
+                end_effector_position["x"],
+                end_effector_position["y"],
+                end_effector_position["z"],
+            ]
+        )
+        current_effector_orientation_rad = np.array(
+            [
+                end_effector_position["rx"],
+                end_effector_position["ry"],
+                end_effector_position["rz"],
+            ]
+        )
+
+        return (
+            current_effector_position,
+            current_effector_orientation_rad,
+        )
 
     def status(self) -> RobotConfigStatus:
         """

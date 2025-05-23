@@ -223,13 +223,15 @@ class RelativeEndEffectorPosition(BaseModel):
     # Dataset are in RDLS format like the Bridge Data V2 dataset
     # See https://github.com/google-research/rlds for more information
 
-    x: float = Field(description="Delta X position in centimeters")
-    y: float = Field(description="Delta Y position in centimeters")
-    z: float = Field(description="Delta Z position in centimeters")
-    rx: float = Field(description="Relative Pitch in degrees")
-    ry: float = Field(description="Relative Yaw in degrees")
-    rz: float = Field(description="Relative Roll in degrees")
-    open: float
+    x: float | None = Field(None, description="Delta X position in centimeters")
+    y: float | None = Field(None, description="Delta Y position in centimeters")
+    z: float | None = Field(None, description="Delta Z position in centimeters")
+    rx: float | None = Field(None, description="Relative Pitch in degrees")
+    ry: float | None = Field(None, description="Relative Yaw in degrees")
+    rz: float | None = Field(None, description="Relative Roll in degrees")
+    open: float | None = Field(
+        None, description="0 for closed, 1 for open. If None, use the last value."
+    )
 
     def init(self, np_array: np.ndarray) -> None:
         if np_array.shape != (7,):
