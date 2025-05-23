@@ -3,8 +3,8 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandLoading,
 } from "@/components/ui/command";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Command as CommandPrimitive } from "cmdk";
 import { Check } from "lucide-react";
@@ -109,13 +109,7 @@ export const AutoComplete = ({
           )}
         >
           <CommandList className="rounded-lg ring-1 ring-slate-200">
-            {isLoading && (
-              <CommandPrimitive.Loading>
-                <div className="p-1">
-                  <Skeleton className="h-8 w-full" />
-                </div>
-              </CommandPrimitive.Loading>
-            )}
+            <CommandLoading isLoading={isLoading} />
 
             {!isLoading && options.length > 0 && (
               <CommandGroup>
