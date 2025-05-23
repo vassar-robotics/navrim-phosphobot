@@ -31,7 +31,7 @@ class TeleopManager:
     action_counter: int
     last_report: datetime
     MOVE_TIMEOUT: float = 1.0  # seconds
-    MAX_INSTRUCTIONS_PER_SEC: int = 120
+    MAX_INSTRUCTIONS_PER_SEC: int = 200
 
     def __init__(self, rcm: RobotConnectionManager, robot_id: int | None = None):
         self.rcm = rcm
