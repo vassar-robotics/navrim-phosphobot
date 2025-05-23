@@ -58,6 +58,7 @@ class RobotConnectionManager:
         self.last_scan_time = 0
 
         self._all_robots = []
+        self._manually_added_robots = []
 
     def __del__(self):
         # Disconnect all robots
