@@ -145,6 +145,13 @@ class SO100Hardware(BaseManipulator):
             self.update_motor_errors()
             return
 
+    def disable_torque(self):
+        # Disable torque
+        if not self.is_connected:
+            return
+
+        self.motors_bus.write("Torque_Enable", 0)
+
     def _set_pid_gains_motors(
         self, servo_id: int, p_gain: int = 32, i_gain: int = 0, d_gain: int = 32
     ):
@@ -185,13 +192,6 @@ class SO100Hardware(BaseManipulator):
             logger.warning(
                 "Motors torque is disabled. Motors must have torque enabled to change PID coefficients. Enable torque first."
             )
-
-    def disable_torque(self):
-        # Disable torque
-        if not self.is_connected:
-            return
-
-        self.motors_bus.write("Torque_Enable", 0)
 
     def update_motor_errors(self):
         """

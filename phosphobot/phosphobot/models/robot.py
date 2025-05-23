@@ -80,6 +80,24 @@ class BaseRobot(ABC):
         """
         raise NotImplementedError
 
+    def init_config(self) -> None:
+        """
+        Initialize the robot configuration.
+        """
+        pass
+
+    def enable_torque(self) -> None:
+        """
+        Enable the torque of the robot.
+        """
+        pass
+
+    def disable_torque(self) -> None:
+        """
+        Disable the torque of the robot.
+        """
+        pass
+
     @abstractmethod
     async def move_robot_absolute(
         self,

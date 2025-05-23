@@ -91,9 +91,9 @@ class MoveAbsoluteRequest(BaseModel):
     that you get by calling /move/init.
     """
 
-    x: float = Field(description="X position in centimeters")
-    y: float = Field(description="Y position in centimeters")
-    z: float = Field(description="Z position in centimeters")
+    x: float | None = Field(None, description="X position in centimeters")
+    y: float | None = Field(None, description="Y position in centimeters")
+    z: float | None = Field(None, description="Z position in centimeters")
     rx: float | None = Field(
         None,
         description="Absolute Pitch in degrees. If None, inverse kinematics will be used to calculate the best position.",
@@ -106,7 +106,7 @@ class MoveAbsoluteRequest(BaseModel):
         None,
         description="Absolute Roll in degrees. If None, inverse kinematics will be used to calculate the best position.",
     )
-    open: float = Field(description="0 for closed, 1 for open")
+    open: float | None = Field(None, description="0 for closed, 1 for open")
 
     max_trials: int = Field(
         10,

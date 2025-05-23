@@ -66,7 +66,7 @@ class RemotePhosphobot(BaseRobot):
             self.is_connected = True
             logger.info(f"Connected to remote phosphobot at {self.ip}:{self.port}")
         except httpx.RequestError as e:
-            logger.error(f"Failed to connect to remote phosphobot: {e}")
+            logger.warning(f"Failed to connect to remote phosphobot: {e}")
             raise Exception(f"Connection failed: {e}")
 
     def disconnect(self) -> None:
@@ -79,7 +79,7 @@ class RemotePhosphobot(BaseRobot):
             self.is_connected = False
             logger.info("Disconnected from remote phosphobot")
         except Exception as e:
-            logger.error(f"Failed to disconnect from remote phosphobot: {e}")
+            logger.warning(f"Failed to disconnect from remote phosphobot: {e}")
             raise Exception(f"Disconnection failed: {e}")
 
     def get_observation(self) -> tuple[np.ndarray, np.ndarray]:
@@ -91,8 +91,12 @@ class RemotePhosphobot(BaseRobot):
             - joints_position: np.array of joint positions
         """
 
-        end_effector_position = self.client.post("/end-effector/read").json()
-        joints = self.client.post("/joints/read").json()
+        end_effector_position = self.client.post(
+            "/end-effector/read", params={"robot_id": self.robot_id}
+        ).json()
+        joints = self.client.post(
+            "/joints/read", params={"robot_id": self.robot_id}
+        ).json()
         state = np.array(
             [
                 end_effector_position["x"],
@@ -116,8 +120,9 @@ class RemotePhosphobot(BaseRobot):
         """
 
         self.client.post(
-            f"/joints/write?robot_id={self.robot_id}",
+            "/joints/write",
             json={"angles": positions.tolist(), "unit": "rad"},
+            params={"robot_id": self.robot_id},
         )
 
     def get_info_for_dataset(self):
@@ -141,7 +146,7 @@ class RemotePhosphobot(BaseRobot):
             **kwargs: Additional arguments
         """
         if not self.is_connected:
-            logger.error("Robot is not connected")
+            logger.warning("Robot is not connected")
             return
 
         body = {
@@ -157,9 +162,16 @@ class RemotePhosphobot(BaseRobot):
                 "rz": target_orientation_rad[2],
             }
 
-        await self.async_client.post(
-            f"/move/absolute?robot_id={self.robot_id}", json=body
+        response = await self.async_client.post(
+            "/move/absolute",
+            json=body,
+            params={"robot_id": self.robot_id},
         )
+        if response.status_code != 200:
+            logger.warning(
+                f"Failed to move robot to absolute position: {response.text}"
+            )
+            raise Exception(f"Move failed: {response.text}")
 
     def status(self) -> RobotConfigStatus:
         """
@@ -180,10 +192,10 @@ class RemotePhosphobot(BaseRobot):
         This puts the robot in a stand position ready for operation.
         """
         if not self.is_connected:
-            logger.error("Robot is not connected")
+            logger.warning("Robot is not connected")
             return
 
-        await self.async_client.post(f"/move/init?robot_id={self.robot_id}")
+        await self.async_client.post("/move/init", params={"robot_id": self.robot_id})
 
     async def move_to_sleep(self) -> None:
         """
@@ -192,6 +204,64 @@ class RemotePhosphobot(BaseRobot):
         This makes the robot sit down before potentially disconnecting.
         """
         if not self.is_connected:
-            logger.error("Robot is not connected")
+            logger.warning("Robot is not connected")
             return
-        await self.async_client.post(f"/move/sleep?robot_id={self.robot_id}")
+        await self.async_client.post("/move/sleep", params={"robot_id": self.robot_id})
+
+    def enable_torque(self):
+        """
+        Enable the torque of the robot.
+        """
+        if not self.is_connected:
+            logger.warning("Robot is not connected")
+            return
+
+        self.client.post(
+            "/torque/toggle",
+            json={"torque_status": True},
+            params={"robot_id": self.robot_id},
+        )
+
+    def disable_torque(self):
+        """
+        Disable the torque of the robot.
+        """
+        if not self.is_connected:
+            logger.warning("Robot is not connected")
+            return
+
+        self.client.post(
+            "/torque/toggle",
+            json={"torque_status": False},
+            params={"robot_id": self.robot_id},
+        )
+
+    def control_gripper(self, open_command: float) -> None:
+        """
+        Control the gripper of the robot.
+        """
+        if not self.is_connected:
+            logger.warning("Robot is not connected")
+            return
+
+        # Move absolute with only open command
+        self.client.post(
+            "/move/absolute",
+            json={"open": open_command},
+            params={"robot_id": self.robot_id},
+        )
+
+    def current_torque(self) -> np.ndarray:
+        """
+        Read current torque /torque/read
+        """
+        if not self.is_connected:
+            logger.warning("Robot is not connected")
+            return np.zeros(6)
+
+        response = self.client.post(
+            "/torque/read",
+            params={"robot_id": self.robot_id},
+        )
+        torque = response.json()
+        return np.array(torque["current_torque"])

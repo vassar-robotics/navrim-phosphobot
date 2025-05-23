@@ -1,3 +1,5 @@
+"use client";
+
 import placeholderSvg from "@/assets/placeholder.svg";
 import { AutoComplete } from "@/components/common/autocomplete";
 import { Button } from "@/components/ui/button";
@@ -40,7 +42,7 @@ const ROBOT_TYPES = [
     image: placeholderSvg,
     fields: [
       { name: "ip", label: "IP Address", type: "ip" },
-      { name: "port", label: "Port", type: "number" },
+      { name: "port", label: "Port", type: "number", default: 5555 },
     ],
   },
   {
@@ -64,8 +66,8 @@ const ROBOT_TYPES = [
     image: placeholderSvg,
     fields: [
       { name: "ip", label: "IP Address", type: "ip" },
-      { name: "port", label: "Port", type: "number" },
-      { name: "robot_id", label: "Robot ID", type: "number" },
+      { name: "port", label: "Port", type: "number", default: 80 },
+      { name: "robot_id", label: "Robot ID", type: "number", default: 0 },
     ],
   },
 ];
@@ -127,8 +129,23 @@ export function RobotConfigModal({
 
   const handleRobotTypeChange = (value: string) => {
     setSelectedRobotType(value);
-    // Reset form values when robot type changes
-    setFormValues({});
+    // Initialize form values with defaults when robot type changes
+    const robot = ROBOT_TYPES.find((r) => r.id === value);
+    if (robot) {
+      const defaultValues = robot.fields.reduce(
+        (acc, field) => {
+          if (field.default !== undefined) {
+            acc[field.name] = field.default;
+          }
+          return acc;
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        {} as Record<string, any>,
+      );
+      setFormValues(defaultValues);
+    } else {
+      setFormValues({});
+    }
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -144,7 +161,8 @@ export function RobotConfigModal({
 
     // Check if all required fields are filled
     const missingFields = selectedRobot.fields.filter(
-      (field) => !formValues[field.name],
+      (field) =>
+        formValues[field.name] === undefined && field.default === undefined,
     );
 
     if (missingFields.length > 0) {
@@ -159,17 +177,22 @@ export function RobotConfigModal({
     // {ip: formValues.ip, port: formValues.port, ...}
     const connectionDetails = selectedRobot.fields.reduce(
       (acc, field) => {
-        if (formValues[field.name]) {
-          // if formValues[field.name] is also an object with a value property, get that
+        // Use form value if provided, otherwise use default if available
+        const fieldValue =
+          formValues[field.name] !== undefined
+            ? formValues[field.name]
+            : field.default;
+
+        if (fieldValue !== undefined) {
+          // if fieldValue is also an object with a value property, get that
           acc[field.name] =
-            typeof formValues[field.name] === "object" &&
-            formValues[field.name].value
-              ? formValues[field.name].value
-              : formValues[field.name];
+            typeof fieldValue === "object" && fieldValue.value
+              ? fieldValue.value
+              : fieldValue;
         }
         return acc;
       },
-      {} as Record<string, string>,
+      {} as Record<string, string | number>,
     );
     console.log("Connection details:", connectionDetails);
 
@@ -317,8 +340,16 @@ export function RobotConfigModal({
                     <Input
                       id={field.name}
                       type="number"
-                      placeholder="Enter number"
-                      value={formValues[field.name] || ""}
+                      placeholder={
+                        field.default !== undefined
+                          ? `Default: ${field.default}`
+                          : "Enter number"
+                      }
+                      value={
+                        formValues[field.name] !== undefined
+                          ? formValues[field.name]
+                          : ""
+                      }
                       onChange={(e) =>
                         handleFieldChange(field.name, e.target.value)
                       }

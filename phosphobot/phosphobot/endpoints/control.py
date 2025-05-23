@@ -362,10 +362,10 @@ async def say_hello(
     """
     robot = rcm.get_robot(robot_id)
 
-    if not isinstance(robot, BaseManipulator):
+    if not hasattr(robot, "control_gripper"):
         raise HTTPException(
             status_code=400,
-            detail="Robot is not a manipulator and does not have an end effector",
+            detail="Robot does not support gripper control",
         )
 
     # Open and close the gripper
