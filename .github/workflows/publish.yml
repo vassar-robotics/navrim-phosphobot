@@ -490,13 +490,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract project version
-        id: version
+      - name: Create OUTPUT_FILENAME using the release tag
+        id: output_filename
         run: |
-          $versionLine = Get-Content phosphobot/pyproject.toml | Select-String '^version ='
-          $version = $versionLine -replace 'version = "(.*)"', '$1'
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-          echo "OUTPUT_FILENAME=phosphobot-${{ steps.version.outputs.version }}-amd64.exe" >> $env:GITHUB_ENV
+          $RELEASE_TAG = "${{ github.event.release.tag_name }}"
+          $OUTPUT_FILENAME = "phosphobot-${RELEASE_TAG#v}-amd64.exe"
+          echo "OUTPUT_FILENAME=$OUTPUT_FILENAME" >> $env:GITHUB_ENV
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -694,7 +693,7 @@ jobs:
         run: |
           $exePath = Join-Path -Path "phosphobot/dist" -ChildPath $env:OUTPUT_FILENAME
           $hash = (Get-FileHash $exePath -Algorithm SHA256).Hash
-          Set-Content -Path "sha256-phosphobot-${{ steps.version.outputs.version }}-amd64.exe.txt" -Value $hash
+          Set-Content -Path "sha256-$${{env.OUTPUT_FILENAME}}.txt" -Value $hash
 
       - name: Upload SHA256
         uses: actions/upload-artifact@v4
@@ -950,23 +949,15 @@ jobs:
       - name: Set VERSION
         run: echo "VERSION=$(echo ${{ github.event.release.tag_name }} | sed 's/^v//')" >> $GITHUB_ENV
 
-      # If this version is None, then use the pyproject.toml
-      - name: If the github.event.release.tag_name is empty, use the pyproject.toml version
-        run: |
-          if [ -z "${{ github.event.release.tag_name }}" ]; then
-            VERSION=$(grep '^version =' phosphobot/pyproject.toml | cut -d '"' -f2)
-            echo "VERSION=$VERSION" >> $GITHUB_ENV
-          fi
-
       - name: Download Windows artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: phosphobot-*.exe
           merge-multiple: true
 
-      - name: Wait for the release to be published by the homebrew action. Timeout after 10 minutes
+      - name: Wait for the release to be published by the homebrew action. Timeout after 15 minutes
         run: |
-          for i in {1..60}; do
+          for i in {1..90}; do
             if curl -s "https://api.github.com/repos/${{ env.HOMEBREW_TAP }}/releases/tags/v${{ env.VERSION }}" | grep -q '"published_at":'; then
               echo "Release published!"
               break
