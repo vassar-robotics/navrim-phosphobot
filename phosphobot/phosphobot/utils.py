@@ -973,8 +973,15 @@ async def scan_network_devices(
         # Read ARP table asynchronously
         try:
             if is_windows:
+                # Try to force UTF-8 output, fallback to system encoding
+                cmd = (
+                    "chcp 65001 > NUL && arp -a"  # Force UTF-8 code page
+                    if os.getenv("TERM")
+                    == "xterm-256color"  # Check for modern terminal
+                    else "arp -a"
+                )
                 proc = await asyncio.create_subprocess_shell(
-                    "arp -a",
+                    cmd,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
@@ -987,7 +994,23 @@ async def scan_network_devices(
                 )
 
             stdout, _ = await proc.communicate()
-            output = stdout.decode()
+
+            if is_windows:
+                # Windows-specific decoding with type-safe check
+                try:
+                    output = stdout.decode("utf-8")
+                except UnicodeDecodeError:
+                    try:
+                        # Type-guarded Windows codepage detection
+                        from ctypes import windll  # type: ignore[attr-defined]
+
+                        codepage = windll.kernel32.GetConsoleOutputCP()
+                        output = stdout.decode(f"cp{codepage}")
+                    except (AttributeError, UnicodeDecodeError):
+                        # Final fallback to system encoding
+                        output = stdout.decode(errors="replace")
+            else:
+                output = stdout.decode()
 
             pattern = re.compile(
                 r"(\d+\.\d+\.\d+\.\d+)\s+([\w-]+)\s+dynamic"
