@@ -75,7 +75,11 @@ class RemotePhosphobot(BaseRobot):
         """
         try:
             self.client.close()
-            asyncio.run(self.async_client.aclose())
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.create_task(self.async_client.aclose())
+            else:
+                asyncio.run(self.async_client.aclose())
             self.is_connected = False
             logger.info("Disconnected from remote phosphobot")
         except Exception as e:

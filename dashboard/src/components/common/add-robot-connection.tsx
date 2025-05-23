@@ -61,7 +61,7 @@ const ROBOT_TYPES = [
   },
   {
     id: "phosphobot",
-    name: "Phosphobot Remote Server",
+    name: "Remote phosphobot server",
     category: "manipulator",
     image: placeholderSvg,
     fields: [
