@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
@@ -1032,4 +1032,20 @@ class ScanDevicesResponse(BaseModel):
     devices: List[LocalDevice] = Field(
         ...,
         description="List of connected USB devices.",
+    )
+
+
+class RobotConnectionRequest(BaseModel):
+    """
+    Request to manually connect to a robot.
+    """
+
+    robot_name: str = Field(
+        ...,
+        description="Type of the robot to connect to.",
+        examples=["so-100", "wx-250s", "koch-v1.1"],
+    )
+    connection_details: dict[str, Any] = Field(
+        ...,
+        description="Connection details for the robot. These are passed to the class constructor. This can include IP address, port, and other connection parameters.",
     )

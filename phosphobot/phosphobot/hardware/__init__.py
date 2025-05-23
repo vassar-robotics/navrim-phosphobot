@@ -6,5 +6,4 @@ from .lekiwi import LeKiwi
 from .piper import PiperHardware
 from .sim import simulation_init, simulation_stop
 from .so100 import SO100Hardware
-from .so100leader import SO100LeaderHardware
 from .wx250s import WX250SHardware

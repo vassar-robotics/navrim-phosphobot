@@ -363,7 +363,7 @@ export function RobotStatusDropdown() {
             className="flex items-center gap-2"
           >
             <PlusCircle className="size-4" />
-            <span>Add New Robot</span>
+            <span>Connect to another robot</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -214,16 +214,6 @@ async def list_connected_devices() -> ScanDevicesResponse:
     Endpoint to list all devices connected to the system.
     """
     available_ports = list_ports.comports()
-    # Available info in PortInfo object:
-    # - device: The device name (e.g., '/dev/ttyUSB0')
-    # - name: The device name (e.g., 'USB Serial Device')
-    # - description: A description of the device (e.g., 'USB Serial Device (COM3)')
-    # - hwid: The hardware ID of the device (e.g., 'USB VID:PID=0403:6001')
-    # - location: The location of the device (e.g., 'USB Port 1')
-    # - manufacturer: The manufacturer of the device (e.g., 'FTDI')
-    # - serial_number: The serial number of the device (e.g., 'FT123456')
-    # - interface: The interface of the device (e.g., 'USB')
-
     return ScanDevicesResponse(
         devices=[
             LocalDevice(

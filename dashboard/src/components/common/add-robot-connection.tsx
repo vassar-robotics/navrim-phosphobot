@@ -148,13 +148,13 @@ export function RobotConfigModal({
     try {
       // Prepare payload
       const payload = {
-        robotType: selectedRobotType,
-        ...formValues,
+        robot_name: selectedRobotType,
+        connection_details: formValues,
       };
 
       // Call API to add robot
       const response = await fetchWithBaseUrl(
-        "/api/add-robot",
+        "/robot/add-connection",
         "POST",
         payload,
       );
@@ -182,9 +182,10 @@ export function RobotConfigModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Add New Robot</DialogTitle>
+          <DialogTitle>Connect to another robot</DialogTitle>
           <DialogDescription>
-            Configure a new robot to add to your system.
+            Manually connect to a robot by selecting its type and entering the
+            connection details.
           </DialogDescription>
         </DialogHeader>
 
@@ -313,7 +314,7 @@ export function RobotConfigModal({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Adding...
+                Connecting...
               </>
             ) : (
               "Add Robot"

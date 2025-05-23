@@ -1,7 +1,7 @@
 import time
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import List, Optional, Set
+from typing import Any, List, Optional, Set
 
 import pybullet as p  # type: ignore
 from fastapi import HTTPException
@@ -13,9 +13,9 @@ from phosphobot.configs import config
 from phosphobot.hardware import (
     BaseRobot,
     KochHardware,
+    LeKiwi,
     PiperHardware,
     SO100Hardware,
-    SO100LeaderHardware,
     UnitreeGo2,
     WX250SHardware,
 )
@@ -23,6 +23,15 @@ from phosphobot.models import RobotConfigStatus
 from phosphobot.utils import is_can_plugged
 
 rcm = None
+
+robot_name_to_class = {
+    SO100Hardware.name: SO100Hardware,
+    KochHardware.name: KochHardware,
+    WX250SHardware.name: WX250SHardware,
+    UnitreeGo2.name: UnitreeGo2,
+    LeKiwi.name: LeKiwi,
+    PiperHardware.name: PiperHardware,
+}
 
 
 @dataclass
@@ -151,7 +160,6 @@ class RobotConnectionManager:
                 WX250SHardware,
                 KochHardware,
                 SO100Hardware,
-                SO100LeaderHardware,
             ]:
                 if not hasattr(robot_class, "name") or not hasattr(
                     robot_class, "from_port"
@@ -310,6 +318,24 @@ class RobotConnectionManager:
                 self._all_robots.remove(robot)
 
         return [status for status in robots_status if status is not None]
+
+    def add_connection(self, robot_name: str, connection_details: dict[str, Any]):
+        """
+        Manually add a connection to a robot using the robot type and connection details.
+        Useful when detecting the robot is more complex than just a serial port.
+        Eg: IP address, etc.
+        """
+        robot_class = robot_name_to_class.get(robot_name)
+        if robot_class is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Robot {robot_name} not supported. Supported robots: {list(robot_name_to_class.keys())}",
+            )
+        robot = robot_class(**connection_details)
+        self._all_robots.append(robot)
+        logger.success(
+            f"Connected to {robot.name} with robot_id {len(self._all_robots) - 1}."
+        )
 
 
 @lru_cache()

@@ -36,6 +36,7 @@ from phosphobot.models import (
     JointsWriteRequest,
     MoveAbsoluteRequest,
     RelativeEndEffectorPosition,
+    RobotConnectionRequest,
     SpawnStatusResponse,
     StartAIControlRequest,
     StartLeaderArmControlRequest,
@@ -1101,3 +1102,27 @@ async def feedback_auto_control(
     )
 
     return StatusResponse(message="Feedback sent")
+
+
+@router.post("/robot/add-connection", response_model=StatusResponse)
+async def add_robot_connection(
+    query: RobotConnectionRequest,
+    rcm: RobotConnectionManager = Depends(get_rcm),
+) -> StatusResponse:
+    """
+    Manually add a robot connection to the robot manager.
+    Useful for adding robot that are accessible only via WiFi, for example.
+    """
+    try:
+        rcm.add_connection(
+            robot_name=query.robot_name,
+            connection_details=query.connection_details,
+        )
+        return StatusResponse(
+            status="ok", message=f"Robot connection to {query.robot_name} added"
+        )
+    except Exception as e:
+        logger.error(f"Failed to add robot connection: {e}")
+        raise HTTPException(
+            status_code=400, detail=f"Failed to add robot connection: {e}"
+        )
