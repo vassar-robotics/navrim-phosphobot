@@ -280,18 +280,34 @@ async def move_relative(
     """
 
     # Convert units to meters
-    data.x = data.x / 100 if data.x is not None else 0
-    data.y = data.y / 100 if data.y is not None else 0
-    data.z = data.z / 100 if data.z is not None else 0
-    data.rx = data.rx if data.rx is not None else 0
-    data.ry = data.ry if data.ry is not None else 0
-    data.rz = data.rz if data.rz is not None else 0
+    data.x = data.x / 100 if data.x is not None else None
+    data.y = data.y / 100 if data.y is not None else None
+    data.z = data.z / 100 if data.z is not None else None
 
     robot = rcm.get_robot(robot_id)
 
+    if (
+        data.x is None
+        and data.y is None
+        and data.z is None
+        and data.rx is None
+        and data.ry is None
+        and data.rz is None
+        and data.open is not None
+    ):
+        if hasattr(robot, "control_gripper"):
+            # If the robot has a control_gripper method, use it to open/close the gripper
+            robot.control_gripper(open_command=data.open)
+            return StatusResponse()
+
     if hasattr(robot, "move_robot_relative"):
         # If the robot has a move_robot_relative method, use it
-        target_orientation_rad = np.deg2rad(np.array([data.rx, data.ry, data.rz]))
+        target_orientation_rad = np.array(
+            [
+                np.deg2rad(u) if u is not None else None
+                for u in [data.rx, data.ry, data.rz]
+            ]
+        )
         await robot.move_robot_relative(
             target_position=np.array([data.x, data.y, data.z]),
             target_orientation_rad=target_orientation_rad,

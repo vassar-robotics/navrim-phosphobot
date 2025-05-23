@@ -181,18 +181,25 @@ class RemotePhosphobot(BaseRobot):
     async def move_robot_relative(
         self, target_position: np.ndarray, target_orientation_rad: np.ndarray | None
     ) -> None:
+        # Replace None values in target_position and target_orientation_rad with 0
+
         body = {
-            "x": target_position[0] * 100,
-            "y": target_position[1] * 100,
-            "z": target_position[2] * 100,
+            "x": target_position[0] * 100 if target_position[0] is not None else None,
+            "y": target_position[1] * 100 if target_position[1] is not None else None,
+            "z": target_position[2] * 100 if target_position[2] is not None else None,
         }
         if target_orientation_rad is not None:
-            target_orientation_deg = np.rad2deg(target_orientation_rad)
             body = {
                 **body,
-                "rx": target_orientation_deg[0],
-                "ry": target_orientation_deg[1],
-                "rz": target_orientation_deg[2],
+                "rx": np.rad2deg(target_orientation_rad[0])
+                if target_orientation_rad[0] is not None
+                else None,
+                "ry": np.rad2deg(target_orientation_rad[1])
+                if target_orientation_rad[1] is not None
+                else None,
+                "rz": np.rad2deg(target_orientation_rad[2])
+                if target_orientation_rad[2] is not None
+                else None,
             }
 
         response = await self.async_client.post(
