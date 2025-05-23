@@ -40,14 +40,14 @@ const ROBOT_TYPES = [
     ],
   },
   {
-    id: "so100",
+    id: "so-100",
     name: "SO-100 / SO-101",
     category: "manipulator",
     image: placeholderSvg,
     fields: [{ name: "usb_port", label: "USB Port", type: "usb_port" }],
   },
   {
-    id: "koch",
+    id: "koch-v1.1",
     name: "Koch 1.1",
     category: "manipulator",
     image: placeholderSvg,

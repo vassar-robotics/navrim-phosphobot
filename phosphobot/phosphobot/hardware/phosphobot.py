@@ -166,9 +166,6 @@ class RemotePhosphobot(BaseRobot):
                 "rz": target_orientation_rad[2],
             }
 
-        # TODO: remove
-        body["open"] = 0
-
         response = await self.async_client.post(
             "/move/absolute",
             json=body,
@@ -195,9 +192,6 @@ class RemotePhosphobot(BaseRobot):
                 "ry": target_orientation_rad[1],
                 "rz": target_orientation_rad[2],
             }
-
-        # TODO: remove
-        body["open"] = 0
 
         response = await self.async_client.post(
             "/move/relative",
@@ -238,6 +232,8 @@ class RemotePhosphobot(BaseRobot):
                 end_effector_position["rz"],
             ]
         )
+        # Convert to radians
+        current_effector_orientation_rad = np.deg2rad(current_effector_orientation_rad)
 
         return (
             current_effector_position,
