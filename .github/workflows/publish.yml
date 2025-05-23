@@ -485,17 +485,37 @@ jobs:
     defaults:
       run:
         shell: pwsh
+    outputs:
+      output_filename: ${{ env.OUTPUT_FILENAME }}
+      version: ${{ env.VERSION }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create OUTPUT_FILENAME using the release tag
-        id: output_filename
+      - name: Extract project version
+        id: version
         run: |
-          $RELEASE_TAG = "${{ github.event.release.tag_name }}"
-          $OUTPUT_FILENAME = "phosphobot-${RELEASE_TAG#v}-amd64.exe"
+          $VERSION = (Get-Content "phosphobot/pyproject.toml" | Select-String '^version =').ToString().Split('"')[1]
+          echo "version=$VERSION" >> $env:GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> $env:GITHUB_ENV
+
+      - name: Set VERSION from release tag or extracted version
+        run: |
+          if ("${{ github.event_name }}" -eq "release") {
+            $RELEASE_TAG = "${{ github.event.release.tag_name }}"
+            $VERSION = $RELEASE_TAG -replace '^v', ''
+          } else {
+            $VERSION = "${{ steps.version.outputs.version }}"
+          }
+          echo "VERSION=$VERSION" >> $env:GITHUB_ENV
+          echo "Final VERSION: $VERSION"
+
+      - name: Create OUTPUT_FILENAME
+        run: |
+          $OUTPUT_FILENAME = "phosphobot-$env:VERSION-amd64.exe"
           echo "OUTPUT_FILENAME=$OUTPUT_FILENAME" >> $env:GITHUB_ENV
+          echo "OUTPUT_FILENAME: $OUTPUT_FILENAME"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -972,10 +992,31 @@ jobs:
           pattern: phosphobot-*.exe
           merge-multiple: true
 
+      # Debug step to see what files were actually downloaded
+      - name: List downloaded files
+        run: |
+          echo "Files in current directory:"
+          ls -la
+          echo "All .exe files:"
+          find . -name "*.exe" -type f
+
+      # Find the actual exe file and set it as an environment variable
+      - name: Find Windows executable
+        run: |
+          EXE_FILE=$(find . -name "phosphobot-*-amd64.exe" -type f | head -1)
+          if [ -z "$EXE_FILE" ]; then
+            echo "No exe file found matching pattern phosphobot-*-amd64.exe"
+            echo "Available files:"
+            find . -name "*.exe" -type f
+            exit 1
+          fi
+          echo "Found exe file: $EXE_FILE"
+          echo "WINDOWS_EXE_PATH=$EXE_FILE" >> $GITHUB_ENV
+
       - name: Upload Windows EXE to Release
         uses: softprops/action-gh-release@v1
         with:
           repository: ${{ env.HOMEBREW_TAP }}
           tag_name: "v${{ env.VERSION }}"
-          files: phosphobot-${{ env.VERSION }}-amd64.exe
+          files: ${{ env.WINDOWS_EXE_PATH }}
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
