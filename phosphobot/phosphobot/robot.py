@@ -18,6 +18,7 @@ from phosphobot.hardware import (
     SO100Hardware,
     UnitreeGo2,
     WX250SHardware,
+    RemotePhosphobot,
 )
 from phosphobot.models import RobotConfigStatus
 from phosphobot.utils import is_can_plugged
@@ -31,6 +32,7 @@ robot_name_to_class = {
     UnitreeGo2.name: UnitreeGo2,
     LeKiwi.name: LeKiwi,
     PiperHardware.name: PiperHardware,
+    RemotePhosphobot.name: RemotePhosphobot,
 }
 
 

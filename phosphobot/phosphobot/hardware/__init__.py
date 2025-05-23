@@ -7,3 +7,4 @@ from .piper import PiperHardware
 from .sim import simulation_init, simulation_stop
 from .so100 import SO100Hardware
 from .wx250s import WX250SHardware
+from .phosphobot import RemotePhosphobot

@@ -31,7 +31,7 @@ const ROBOT_TYPES = [
     name: "Unitree Go2",
     category: "mobile",
     image: placeholderSvg,
-    fields: [{ name: "ip_address", label: "IP Address", type: "ip" }],
+    fields: [{ name: "ip", label: "IP Address", type: "ip" }],
   },
   {
     id: "lekiwi",
@@ -39,8 +39,8 @@ const ROBOT_TYPES = [
     category: "mobile",
     image: placeholderSvg,
     fields: [
-      { name: "ip_address", label: "IP Address", type: "ip" },
-      { name: "port", label: "Port", type: "port" },
+      { name: "ip", label: "IP Address", type: "ip" },
+      { name: "port", label: "Port", type: "number" },
     ],
   },
   {
@@ -56,6 +56,17 @@ const ROBOT_TYPES = [
     category: "manipulator",
     image: placeholderSvg,
     fields: [{ name: "usb_port", label: "USB Port", type: "usb_port" }],
+  },
+  {
+    id: "phosphobot",
+    name: "Phosphobot Remote Server",
+    category: "manipulator",
+    image: placeholderSvg,
+    fields: [
+      { name: "ip", label: "IP Address", type: "ip" },
+      { name: "port", label: "Port", type: "number" },
+      { name: "robot_id", label: "Robot ID", type: "number" },
+    ],
   },
 ];
 
@@ -142,14 +153,31 @@ export function RobotConfigModal({
       );
       return;
     }
-
     setIsSubmitting(true);
+
+    // Create the proper form:
+    // {ip: formValues.ip, port: formValues.port, ...}
+    const connectionDetails = selectedRobot.fields.reduce(
+      (acc, field) => {
+        if (formValues[field.name]) {
+          // if formValues[field.name] is also an object with a value property, get that
+          acc[field.name] =
+            typeof formValues[field.name] === "object" &&
+            formValues[field.name].value
+              ? formValues[field.name].value
+              : formValues[field.name];
+        }
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+    console.log("Connection details:", connectionDetails);
 
     try {
       // Prepare payload
       const payload = {
         robot_name: selectedRobotType,
-        connection_details: formValues,
+        connection_details: connectionDetails,
       };
 
       // Call API to add robot
@@ -285,11 +313,11 @@ export function RobotConfigModal({
                     />
                   )}
 
-                  {field.type === "port" && (
+                  {field.type === "number" && (
                     <Input
                       id={field.name}
                       type="number"
-                      placeholder="Enter port number"
+                      placeholder="Enter number"
                       value={formValues[field.name] || ""}
                       onChange={(e) =>
                         handleFieldChange(field.name, e.target.value)
