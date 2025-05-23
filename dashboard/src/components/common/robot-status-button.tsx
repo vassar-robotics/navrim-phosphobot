@@ -1,6 +1,5 @@
-"use client";
-
 import connectionImage from "@/assets/ConnectBot.jpg";
+import { RobotConfigModal } from "@/components/common/add-robot-connection";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -24,6 +23,7 @@ import {
   Link2Off,
   LoaderCircle,
   Moon,
+  PlusCircle,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -242,6 +242,7 @@ function FullscreenImage() {
 }
 
 export function RobotStatusDropdown() {
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const { data: serverStatus } = useSWR<ServerStatus>(["/status"], ([url]) =>
     fetcher(url),
   );
@@ -280,81 +281,96 @@ export function RobotStatusDropdown() {
     serverStatus.robot_status && serverStatus.robot_status.length > 0;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="flex items-center gap-2 relative cursor-pointer"
-        >
-          {robotConnected ? (
-            <span className="size-2 rounded-full bg-green-500" />
-          ) : (
-            <span className="size-2 rounded-full bg-destructive" />
-          )}
-          {robotConnected && (
-            <>
-              {serverStatus.robot_status.map((robot, index) => (
-                <div key={index} className="relative">
-                  <Bot className="size-5" />
-                  {robot.usb_port &&
-                    leaderArmSerialIds.includes(robot.usb_port) && (
-                      <Crown className="absolute -top-2 -right-2 size-3 text-green-500" />
-                    )}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 relative cursor-pointer"
+          >
+            {robotConnected ? (
+              <span className="size-2 rounded-full bg-green-500" />
+            ) : (
+              <span className="size-2 rounded-full bg-destructive" />
+            )}
+            {robotConnected && (
+              <>
+                {serverStatus.robot_status.map((robot, index) => (
+                  <div key={index} className="relative">
+                    <Bot className="size-5" />
+                    {robot.usb_port &&
+                      leaderArmSerialIds.includes(robot.usb_port) && (
+                        <Crown className="absolute -top-2 -right-2 size-3 text-green-500" />
+                      )}
+                  </div>
+                ))}
+              </>
+            )}
+            {!robotConnected && (
+              <>
+                <Bot className="size-5" />
+                <div className="flex items-center gap-1">
+                  <div className="flex items-end text-muted-foreground font-semibold leading-none">
+                    <span className="text-[8px] translate-y-[-1px]">Z</span>
+                    <span className="text-xs">Z</span>
+                    <span className="text-[8px] translate-y-[1px]">Z</span>
+                  </div>
                 </div>
-              ))}
+              </>
+            )}
+            <span className="sr-only">
+              {robotConnected ? "Robot Connected" : "Robot Disconnected"}
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel className="text-xs text-muted-foreground">
+            {robotConnected
+              ? `${serverStatus.robot_status.length} Robot${serverStatus.robot_status.length > 1 ? "s" : ""} Connected`
+              : "Robot is disconnected"}
+          </DropdownMenuLabel>
+
+          {robotConnected && serverStatus.robot_status && (
+            <>
+              <DropdownMenuSeparator />
+              {serverStatus.robot_status.map((robot, index) => {
+                return (
+                  <RobotStatusMenuItem
+                    key={index}
+                    robotId={index}
+                    robotUsbPort={robot.usb_port ?? "unknown"}
+                    robot={robot}
+                  />
+                );
+              })}
             </>
           )}
+
           {!robotConnected && (
             <>
-              <Bot className="size-5" />
-              <div className="flex items-center gap-1">
-                <div className="flex items-end text-muted-foreground font-semibold leading-none">
-                  <span className="text-[8px] translate-y-[-1px]">Z</span>
-                  <span className="text-xs">Z</span>
-                  <span className="text-[8px] translate-y-[1px]">Z</span>
-                </div>
+              <div className="flex flex-col items-center p-2">
+                <FullscreenImage />
+                <span className="text-xs text-muted-foreground mt-2">
+                  Check USB-C and Power cable connections
+                </span>
               </div>
             </>
           )}
-          <span className="sr-only">
-            {robotConnected ? "Robot Connected" : "Robot Disconnected"}
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">
-          {robotConnected
-            ? `${serverStatus.robot_status.length} Robot${serverStatus.robot_status.length > 1 ? "s" : ""} Connected`
-            : "Robot is disconnected"}
-        </DropdownMenuLabel>
 
-        {robotConnected && serverStatus.robot_status && (
-          <>
-            <DropdownMenuSeparator />
-            {serverStatus.robot_status.map((robot, index) => {
-              return (
-                <RobotStatusMenuItem
-                  key={index}
-                  robotId={index}
-                  robotUsbPort={robot.usb_port ?? "unknown"}
-                  robot={robot}
-                />
-              );
-            })}
-          </>
-        )}
-
-        {!robotConnected && (
-          <>
-            <div className="flex flex-col items-center p-2">
-              <FullscreenImage />
-              <span className="text-xs text-muted-foreground mt-2">
-                Check USB-C and Power cable connections
-              </span>
-            </div>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => setIsConfigModalOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <PlusCircle className="size-4" />
+            <span>Connect to another robot</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <RobotConfigModal
+        open={isConfigModalOpen}
+        onOpenChange={setIsConfigModalOpen}
+      />
+    </>
   );
 }

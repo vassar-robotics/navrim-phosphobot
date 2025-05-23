@@ -23,7 +23,7 @@ class LeKiwi(BaseMobileRobot):
 
     def __init__(self, ip: str, port: int, max_history_len: int = 100, **kwargs):
         """
-        Initialize the UnitreeGo2 robot.
+        Initialize the LeKiwi robot.
 
         Args:
             ip: IP address of the robot
@@ -79,11 +79,11 @@ class LeKiwi(BaseMobileRobot):
             self.cmd_socket.setsockopt(zmq.CONFLATE, 1)
 
             self.is_connected = True
-            logger.info("Successfully connected to UnitreeGo2")
+            logger.info("Successfully connected to LeKiwi")
 
         except Exception as e:
-            logger.error(f"Failed to connect to UnitreeGo2: {e}")
-            raise Exception(f"Failed to connect to UnitreeGo2: {e}")
+            logger.error(f"Failed to connect to LeKiwi: {e}")
+            raise Exception(f"Failed to connect to LeKiwi: {e}")
 
     def disconnect(self) -> None:
         """
@@ -185,7 +185,7 @@ class LeKiwi(BaseMobileRobot):
             **kwargs: Additional arguments
 
         Returns:
-            UnitreeGo2 instance or None if the connection fails
+            LeKiwi instance or None if the connection fails
         """
         try:
             robot = cls(ip=ip, port=port, **kwargs)

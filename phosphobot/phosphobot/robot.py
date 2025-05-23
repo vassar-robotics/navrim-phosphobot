@@ -1,17 +1,11 @@
-import ipaddress
-import platform
-import re
-import subprocess
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import List, Optional, Set
+from typing import Any, List, Optional, Set
 
 import pybullet as p  # type: ignore
 from fastapi import HTTPException
 from loguru import logger
-from scapy.all import ARP, Ether, srp  # type: ignore
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
@@ -19,16 +13,27 @@ from phosphobot.configs import config
 from phosphobot.hardware import (
     BaseRobot,
     KochHardware,
+    LeKiwi,
     PiperHardware,
     SO100Hardware,
-    SO100LeaderHardware,
     UnitreeGo2,
     WX250SHardware,
+    RemotePhosphobot,
 )
 from phosphobot.models import RobotConfigStatus
 from phosphobot.utils import is_can_plugged
 
 rcm = None
+
+robot_name_to_class = {
+    SO100Hardware.name: SO100Hardware,
+    KochHardware.name: KochHardware,
+    WX250SHardware.name: WX250SHardware,
+    UnitreeGo2.name: UnitreeGo2,
+    LeKiwi.name: LeKiwi,
+    PiperHardware.name: PiperHardware,
+    RemotePhosphobot.name: RemotePhosphobot,
+}
 
 
 @dataclass
@@ -39,81 +44,9 @@ class NewAndOldPorts:
     old_can_ports: List[str]
 
 
-def fast_arp_scan(subnet="192.168.1.0/24", timeout=0.5):
-    """
-    Perform a fast ARP scan of the subnet to detect active hosts.
-    """
-    ether = Ether(dst="ff:ff:ff:ff:ff:ff")
-    arp = ARP(pdst=subnet)
-    packet = ether / arp
-
-    answered, _ = srp(packet, timeout=timeout, verbose=False)
-    devices = []
-
-    for _, received in answered:
-        devices.append({"ip": received.psrc, "mac": received.hwsrc.lower()})
-
-    return devices
-
-
-def slow_arp_scan(subnet="192.168.1.0/24", timeout=0.5, max_workers=64):
-    """
-    Parallelized ARP scan using ping and arp -a.
-    Returns a list of {'ip': ..., 'mac': ...} entries.
-    """
-    ip_net = ipaddress.ip_network(subnet, strict=False)
-    is_windows = platform.system().lower() == "windows"
-
-    def ping_ip(ip_str):
-        try:
-            if is_windows:
-                subprocess.run(
-                    ["ping", "-n", "1", "-w", str(timeout), ip_str],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-            else:
-                subprocess.run(
-                    ["ping", "-c", "1", "-W", str(int(timeout / 1000)), ip_str],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-        except Exception:
-            pass  # Ignore ping errors
-
-    logger.info(
-        f"Pinging {ip_net.num_addresses} IPs in parallel (up to {max_workers} workers)..."
-    )
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(ping_ip, str(ip)) for ip in ip_net.hosts()]
-        for _ in as_completed(futures):
-            pass  # Wait for all pings to complete
-
-    logger.info("Pings complete. Reading ARP table...")
-
-    try:
-        if is_windows:
-            output = subprocess.check_output("arp -a", shell=True).decode()
-            pattern = re.compile(r"(\d+\.\d+\.\d+\.\d+)\s+([\w-]+)\s+dynamic")
-        else:
-            output = subprocess.check_output(["arp", "-a"]).decode()
-            pattern = re.compile(r"\(([\d.]+)\) at ([0-9a-f:]{17})", re.IGNORECASE)
-
-        matches = pattern.findall(output)
-        devices = [
-            {"ip": ip, "mac": mac.lower().replace("-", ":")} for ip, mac in matches
-        ]
-        return devices
-
-    except Exception as e:
-        logger.error(f"Failed to read ARP cache: {e}")
-        return []
-
-
 class RobotConnectionManager:
     _all_robots: list[BaseRobot]
-    _leader_robot: Optional[BaseRobot]
+    _manually_added_robots: list[BaseRobot]
 
     robot_ports_without_power: Set[str]
     available_ports: List[ListPortInfo]
@@ -127,7 +60,7 @@ class RobotConnectionManager:
         self.last_scan_time = 0
 
         self._all_robots = []
-        self._leader_robot = None
+        self._manually_added_robots = []
 
     def __del__(self):
         # Disconnect all robots
@@ -138,12 +71,6 @@ class RobotConnectionManager:
         """
         Scan USB and CAN ports.
         """
-        # if os.name == "nt":  # Windows
-        #     # List COM ports using pyserial
-        #     ports = [port for port in list_ports.comports()]
-        # else:  # Linux/macOS
-        #     # List /dev/tty* ports for Unix-based systems
-        #     # ports = [str(path) for path in Path("/dev").glob("tty*")]
 
         available_ports = list_ports.comports()
 
@@ -229,7 +156,6 @@ class RobotConnectionManager:
                 WX250SHardware,
                 KochHardware,
                 SO100Hardware,
-                SO100LeaderHardware,
             ]:
                 if not hasattr(robot_class, "name") or not hasattr(
                     robot_class, "from_port"
@@ -295,6 +221,9 @@ class RobotConnectionManager:
         #             self._all_robots.append(robot)
         #         # Only 1 Go2 connection supported
         #         break
+
+        # Add manually added robots
+        self._all_robots.extend(self._manually_added_robots)
 
         if not self._all_robots:
             logger.info("No robot connected.")
@@ -388,6 +317,25 @@ class RobotConnectionManager:
                 self._all_robots.remove(robot)
 
         return [status for status in robots_status if status is not None]
+
+    def add_connection(self, robot_name: str, connection_details: dict[str, Any]):
+        """
+        Manually add a connection to a robot using the robot type and connection details.
+        Useful when detecting the robot is more complex than just a serial port.
+        Eg: IP address, etc.
+        """
+        robot_class = robot_name_to_class.get(robot_name)
+        if robot_class is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Robot {robot_name} not supported. Supported robots: {list(robot_name_to_class.keys())}",
+            )
+        robot = robot_class(**connection_details)
+        self._all_robots.append(robot)
+        self._manually_added_robots.append(robot)
+        logger.success(
+            f"Connected to {robot.name} with robot_id {len(self._all_robots) - 1}."
+        )
 
 
 @lru_cache()

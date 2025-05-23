@@ -1,5 +1,3 @@
-"use client";
-
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Home, RotateCcw } from "lucide-react";
 import * as React from "react";

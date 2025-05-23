@@ -1,10 +1,11 @@
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
 from phosphobot._version import __version__
 from phosphobot.types import VideoCodecs
+from phosphobot.utils import NetworkDevice
 
 from .camera import AllCamerasStatus, SingleCameraStatus
 from .dataset import (
@@ -90,9 +91,9 @@ class MoveAbsoluteRequest(BaseModel):
     that you get by calling /move/init.
     """
 
-    x: float = Field(description="X position in centimeters")
-    y: float = Field(description="Y position in centimeters")
-    z: float = Field(description="Z position in centimeters")
+    x: float | None = Field(None, description="X position in centimeters")
+    y: float | None = Field(None, description="Y position in centimeters")
+    z: float | None = Field(None, description="Z position in centimeters")
     rx: float | None = Field(
         None,
         description="Absolute Pitch in degrees. If None, inverse kinematics will be used to calculate the best position.",
@@ -105,7 +106,7 @@ class MoveAbsoluteRequest(BaseModel):
         None,
         description="Absolute Roll in degrees. If None, inverse kinematics will be used to calculate the best position.",
     )
-    open: float = Field(description="0 for closed, 1 for open")
+    open: float | None = Field(None, description="0 for closed, 1 for open")
 
     max_trials: int = Field(
         10,
@@ -222,13 +223,15 @@ class RelativeEndEffectorPosition(BaseModel):
     # Dataset are in RDLS format like the Bridge Data V2 dataset
     # See https://github.com/google-research/rlds for more information
 
-    x: float = Field(description="Delta X position in centimeters")
-    y: float = Field(description="Delta Y position in centimeters")
-    z: float = Field(description="Delta Z position in centimeters")
-    rx: float = Field(description="Relative Pitch in degrees")
-    ry: float = Field(description="Relative Yaw in degrees")
-    rz: float = Field(description="Relative Roll in degrees")
-    open: float
+    x: float | None = Field(None, description="Delta X position in centimeters")
+    y: float | None = Field(None, description="Delta Y position in centimeters")
+    z: float | None = Field(None, description="Delta Z position in centimeters")
+    rx: float | None = Field(None, description="Relative Pitch in degrees")
+    ry: float | None = Field(None, description="Relative Yaw in degrees")
+    rz: float | None = Field(None, description="Relative Roll in degrees")
+    open: float | None = Field(
+        None, description="0 for closed, 1 for open. If None, use the last value."
+    )
 
     def init(self, np_array: np.ndarray) -> None:
         if np_array.shape != (7,):
@@ -985,4 +988,66 @@ class CustomTrainingRequest(BaseModel):
     custom_command: str = Field(
         ...,
         description="Will run this custom command as a subprocess when pressing the train button.",
+    )
+
+
+class ScanNetworkRequest(BaseModel):
+    """
+    Request to scan the network for devices.
+    """
+
+    robot_name: str | None = Field(
+        None,
+        description="Name of the robot to scan for. If None, scans for all devices on the network.",
+    )
+
+
+class ScanNetworkResponse(BaseModel):
+    """
+    Response to the network scan request.
+    """
+
+    devices: List[NetworkDevice] = Field(
+        ...,
+        description="List of devices found on the network.",
+    )
+    subnet: str | None = Field(
+        ...,
+        description="Subnet of the network.",
+        examples=["192.168.1.1/24"],
+    )
+
+
+class LocalDevice(BaseModel):
+    name: str
+    device: str
+    serial_number: str | None = None
+    pid: int | None = None
+    interface: str | None = None
+
+
+class ScanDevicesResponse(BaseModel):
+    """
+    Response to the USB devices scan request.
+    """
+
+    devices: List[LocalDevice] = Field(
+        ...,
+        description="List of connected USB devices.",
+    )
+
+
+class RobotConnectionRequest(BaseModel):
+    """
+    Request to manually connect to a robot.
+    """
+
+    robot_name: str = Field(
+        ...,
+        description="Type of the robot to connect to.",
+        examples=["so-100", "wx-250s", "koch-v1.1"],
+    )
+    connection_details: dict[str, Any] = Field(
+        ...,
+        description="Connection details for the robot. These are passed to the class constructor. This can include IP address, port, and other connection parameters.",
     )

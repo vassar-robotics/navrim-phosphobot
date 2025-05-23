@@ -36,6 +36,7 @@ from phosphobot.models import (
     JointsWriteRequest,
     MoveAbsoluteRequest,
     RelativeEndEffectorPosition,
+    RobotConnectionRequest,
     SpawnStatusResponse,
     StartAIControlRequest,
     StartLeaderArmControlRequest,
@@ -70,12 +71,14 @@ vr_control_signal = ControlSignal()
     summary="Initialize Robot",
     description="Initialize the robot to its initial position before starting the teleoperation.",
 )
-async def move_init(rcm: RobotConnectionManager = Depends(get_rcm)):
+async def move_init(
+    robot_id: int | None = None, rcm: RobotConnectionManager = Depends(get_rcm)
+):
     """
     Initialize the robot to its initial position before starting the teleoperation.
     """
     manager = TeleopManager(rcm)
-    await manager.move_init()
+    await manager.move_init(robot_id=robot_id)
     return StatusResponse()
 
 
@@ -167,9 +170,9 @@ async def move_to_absolute_position(
     robot = rcm.get_robot(robot_id)
 
     # Divide by 100 to convert from cm to m
-    query.x /= 100
-    query.y /= 100
-    query.z /= 100
+    query.x = query.x / 100 if query.x is not None else 0
+    query.y = query.y / 100 if query.y is not None else 0
+    query.z = query.z / 100 if query.z is not None else 0
 
     if hasattr(robot, "control_gripper") and query.open is not None:
         # If the robot has a control_gripper method, use it to open/close the gripper
@@ -277,18 +280,41 @@ async def move_relative(
     """
 
     # Convert units to meters
-    data.x /= 100
-    data.y /= 100
-    data.z /= 100
+    data.x = data.x / 100 if data.x is not None else None
+    data.y = data.y / 100 if data.y is not None else None
+    data.z = data.z / 100 if data.z is not None else None
 
     robot = rcm.get_robot(robot_id)
 
+    if (
+        data.x is None
+        and data.y is None
+        and data.z is None
+        and data.rx is None
+        and data.ry is None
+        and data.rz is None
+        and data.open is not None
+    ):
+        if hasattr(robot, "control_gripper"):
+            # If the robot has a control_gripper method, use it to open/close the gripper
+            robot.control_gripper(open_command=data.open)
+            return StatusResponse()
+
     if hasattr(robot, "move_robot_relative"):
         # If the robot has a move_robot_relative method, use it
-        robot.move_robot_relative(
-            target_position=np.array([data.x, data.y, data.z]),
-            target_orientation_rad=np.deg2rad(np.array([data.rx, data.ry, data.rz])),
+        target_orientation_rad = np.array(
+            [
+                np.deg2rad(u) if u is not None else None
+                for u in [data.rx, data.ry, data.rz]
+            ]
         )
+        await robot.move_robot_relative(
+            target_position=np.array([data.x, data.y, data.z]),
+            target_orientation_rad=target_orientation_rad,
+        )
+        if hasattr(robot, "control_gripper") and data.open is not None:
+            # If the robot has a control_gripper method, use it to open/close the gripper
+            robot.control_gripper(open_command=data.open)
         return StatusResponse()
 
     # Call move_robot_absolute if the robot does not have move_robot_relative
@@ -301,7 +327,7 @@ async def move_relative(
     logger.info(f"Received relative data: {data}")
     delta_position = np.array([data.x, data.y, data.z])
     delta_orientation_euler_degrees = np.array([data.rx, data.ry, data.rz])
-    open = data.open
+    open = data.open if data.open is not None else None
 
     # Call /move/absolute by adding the delta to the current position
     current_position, current_orientation = robot.forward_kinematics(
@@ -361,10 +387,10 @@ async def say_hello(
     """
     robot = rcm.get_robot(robot_id)
 
-    if not isinstance(robot, BaseManipulator):
+    if not hasattr(robot, "control_gripper"):
         raise HTTPException(
             status_code=400,
-            detail="Robot is not a manipulator and does not have an end effector",
+            detail="Robot does not support gripper control",
         )
 
     # Open and close the gripper
@@ -544,13 +570,16 @@ async def toggle_torque(
     description="Read the current positions of the robot's joints in radians and motor units.",
 )
 async def read_joints(
-    request: JointsReadRequest,
+    request: JointsReadRequest | None = None,
     robot_id: int = 0,
     rcm: RobotConnectionManager = Depends(get_rcm),
 ) -> JointsReadResponse:
     """
     Read joint position.
     """
+    if request is None:
+        request = JointsReadRequest(unit="rad", joints_ids=None)
+
     robot = rcm.get_robot(robot_id)
 
     if not hasattr(robot, "read_joints_position"):
@@ -1098,3 +1127,27 @@ async def feedback_auto_control(
     )
 
     return StatusResponse(message="Feedback sent")
+
+
+@router.post("/robot/add-connection", response_model=StatusResponse)
+async def add_robot_connection(
+    query: RobotConnectionRequest,
+    rcm: RobotConnectionManager = Depends(get_rcm),
+) -> StatusResponse:
+    """
+    Manually add a robot connection to the robot manager.
+    Useful for adding robot that are accessible only via WiFi, for example.
+    """
+    try:
+        rcm.add_connection(
+            robot_name=query.robot_name,
+            connection_details=query.connection_details,
+        )
+        return StatusResponse(
+            status="ok", message=f"Robot connection to {query.robot_name} added"
+        )
+    except Exception as e:
+        logger.error(f"Failed to add robot connection: {e}")
+        raise HTTPException(
+            status_code=400, detail=f"Failed to add robot connection: {e}"
+        )

@@ -4,9 +4,23 @@ import subprocess
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from loguru import logger
+from serial.tools import list_ports
 
-from phosphobot.models import NetworkCredentials
-from phosphobot.utils import background_task_log_exceptions, is_running_on_pi
+
+from phosphobot.models import (
+    LocalDevice,
+    NetworkCredentials,
+    ScanDevicesResponse,
+    ScanNetworkRequest,
+    ScanNetworkResponse,
+    StatusResponse,
+)
+from phosphobot.utils import (
+    background_task_log_exceptions,
+    is_running_on_pi,
+    get_local_subnet,
+    scan_network_devices,
+)
 
 router = APIRouter(tags=["networking"])
 
@@ -121,15 +135,13 @@ async def connect_to_network_bg(ssid: str, password: str):
         )
 
         logger.info(f"Connected to network: {ssid}")
-        return
 
     except Exception as e:
         logger.warning(f"Error in network connection background task: {str(e)}")
         await setup_hotspot_bg()
-        return
 
 
-@router.post("/network/hotspot")
+@router.post("/network/hotspot", response_model=StatusResponse)
 async def activate_hotspot(background_tasks: BackgroundTasks):
     """
     Endpoint to activate the hotspot on the Raspberry Pi.
@@ -141,15 +153,15 @@ async def activate_hotspot(background_tasks: BackgroundTasks):
         )
     background_tasks.add_task(setup_hotspot_bg)
 
-    return {
-        "status": "Hotspot activation started",
-        "message": "The hotspot is being configured and will be available shortly",
-        "SSID": "phosphobot",
-        "Connect and visit": "http://phosphobot.local",
-    }
+    return StatusResponse(
+        status="ok",
+        message="Hotspot activation started. The hotspot is being configured and will be available shortly",
+        SSID="phosphobot",
+        connect_and_visit="http://phosphobot.local",
+    )  # type: ignore
 
 
-@router.post("/network/connect")
+@router.post("/network/connect", response_model=StatusResponse)
 async def switch_to_network(
     credentials: NetworkCredentials, background_tasks: BackgroundTasks
 ):
@@ -166,7 +178,51 @@ async def switch_to_network(
         connect_to_network_bg, credentials.ssid, credentials.password
     )
 
-    return {
-        "status": "Connection process started, will fallback to hotspot if unsuccessful",
-        "message": f"Attempting to connect to network: {credentials.ssid}",
-    }
+    return StatusResponse(
+        status="ok",
+        message=f"Attempting to connect to network: {credentials.ssid}. Will fallback to hotspot if unsuccessful",
+    )
+
+
+@router.post("/network/scan-devices", response_model=ScanNetworkResponse)
+async def list_local_network_ips(
+    query: ScanNetworkRequest | None = None,
+) -> ScanNetworkResponse:
+    """
+    Endpoint to list all IP addresses on the local network.
+    Returns a list of IP addresses.
+    """
+    if query is None:
+        query = ScanNetworkRequest(robot_name=None)
+    subnet = get_local_subnet()
+    if not subnet:
+        raise HTTPException(
+            status_code=400,
+            detail="Unable to determine local network subnet. Ensure you are connected to a network.",
+        )
+    devices = await scan_network_devices(subnet)
+    # TODO: use robot name to filter devices
+    return ScanNetworkResponse(
+        devices=devices,
+        subnet=subnet,
+    )
+
+
+@router.post("/local/scan-devices", response_model=ScanDevicesResponse)
+async def list_connected_devices() -> ScanDevicesResponse:
+    """
+    Endpoint to list all devices connected to the system.
+    """
+    available_ports = list_ports.comports()
+    return ScanDevicesResponse(
+        devices=[
+            LocalDevice(
+                name=port.name,
+                device=port.device,
+                serial_number=port.serial_number,
+                pid=port.pid,
+                interface=port.interface,
+            )
+            for port in available_ports
+        ]
+    )

@@ -1,5 +1,3 @@
-"use client";
-
 import position1 from "@/assets/CalibrationPosition1.jpg";
 import position2 from "@/assets/CalibrationPosition2.jpg";
 import { LoadingPage } from "@/components/common/loading";

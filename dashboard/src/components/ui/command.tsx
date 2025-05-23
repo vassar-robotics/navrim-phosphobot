@@ -166,6 +166,23 @@ function CommandShortcut({
   );
 }
 
+const CommandLoading = ({ isLoading }: { isLoading: boolean }) => {
+  return (
+    <>
+      {isLoading && (
+        <CommandPrimitive.Loading>
+          <div className="p-4 flex items-center justify-center space-x-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
+            <span className="text-sm text-muted-foreground">
+              Loading options...
+            </span>
+          </div>
+        </CommandPrimitive.Loading>
+      )}
+    </>
+  );
+};
+
 export {
   Command,
   CommandDialog,
@@ -176,4 +193,5 @@ export {
   CommandItem,
   CommandShortcut,
   CommandSeparator,
+  CommandLoading,
 };

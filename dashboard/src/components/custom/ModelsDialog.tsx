@@ -1,5 +1,3 @@
-"use client";
-
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,7 +39,17 @@ interface ModelsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function CopyButton({ text, hint, className, variant = "ghost" }: { text: string; hint: string; className?: string, variant?: "outline" | "ghost" | "default" | "link" }) {
+export function CopyButton({
+  text,
+  hint,
+  className,
+  variant = "ghost",
+}: {
+  text: string;
+  hint: string;
+  className?: string;
+  variant?: "outline" | "ghost" | "default" | "link";
+}) {
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = () => {
