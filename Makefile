@@ -52,6 +52,7 @@ build_pyinstaller:
 	--add-data "$$WASMTIME_PATH:wasmtime" \
 	--hidden-import phosphobot \
 	--collect-all phosphobot \
+	--collect-all go2-webrtc-connect \
 	--collect-all wasmtime \
 	--clean -c \
 	phosphobot/main.py \
