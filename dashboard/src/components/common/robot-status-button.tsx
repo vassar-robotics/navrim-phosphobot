@@ -1,5 +1,5 @@
 import connectionImage from "@/assets/ConnectBot.jpg";
-import { RobotConfigModal } from "@/components/common/add-robot";
+import { RobotConfigModal } from "@/components/common/add-robot-connection";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
