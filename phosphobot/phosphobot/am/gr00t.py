@@ -916,40 +916,42 @@ async def run_gr00t_training(
         "python",
         f"{gr00t_repo_path}/scripts/gr00t_finetune.py",
         "--dataset-path",
-        str(data_dir)
+        str(data_dir),
     ]
-    
+
     if validation_data_dir is not None:
-        cmd.extend([
-            "--validation-dataset-path",
-            str(validation_data_dir)
-        ])
-    
+        logger.info(f"Using validation dataset from {validation_data_dir}")
+        cmd.extend(["--validation-dataset-path", str(validation_data_dir)])
+    else:
+        logger.info("No validation dataset provided. No validation will be done.")
+
     # Add remaining arguments
-    cmd.extend([
-        # Only 1 GPU for now
-        # Open an issue for multi-GPU support
-        "--num-gpus",
-        "1",
-        "--output-dir",
-        str(output_dir),
-        "--batch-size",
-        str(batch_size),
-        "--num-epochs",
-        str(epochs),
-        "--save-steps",
-        "10000",
-        "--num-arms",
-        str(number_of_robots),
-        "--num-cams",
-        str(number_of_cameras),
-        "--learning_rate",
-        str(learning_rate),
-        "--report_to",
-        "wandb" if wandb_enabled else "tensorboard",
-        "--video_backend",
-        "torchvision_av"
-    ])
+    cmd.extend(
+        [
+            # Only 1 GPU for now
+            # Open an issue for multi-GPU support
+            "--num-gpus",
+            "1",
+            "--output-dir",
+            str(output_dir),
+            "--batch-size",
+            str(batch_size),
+            "--num-epochs",
+            str(epochs),
+            "--save-steps",
+            "10000",
+            "--num-arms",
+            str(number_of_robots),
+            "--num-cams",
+            str(number_of_cameras),
+            "--learning_rate",
+            str(learning_rate),
+            "--report_to",
+            "wandb" if wandb_enabled else "tensorboard",
+            "--video_backend",
+            "torchvision_av",
+        ]
+    )
 
     logger.info(f"Starting training with command: {' '.join(cmd)}")
 
@@ -1075,15 +1077,18 @@ class Gr00tTrainer(BaseTrainer):
         number_of_robots, number_of_cameras = generate_modality_json(data_dir)
 
         val_data_dir: Path | None = None
-        if self.config.validation_dataset_name is not None:
-            val_data_dir = Path(
-                self.config.training_params.validation_data_dir or data_dir / "validation"
-            )
+        if self.config.training_params.validation_dataset_name is not None:
+            if self.config.training_params.validation_data_dir is not None:
+                val_data_dir = Path(self.config.training_params.validation_data_dir)
+            # It can be None if the user has not provided a validation dataset
+            else:
+                val_data_dir = Path("validation_data/")
+
             os.makedirs(val_data_dir, exist_ok=True)
             for attempt in range(max_retries):
                 try:
                     dataset_path_val_str = snapshot_download(
-                        repo_id=self.config.validation_dataset_name,
+                        repo_id=self.config.training_params.validation_dataset_name,
                         repo_type="dataset",
                         revision=selected_branch,
                         local_dir=str(val_data_dir),
@@ -1091,7 +1096,7 @@ class Gr00tTrainer(BaseTrainer):
                     )
                     VAL_DATASET_PATH = Path(dataset_path_val_str)
                     logger.info(
-                        f"Validation dataset {self.config.validation_dataset_name} downloaded to {VAL_DATASET_PATH}"
+                        f"Validation dataset {self.config.training_params.validation_dataset_name} downloaded to {VAL_DATASET_PATH}"
                     )
                     break
                 except Exception as e:
@@ -1100,7 +1105,7 @@ class Gr00tTrainer(BaseTrainer):
                         time.sleep(1)
                     else:
                         raise RuntimeError(
-                            f"Failed to download dataset {self.config.validation_dataset_name} after {max_retries} attempts, is Hugging Face down ? : {e}"
+                            f"Failed to download dataset {self.config.training_params.validation_dataset_name} after {max_retries} attempts, is Hugging Face down ? : {e}"
                         )
 
             resized_successful, _ = resize_dataset(
@@ -1108,13 +1113,18 @@ class Gr00tTrainer(BaseTrainer):
             )
             if not resized_successful:
                 raise RuntimeError(
-                    f"Resizing dataset {self.config.validation_dataset_name} to 224x224 failed: {resized_successful}"
+                    f"Resizing dataset {self.config.training_params.validation_dataset_name} to 224x224 failed: {resized_successful}"
                 )
             logger.info(
-                f"Resized dataset {self.config.validation_dataset_name} to 224x224"
+                f"Resized dataset {self.config.training_params.validation_dataset_name} to 224x224"
             )
             logger.info("Generating modality.json file for validation dataset")
             generate_modality_json(val_data_dir)
+
+        else:
+            logger.info("No validation dataset provided. No validation will be done.")
+            # We set the validation data dir to None to avoid passing it to the training script
+            val_data_dir = None
 
         # Find the total number of frames in the dataset in meta / info.json
         with open(data_dir / "meta" / "info.json", "r") as f:

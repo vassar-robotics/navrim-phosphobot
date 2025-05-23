@@ -104,6 +104,11 @@ class TrainingParamsGr00T(BaseModel):
         gt=0,
         le=1,
     )
+    validation_dataset_name: str | None = Field(
+        default=None,
+        description="Optional dataset repository ID on Hugging Face to use for validation",
+    )
+
     batch_size: int | None = Field(
         default=None,
         description="Batch size for training, default is 64, decrease it if you get an out of memory error",
@@ -129,7 +134,7 @@ class TrainingParamsGr00T(BaseModel):
 
     validation_data_dir: str | None = Field(
         default=None,
-        description="Optional directory to save the validation dataset to",
+        description="Optional directory to save the validation dataset to. If None, no validation will be done.",
     )
 
     output_dir: str = Field(
@@ -155,10 +160,6 @@ class BaseTrainerConfig(BaseModel):
         description="Dataset repository ID on Hugging Face, should be a public dataset",
     )
 
-    validation_dataset_name: str | None = Field(
-        default=None,
-        description="Optional dataset repository ID on Hugging Face to use for validation",
-    )
     model_name: Optional[str] = Field(
         default=None,
         description="Name of the trained model to upload to Hugging Face, should be in the format phospho-app/<model_name> or <model_name>",
@@ -209,21 +210,6 @@ class TrainingRequest(BaseTrainerConfig):
 
     @field_validator("dataset_name", mode="before")
     def validate_dataset(cls, dataset_name: str) -> str:
-        try:
-            url = f"https://huggingface.co/api/datasets/{dataset_name}/tree/main"
-            response = requests.get(url, timeout=5)
-            if response.status_code != 200:
-                raise ValueError()
-            return dataset_name
-        except Exception:
-            raise ValueError(
-                f"Dataset {dataset_name} is not a valid, public Hugging Face dataset. Please check the URL and try again. Your dataset name should be in the format <username>/<dataset_name>",
-            )
-
-    @field_validator("validation_dataset_name", mode="before")
-    def validate_validation_dataset(cls, dataset_name: str | None) -> str | None:
-        if dataset_name is None:
-            return None
         try:
             url = f"https://huggingface.co/api/datasets/{dataset_name}/tree/main"
             response = requests.get(url, timeout=5)
