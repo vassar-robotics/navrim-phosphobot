@@ -576,7 +576,7 @@ jobs:
         working-directory: phosphobot
         run: |
           # Get wasmtime path and build with PyInstaller
-          $WASMTIME_PATH = python -c "import wasmtime; import os; print(os.path.dirname(wasmtime.__file__))"
+          $WASMTIME_PATH = uv run python -c "import wasmtime; import os; print(os.path.dirname(wasmtime.__file__))"
           uv run pyinstaller `
             --onefile `
             --name "$env:OUTPUT_FILENAME" `

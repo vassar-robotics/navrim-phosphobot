@@ -44,7 +44,7 @@ info_bin:
 # Don't use sudo uv run, it will break CICD
 build_pyinstaller:
 	cd phosphobot && \
-	WASMTIME_PATH=$$(python -c "import wasmtime; import os; print(os.path.dirname(wasmtime.__file__))") && \
+	WASMTIME_PATH=$$(uv run python -c "import wasmtime; import os; print(os.path.dirname(wasmtime.__file__))") && \
 	uv run pyinstaller \
 	--onefile \
 	--name $(OUTPUT_FILENAME) \
