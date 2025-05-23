@@ -95,7 +95,7 @@ class RemotePhosphobot(BaseRobot):
             "/end-effector/read", params={"robot_id": self.robot_id}
         ).json()
         joints = self.client.post(
-            "/joints/read", params={"robot_id": self.robot_id}
+            "/joints/read", body={"unit": "rad"}, params={"robot_id": self.robot_id}
         ).json()
         state = np.array(
             [
@@ -150,9 +150,9 @@ class RemotePhosphobot(BaseRobot):
             return
 
         body = {
-            "x": target_position[0],
-            "y": target_position[1],
-            "z": target_position[2],
+            "x": target_position[0] * 100,
+            "y": target_position[1] * 100,
+            "z": target_position[2] * 100,
         }
         if target_orientation_rad is not None:
             body = {
@@ -180,9 +180,9 @@ class RemotePhosphobot(BaseRobot):
         self, target_position: np.ndarray, target_orientation_rad: np.ndarray | None
     ) -> None:
         body = {
-            "x": target_position[0],
-            "y": target_position[1],
-            "z": target_position[2],
+            "x": target_position[0] * 100,
+            "y": target_position[1] * 100,
+            "z": target_position[2] * 100,
         }
         if target_orientation_rad is not None:
             body = {
