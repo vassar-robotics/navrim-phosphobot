@@ -296,6 +296,9 @@ async def move_relative(
             target_position=np.array([data.x, data.y, data.z]),
             target_orientation_rad=target_orientation_rad,
         )
+        if hasattr(robot, "control_gripper") and data.open is not None:
+            # If the robot has a control_gripper method, use it to open/close the gripper
+            robot.control_gripper(open_command=data.open)
         return StatusResponse()
 
     # Call move_robot_absolute if the robot does not have move_robot_relative
