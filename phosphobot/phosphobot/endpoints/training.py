@@ -2,6 +2,7 @@ import os
 import time
 import asyncio
 import platform
+from typing import cast
 
 from fastapi.responses import PlainTextResponse, StreamingResponse
 import httpx
@@ -9,7 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from huggingface_hub import HfApi
 from loguru import logger
 
-from phosphobot.am.base import TrainingRequest
+from phosphobot.am.base import TrainingRequest, TrainingParamsGr00T
 from phosphobot.models import (
     CustomTrainingRequest,
     StatusResponse,
@@ -120,6 +121,26 @@ async def start_training(
             status_code=404,
             detail=f"Failed to download and parse meta/info.json.\n{e}",
         )
+    # The check is only done for gr00t models
+    if request.model_type == "gr00t":
+        # We cast the training params to the correct type
+        training_params = cast(TrainingParamsGr00T, request.training_params)
+        if training_params.validation_dataset_name:
+            try:
+                info_file_path = api.hf_hub_download(
+                    repo_id=training_params.validation_dataset_name,
+                    repo_type="dataset",
+                    filename="meta/info.json",
+                    force_download=True,
+                )
+                meta_folder_path = os.path.dirname(info_file_path)
+                InfoModel.from_json(meta_folder_path=meta_folder_path)
+            except Exception as e:
+                logger.warning(f"Error accessing validation dataset info: {e}")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Failed to download and parse validation meta/info.json.\n{e}",
+                )
 
     # Send training request to modal API
     async with httpx.AsyncClient(timeout=30) as client:
@@ -190,7 +211,7 @@ async def start_custom_training(
         loop = asyncio.get_running_loop()
         reader = asyncio.StreamReader()
         protocol = asyncio.StreamReaderProtocol(reader)
-        # Wrap the master FD as a “read pipe” so .read() becomes non-blocking
+        # Wrap the master FD as a "read pipe" so .read() becomes non-blocking
         await loop.connect_read_pipe(lambda: protocol, os.fdopen(master_fd, "rb"))
     else:
         process = await asyncio.create_subprocess_shell(

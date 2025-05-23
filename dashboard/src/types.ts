@@ -97,6 +97,7 @@ export type TrainingParamsGR00T = {
   learning_rate?: number;
   epochs?: number;
   train_test_split?: number;
+  validation_dataset_name?: string;
 };
 
 export type TrainingRequest = {

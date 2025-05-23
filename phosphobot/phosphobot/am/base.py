@@ -104,6 +104,11 @@ class TrainingParamsGr00T(BaseModel):
         gt=0,
         le=1,
     )
+    validation_dataset_name: str | None = Field(
+        default=None,
+        description="Optional dataset repository ID on Hugging Face to use for validation",
+    )
+
     batch_size: int | None = Field(
         default=None,
         description="Batch size for training, default is 64, decrease it if you get an out of memory error",
@@ -125,6 +130,11 @@ class TrainingParamsGr00T(BaseModel):
 
     data_dir: str = Field(
         default="data/", description="The directory to save the dataset to"
+    )
+
+    validation_data_dir: str | None = Field(
+        default=None,
+        description="Optional directory to save the validation dataset to. If None, no validation will be done.",
     )
 
     output_dir: str = Field(
@@ -149,6 +159,7 @@ class BaseTrainerConfig(BaseModel):
         ...,
         description="Dataset repository ID on Hugging Face, should be a public dataset",
     )
+
     model_name: Optional[str] = Field(
         default=None,
         description="Name of the trained model to upload to Hugging Face, should be in the format phospho-app/<model_name> or <model_name>",
