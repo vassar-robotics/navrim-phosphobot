@@ -964,9 +964,9 @@ jobs:
           pattern: phosphobot-*.exe
           merge-multiple: true
 
-      - name: Wait for the release to be published by the homebrew action. Timeout after 5 minutes
+      - name: Wait for the release to be published by the homebrew action. Timeout after 10 minutes
         run: |
-          for i in {1..30}; do
+          for i in {1..60}; do
             if curl -s "https://api.github.com/repos/${{ env.HOMEBREW_TAP }}/releases/tags/v${{ env.VERSION }}" | grep -q '"published_at":'; then
               echo "Release published!"
               break
