@@ -200,7 +200,7 @@ async def list_local_network_ips(
             status_code=400,
             detail="Unable to determine local network subnet. Ensure you are connected to a network.",
         )
-    devices = scan_network_devices(subnet)
+    devices = await scan_network_devices(subnet)
     # TODO: use robot name to filter devices
     return ScanNetworkResponse(
         devices=devices,

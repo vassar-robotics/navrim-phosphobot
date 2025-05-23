@@ -21,13 +21,38 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Loader2, TrafficCone } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 
 // Data model for robot types
 const ROBOT_TYPES = [
+  {
+    id: "phosphobot",
+    name: "Remote phosphobot server",
+    category: "manipulator",
+    image: placeholderSvg,
+    fields: [
+      { name: "ip", label: "IP Address", type: "ip" },
+      { name: "port", label: "Port", type: "number", default: 80 },
+      { name: "robot_id", label: "Robot ID", type: "number", default: 0 },
+    ],
+  },
+  {
+    id: "so100",
+    name: "SO-100 / SO-101",
+    category: "manipulator",
+    image: placeholderSvg,
+    fields: [{ name: "usb_port", label: "USB Port", type: "usb_port" }],
+  },
+  {
+    id: "koch",
+    name: "Koch 1.1",
+    category: "manipulator",
+    image: placeholderSvg,
+    fields: [{ name: "usb_port", label: "USB Port", type: "usb_port" }],
+  },
   {
     id: "go2",
     name: "Unitree Go2",
@@ -43,31 +68,6 @@ const ROBOT_TYPES = [
     fields: [
       { name: "ip", label: "IP Address", type: "ip" },
       { name: "port", label: "Port", type: "number", default: 5555 },
-    ],
-  },
-  {
-    id: "koch",
-    name: "Koch 1.1",
-    category: "manipulator",
-    image: placeholderSvg,
-    fields: [{ name: "usb_port", label: "USB Port", type: "usb_port" }],
-  },
-  {
-    id: "so100",
-    name: "SO-100 / SO-101",
-    category: "manipulator",
-    image: placeholderSvg,
-    fields: [{ name: "usb_port", label: "USB Port", type: "usb_port" }],
-  },
-  {
-    id: "phosphobot",
-    name: "Remote phosphobot server",
-    category: "manipulator",
-    image: placeholderSvg,
-    fields: [
-      { name: "ip", label: "IP Address", type: "ip" },
-      { name: "port", label: "Port", type: "number", default: 80 },
-      { name: "robot_id", label: "Robot ID", type: "number", default: 0 },
     ],
   },
 ];
@@ -112,18 +112,13 @@ export function RobotConfigModal({
 
   // Fetch IP addresses for autocomplete
   const { data: networkDevices, isLoading: isLoadingDevices } =
-    useSWR<NetworkReponse>(
-      selectedRobot?.fields.some((f) => f.type === "ip")
-        ? ["/network/scan-devices"]
-        : null,
-      ([endpoint]) => fetcher(endpoint, "POST"),
+    useSWR<NetworkReponse>(["/network/scan-devices"], ([endpoint]) =>
+      fetcher(endpoint, "POST"),
     );
 
   // Fetch USB ports for autocomplete
   const { data: usbPorts, isLoading: isLoadingUsb } = useSWR<LocalResponse>(
-    selectedRobot?.fields.some((f) => f.type === "usb_port")
-      ? ["/local/scan-devices"]
-      : null,
+    ["/local/scan-devices"],
     ([endpoint]) => fetcher(endpoint, "POST"),
   );
 
@@ -234,9 +229,23 @@ export function RobotConfigModal({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Connect to another robot</DialogTitle>
-          <DialogDescription>
-            Manually connect to a robot by selecting its type and entering the
-            connection details.
+          <DialogDescription className="flex flex-col gap-y-2">
+            <div>
+              Manually connect to a robot by selecting its type and entering the
+              connection details.
+            </div>
+            <div className="border border-destructive bg-destructive/10 text-destructive rounded-md p-2">
+              <TrafficCone className="inline mr-2 size-6" />
+              This feature is experimental and may not work as expected. Please
+              report any issues you encounter{" "}
+              <a
+                href="https://discord.gg/cbkggY6NSK"
+                target="_blank"
+                className="underline"
+              >
+                on Discord!
+              </a>
+            </div>
           </DialogDescription>
         </DialogHeader>
 

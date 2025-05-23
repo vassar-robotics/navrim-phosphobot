@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import functools
 import inspect
@@ -904,110 +905,113 @@ class NetworkDevice(BaseModel):
     mac: str
 
 
-def scan_network_devices(
-    subnet: str, timeout: float = 0.5, max_worker: int = 64
+async def scan_network_devices(
+    subnet: str, timeout: float = 0.5, max_workers: int = 64
 ) -> list[NetworkDevice]:
     """
-    Scan the local network for active IPs and MAC addresses.
-
-    Uses ARP requests to detect devices on the network. To use the fast scan, you need to run phosphobot as root.
-    If you don't have root access, it will fall back to a slower method using ping and reading the ARP table.
-
-    Args:
-        subnet (str): The subnet to scan in CIDR notation (e.g., "192.168.1.0/24")
-        timeout (float): Timeout for ARP requests in seconds (default: 0.5)
-        max_worker (int): Maximum number of workers for parallel pinging (default: 64)
-    Returns:
-        list[NetworkDevice]: A list of NetworkDevice objects containing IP and MAC addresses.
+    Asynchronously scan the local network for active IPs and MAC addresses.
+    Uses ARP requests to detect devices on the network. Requires root for fast scan.
+    Falls back to slow scan with ping/ARP table parsing if not root.
     """
 
-    def fast_arp_scan(
-        subnet: str = "192.168.1.0/24", timeout: float = 0.5
-    ) -> list[NetworkDevice]:
-        """
-        Perform a fast ARP scan of the subnet to detect active hosts.
-        """
+    async def fast_arp_scan() -> list[NetworkDevice]:
+        """Perform async fast ARP scan using scapy in a thread"""
         ether = Ether(dst="ff:ff:ff:ff:ff:ff")
         arp = ARP(pdst=subnet)
         packet = ether / arp
 
-        answered, _ = srp(packet, timeout=timeout, verbose=False)
-        devices: list[NetworkDevice] = []
-
-        for _, received in answered:
-            devices.append(
-                NetworkDevice(
-                    ip=received.psrc,
-                    mac=received.hwsrc.lower().replace("-", ":"),
-                )
+        try:
+            # Run blocking scapy function in a thread
+            answered, _ = await asyncio.to_thread(
+                srp, packet, timeout=timeout, verbose=False
             )
+        except Exception as e:
+            logger.debug(f"Fast scan failed: {e}")
+            raise
 
-        return devices
+        return [
+            NetworkDevice(
+                ip=received.psrc, mac=received.hwsrc.lower().replace("-", ":")
+            )
+            for _, received in answered
+        ]
 
-    def slow_arp_scan(
-        subnet: str = "192.168.1.0/24", timeout: float = 0.5, max_workers: int = 64
-    ) -> list[NetworkDevice]:
-        """
-        Parallelized ARP scan using ping and arp -a.
-        Returns a list of {'ip': ..., 'mac': ...} entries.
-        """
+    async def slow_arp_scan() -> list[NetworkDevice]:
+        """Async implementation of slow scan using parallel pings"""
         ip_net = ipaddress.ip_network(subnet, strict=False)
         is_windows = platform.system().lower() == "windows"
+        semaphore = asyncio.Semaphore(max_workers)
 
-        def ping_ip(ip_str):
-            try:
-                if is_windows:
-                    subprocess.run(
-                        ["ping", "-n", "1", "-w", str(timeout), ip_str],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                else:
-                    subprocess.run(
-                        ["ping", "-c", "1", "-W", str(int(timeout / 1000)), ip_str],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-            except Exception:
-                pass  # Ignore ping errors
+        async def ping_ip(ip_str: str) -> None:
+            async with semaphore:
+                try:
+                    if is_windows:
+                        proc = await asyncio.create_subprocess_shell(
+                            f"ping -n 1 -w {int(timeout*1000)} {ip_str}",
+                            stdout=asyncio.subprocess.DEVNULL,
+                            stderr=asyncio.subprocess.DEVNULL,
+                        )
+                    else:
+                        proc = await asyncio.create_subprocess_exec(
+                            "ping",
+                            "-c",
+                            "1",
+                            "-W",
+                            str(int(timeout)),
+                            ip_str,
+                            stdout=asyncio.subprocess.DEVNULL,
+                            stderr=asyncio.subprocess.DEVNULL,
+                        )
+                    await asyncio.wait_for(proc.wait(), timeout=timeout + 1)
+                except (asyncio.TimeoutError, Exception):
+                    pass
 
-        logger.debug(
-            f"Pinging {ip_net.num_addresses} IPs in parallel (up to {max_workers} workers)..."
-        )
+        # Run all pings concurrently
+        logger.debug(f"Pinging {ip_net.num_addresses} IPs with {max_workers} workers")
+        await asyncio.gather(*[ping_ip(str(ip)) for ip in ip_net.hosts()])
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(ping_ip, str(ip)) for ip in ip_net.hosts()]
-            for _ in as_completed(futures):
-                pass  # Wait for all pings to complete
-
-        logger.debug("Pings complete. Reading ARP table...")
-
+        # Read ARP table asynchronously
         try:
             if is_windows:
-                output = subprocess.check_output("arp -a", shell=True).decode()
-                pattern = re.compile(r"(\d+\.\d+\.\d+\.\d+)\s+([\w-]+)\s+dynamic")
+                proc = await asyncio.create_subprocess_shell(
+                    "arp -a",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
             else:
-                output = subprocess.check_output(["arp", "-a"]).decode()
-                pattern = re.compile(r"\(([\d.]+)\) at ([0-9a-f:]{17})", re.IGNORECASE)
+                proc = await asyncio.create_subprocess_exec(
+                    "arp",
+                    "-a",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
 
-            matches = pattern.findall(output)
-            devices = [
+            stdout, _ = await proc.communicate()
+            output = stdout.decode()
+
+            pattern = re.compile(
+                r"(\d+\.\d+\.\d+\.\d+)\s+([\w-]+)\s+dynamic"
+                if is_windows
+                else r"\(([\d.]+)\) at ([0-9a-f:]{17})",
+                re.IGNORECASE,
+            )
+
+            return [
                 NetworkDevice(ip=ip, mac=mac.lower().replace("-", ":"))
-                for ip, mac in matches
+                for ip, mac in pattern.findall(output)
             ]
-            return devices
-
         except Exception as e:
-            logger.error(f"Failed to read ARP cache: {e}")
+            logger.error(f"ARP table read failed: {e}")
             return []
 
     try:
-        devices = fast_arp_scan(subnet, timeout)
-    except Exception:
+        return await fast_arp_scan()
+    except PermissionError:
         logger.warning(
-            "Permission denied for fast ARP scan. Run phopshobot as root to use this feature:\nsudo phosphobot run\n"
-            + "Falling back to slow scan."
+            "Permission denied for fast scan. Use sudo for faster results.\n"
+            "Falling back to slow scan..."
         )
-        devices = slow_arp_scan(subnet, timeout, max_worker)
-
-    return devices
+        return await slow_arp_scan()
+    except Exception as e:
+        logger.warning(f"Fast scan failed: {e}. Falling back to slow scan...")
+        return await slow_arp_scan()
