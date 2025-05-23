@@ -44,7 +44,7 @@ class NewAndOldPorts:
 
 class RobotConnectionManager:
     _all_robots: list[BaseRobot]
-    _leader_robot: Optional[BaseRobot]
+    _manually_added_robots: list[BaseRobot]
 
     robot_ports_without_power: Set[str]
     available_ports: List[ListPortInfo]
@@ -58,7 +58,6 @@ class RobotConnectionManager:
         self.last_scan_time = 0
 
         self._all_robots = []
-        self._leader_robot = None
 
     def __del__(self):
         # Disconnect all robots
@@ -69,12 +68,6 @@ class RobotConnectionManager:
         """
         Scan USB and CAN ports.
         """
-        # if os.name == "nt":  # Windows
-        #     # List COM ports using pyserial
-        #     ports = [port for port in list_ports.comports()]
-        # else:  # Linux/macOS
-        #     # List /dev/tty* ports for Unix-based systems
-        #     # ports = [str(path) for path in Path("/dev").glob("tty*")]
 
         available_ports = list_ports.comports()
 
@@ -226,6 +219,9 @@ class RobotConnectionManager:
         #         # Only 1 Go2 connection supported
         #         break
 
+        # Add manually added robots
+        self._all_robots.extend(self._manually_added_robots)
+
         if not self._all_robots:
             logger.info("No robot connected.")
 
@@ -333,6 +329,7 @@ class RobotConnectionManager:
             )
         robot = robot_class(**connection_details)
         self._all_robots.append(robot)
+        self._manually_added_robots.append(robot)
         logger.success(
             f"Connected to {robot.name} with robot_id {len(self._all_robots) - 1}."
         )
