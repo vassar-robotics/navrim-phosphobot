@@ -28,7 +28,7 @@ from fastapi import HTTPException
 from huggingface_hub import HfApi, login
 from loguru import logger
 from pydantic import BaseModel, BeforeValidator, PlainSerializer
-from scapy.all import ARP, Ether, srp  # type: ignore
+
 
 from phosphobot.types import VideoCodecs
 
@@ -916,6 +916,8 @@ async def scan_network_devices(
 
     async def fast_arp_scan() -> list[NetworkDevice]:
         """Perform async fast ARP scan using scapy in a thread"""
+        from scapy.all import ARP, Ether, srp  # type: ignore
+
         ether = Ether(dst="ff:ff:ff:ff:ff:ff")
         arp = ARP(pdst=subnet)
         packet = ether / arp
