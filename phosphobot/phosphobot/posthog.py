@@ -10,7 +10,7 @@ from phosphobot.utils import get_home_app_path, get_tokens
 
 tokens = get_tokens()
 posthog = Posthog(
-    api_key=tokens.POSTHOG_API_KEY,
+    project_api_key=tokens.POSTHOG_API_KEY,
     host=tokens.POSTHOG_HOST,
     super_properties={
         "env": tokens.ENV,
@@ -45,7 +45,8 @@ def get_or_create_unique_id(token_path):
         # Read existing token
         with open(token_path, "r") as f:
             content = f.read().strip()
-        return content
+        if content and content.startswith("phosphobot_"):
+            return content
 
     # Generate a new unique ID if no token exists
     new_user_id = "phosphobot_" + str(uuid.uuid4())
@@ -87,5 +88,5 @@ def add_email_to_posthog(email: str | None) -> None:
 
     posthog.identify(
         distinct_id=user_id,
-        properties={"email": email},
+        properties={"$set": {"email": email}},
     )
