@@ -1347,7 +1347,6 @@ It's compatible with LeRobot and RLDS.
                     return
 
             except Exception as e:
-                logger.error(f"Error getting user info: {e}")
                 logger.warning(
                     "No user or org with write access found. Won't be able to push to Hugging Face."
                 )
