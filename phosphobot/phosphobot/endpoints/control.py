@@ -592,9 +592,14 @@ async def read_joints(
     current_units_position = robot.read_joints_position(
         unit=request.unit, joints_ids=request.joints_ids
     )
+    # Replace NaN values with None and convert to list
+    current_units_position = [
+        float(angle) if not np.isnan(angle) else None
+        for angle in current_units_position
+    ]
 
     return JointsReadResponse(
-        angles=current_units_position.tolist(),
+        angles=current_units_position,
         unit=request.unit,
     )
 
@@ -924,9 +929,9 @@ async def spawn_inference_server(
             )
             robots_to_control.remove(robot)
 
-    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
-        "All robots must be manipulators for AI control"
-    )
+    assert all(
+        isinstance(robot, BaseManipulator) for robot in robots_to_control
+    ), "All robots must be manipulators for AI control"
 
     # Get the modal host and port here
     _, _, server_info = await setup_ai_control(
@@ -1000,9 +1005,9 @@ async def start_auto_control(
             )
             robots_to_control.remove(robot)
 
-    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
-        "All robots must be manipulators for AI control"
-    )
+    assert all(
+        isinstance(robot, BaseManipulator) for robot in robots_to_control
+    ), "All robots must be manipulators for AI control"
 
     # Get the modal host and port here
     model, model_spawn_config, server_info = await setup_ai_control(
