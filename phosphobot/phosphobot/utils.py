@@ -7,6 +7,7 @@ import json
 import os
 import platform
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -943,6 +944,14 @@ async def scan_network_devices(
         ip_net = ipaddress.ip_network(subnet, strict=False)
         is_windows = platform.system().lower() == "windows"
         semaphore = asyncio.Semaphore(max_workers)
+
+        # Before trying to call 'arp', check if it's available
+        arp_cmd = "arp.exe" if is_windows else "arp"
+        if not shutil.which(arp_cmd):
+            logger.warning(
+                f"'{arp_cmd}' command not found. ARP scan will fail. Please ensure 'arp' is installed and available in PATH. Skipping ARP scan."
+            )
+            return []
 
         async def ping_ip(ip_str: str) -> None:
             async with semaphore:
