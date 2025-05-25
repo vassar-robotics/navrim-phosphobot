@@ -313,7 +313,7 @@ export function RobotConfigModal({
                     />
                   )}
 
-                  {field.type === "usb_port" && (
+                  {field.type === "device_name" && (
                     <AutoComplete
                       options={
                         usbPorts?.devices.map((device) => {
