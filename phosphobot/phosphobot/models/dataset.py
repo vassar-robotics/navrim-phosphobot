@@ -604,9 +604,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(task_index)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
+            assert (
+                step.action is not None
+            ), "The action must be set for each step before saving"
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -1457,7 +1457,7 @@ It's compatible with LeRobot and RLDS.
                     logger.error(f"Error handling custom branch: {e}")
 
         except Exception as e:
-            logger.error(f"An error occurred: {e}")
+            logger.warning(f"An error occurred: {e}")
 
     def merge_datasets(
         self,
