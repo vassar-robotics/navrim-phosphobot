@@ -8,16 +8,17 @@ from phosphobot import __version__
 from phosphobot.telemetry import TELEMETRY
 from phosphobot.utils import get_home_app_path, get_tokens
 
+
 tokens = get_tokens()
 posthog = Posthog(
     project_api_key=tokens.POSTHOG_API_KEY,
     host=tokens.POSTHOG_HOST,
-    super_properties={
-        "env": tokens.ENV,
-        "system_info": f"{platform.node()}_{platform.system()}_{platform.release()}",
-        "phosphobot_version": __version__,
-    },
 )
+posthog_details = {
+    "phosphobot_version": __version__,
+    "env": tokens.ENV,
+    "system_info": f"{platform.node()}_{platform.system()}_{platform.release()}",
+}
 
 
 def is_github_actions():
@@ -64,9 +65,7 @@ if not TELEMETRY or is_github_actions():
 
 session_id = str(uuid.uuid4())
 
-posthog_details = {
-    "session_id": session_id,
-}
+posthog_details["$session_id"] = session_id
 TOKEN_FILE = get_home_app_path() / "id.token"
 user_id = get_or_create_unique_id(TOKEN_FILE)
 
