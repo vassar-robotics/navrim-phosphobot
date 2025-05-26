@@ -322,6 +322,7 @@ def is_can_plugged(interface: str = "can0") -> bool:
                 capture_output=True,
                 text=True,
                 check=True,
+                timeout=3,
             )
             return "does not exist" not in result.stdout.lower()
         elif sys.platform == "darwin":
@@ -331,6 +332,7 @@ def is_can_plugged(interface: str = "can0") -> bool:
                 capture_output=True,
                 text=True,
                 check=True,
+                timeout=3,
             )
             return "does not exist" not in result.stdout.lower()
         # Adds windows support
@@ -341,6 +343,7 @@ def is_can_plugged(interface: str = "can0") -> bool:
                 capture_output=True,
                 text=True,
                 check=True,
+                timeout=3,
             )
             if result.stdout is None:
                 return False
@@ -352,10 +355,11 @@ def is_can_plugged(interface: str = "can0") -> bool:
         if e.returncode == 1:
             return False
         logger.error(f"Failed to check CAN interface status: {str(e)}")
-        return False
     except FileNotFoundError as e:
         logger.error(f"OSError: Required system command not found: {str(e)}")
-        return False
+    except OSError as e:
+        logger.warning(f"OSError: {str(e)}")
+    return False
 
 
 def sanitize_path(path: str) -> str:

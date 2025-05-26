@@ -1,7 +1,7 @@
 import time
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, List, Optional, Set
+from typing import Any, List, Set
 
 import pybullet as p  # type: ignore
 from fastapi import HTTPException

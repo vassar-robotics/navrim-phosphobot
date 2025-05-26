@@ -54,7 +54,7 @@ const ROBOT_TYPES = [
     fields: [{ name: "device_name", label: "USB Port", type: "device_name" }],
   },
   {
-    id: "go2",
+    id: "unitree-go2",
     name: "Unitree Go2",
     category: "mobile",
     image: placeholderSvg,
