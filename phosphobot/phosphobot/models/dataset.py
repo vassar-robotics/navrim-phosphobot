@@ -2154,7 +2154,7 @@ class Stats(BaseModel):
             # Set the min to the min in each channel
             self.min = np.minimum(self.min, image_min_pixel)
             # Reshape to have the same shape as the mean and std
-            self.min = self.min.reshape(3, 1, 1)
+            self.min = self.min.reshape(3, 1, 1) if self.min is not None else self.min
 
         # Update the rolling sum and square sum
         nb_pixels = image_norm_32.shape[0] * image_norm_32.shape[1]
