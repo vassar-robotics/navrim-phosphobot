@@ -67,7 +67,7 @@ class TeleopManager:
         # Otherwise, use the source
         if source == "right":
             return (await self.rcm.robots)[0]
-        elif source == "left" and len(self.rcm.robots) > 1:
+        elif source == "left" and len(await self.rcm.robots) > 1:
             return (await self.rcm.robots)[1]
 
         return None

@@ -61,9 +61,6 @@ class UnitreeGo2(BaseMobileRobot):
         Returns:
             bool: True if connected, False otherwise
         """
-        logger.debug(
-            f"Checking connection status: {self._is_connected}, conn={self.conn}, isConnected={getattr(self.conn, 'isConnected', True)}"
-        )
         status = (
             self._is_connected
             and self.conn is not None
@@ -308,16 +305,17 @@ class UnitreeGo2(BaseMobileRobot):
 
             self.current_position = target_position
 
-            # Send move command with timeout
+            payload = {
+                "x": float(target_position[0]),
+                "y": float(target_position[1]),
+                "z": float(target_position[2]),
+            }
+            logger.debug(f"Sending payload for position: {payload}")
             await self.conn.datachannel.pub_sub.publish_request_new(
                 RTC_TOPIC["SPORT_MOD"],
                 {
                     "api_id": SPORT_CMD["Move"],
-                    "parameter": {
-                        "x": float(target_position[0]),
-                        "y": float(target_position[1]),
-                        "z": float(target_position[2]),
-                    },
+                    "parameter": payload,
                 },
             )
 
@@ -325,16 +323,17 @@ class UnitreeGo2(BaseMobileRobot):
                 self.current_orientation = target_orientation_rad
                 target_orientation_deg = np.degrees(target_orientation_rad)
 
-                # Send orientation command with timeout
+                payload = {
+                    "x": float(target_orientation_deg[0]),
+                    "y": float(target_orientation_deg[1]),
+                    "z": float(target_orientation_deg[2]),
+                }
+                logger.debug(f"Sending payload for orientation: {payload}")
                 await self.conn.datachannel.pub_sub.publish_request_new(
                     RTC_TOPIC["SPORT_MOD"],
                     {
                         "api_id": SPORT_CMD["Euler"],
-                        "parameter": {
-                            "x": float(target_orientation_deg[0]),
-                            "y": float(target_orientation_deg[1]),
-                            "z": float(target_orientation_deg[2]),
-                        },
+                        "parameter": payload,
                     },
                 )
 
