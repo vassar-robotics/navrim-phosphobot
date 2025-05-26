@@ -19,7 +19,13 @@ from huggingface_hub import (
     upload_folder,
 )
 from loguru import logger
-from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from phosphobot.types import VideoCodecs
 from phosphobot.utils import (
@@ -1101,6 +1107,11 @@ class Dataset:
         )
         # Get the full path to the data with episode id
 
+        if self.episode_format == "lerobot_v2.0":
+            raise NotImplementedError(
+                "Episode deletion is not implemented for LeRobot v2.0 format. Please use v2.1 format."
+            )
+
         if self.check_repo_exists(self.repo_id) is False:
             logger.warning(
                 f"Repository {self.repo_id} does not exist on Hugging Face. Skipping deletion on Hugging Face"
@@ -1188,7 +1199,7 @@ class Dataset:
                 episodes_stats_model.save(meta_folder_path=self.meta_folder_full_path)
                 logger.info("Episodes stats model updated")
             elif info_model.codebase_version == "v2.0":
-                # Update the stats model for v2.0
+                # Update for episode removal is not implemented
                 stats_model.update_for_episode_removal(
                     data_folder_path=self.data_folder_full_path,
                 )
@@ -3726,6 +3737,16 @@ class EpisodesFeatures(BaseModel):
     episode_index: int = 0
     tasks: List[str] = []
     length: int = 0
+
+    # Import tasks as a list of str if it is a str
+    @field_validator("tasks", mode="before")
+    def validate_tasks(cls, v):
+        if isinstance(v, str):
+            return [v]
+        elif isinstance(v, list):
+            return v
+        else:
+            raise ValueError("tasks must be a list of strings or a single string")
 
 
 class EpisodesModel(BaseModel):

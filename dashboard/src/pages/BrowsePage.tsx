@@ -601,7 +601,6 @@ export default function FileBrowser() {
           Download dataset
         </Button>
       </div>
-
       {data.tokenError && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
@@ -609,7 +608,6 @@ export default function FileBrowser() {
           <AlertDescription>{data.tokenError}</AlertDescription>
         </Alert>
       )}
-
       <Table className="bg-background rounded-lg">
         <TableHeader>
           <TableRow>
@@ -757,7 +755,6 @@ export default function FileBrowser() {
           ))}
         </TableBody>
       </Table>
-
       {data.items.length > 0 && data.items[0].previewUrl && (
         <Alert variant="default" className="mt-4">
           <AlertCircle className="h-4 w-4" />
@@ -768,7 +765,6 @@ export default function FileBrowser() {
           </AlertDescription>
         </Alert>
       )}
-
       {/* Show episode selection and replay/delete buttons */}
       {data.episode_ids && data.episode_ids.length > 0 && (
         <div className="mt-6">
@@ -815,7 +811,6 @@ export default function FileBrowser() {
           </div>
         </div>
       )}
-
       {selectedItems.length > 0 &&
         (path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1")) && (
           <div className="flex flex-col md:flex-row md:space-x-2 mt-6">
@@ -865,7 +860,6 @@ export default function FileBrowser() {
             </Button>
           </div>
         )}
-
       {/* Dataset deletion dialog */}
       <Modal
         open={confirmDeleteOpen}
@@ -891,7 +885,6 @@ export default function FileBrowser() {
         isLoading={loading}
         onConfirm={handleDeleteMultipleDatasets}
       />
-
       {/* Episode deletion dialog */}
       <Modal
         open={confirmEpisodeDeleteOpen}
@@ -914,7 +907,6 @@ export default function FileBrowser() {
           redirect(path);
         }}
       />
-
       {/* Split modal */}
       <Modal
         open={openSplitModel}
@@ -997,7 +989,6 @@ export default function FileBrowser() {
           />
         </div>
       </Modal>
-
       {/* Download modal */}
       <Modal
         open={openDownloadModal}
@@ -1043,7 +1034,6 @@ export default function FileBrowser() {
           />
         </div>
       </Modal>
-
       {/* Dataset repair dialog */}
       <Modal
         open={confirmRepairOpen}
@@ -1069,7 +1059,6 @@ export default function FileBrowser() {
         isLoading={loading}
         onConfirm={handleRepairDataset}
       />
-
       {/* Dataset shuffle modal */}
       <Modal
         open={openShuffleModal}
@@ -1118,7 +1107,6 @@ export default function FileBrowser() {
           </p>
         </div>
       </Modal>
-
       {/* Merge modal */}
       <Dialog open={mergeModalOpen} onOpenChange={setMergeModalOpen}>
         <MergeDialog
