@@ -31,7 +31,6 @@ class RemotePhosphobot(BaseRobot):
         self.current_position = np.zeros(3)
         self.current_orientation = np.zeros(3)  # [roll, pitch, yaw]
         self.robot_id = robot_id
-        self.connect()
 
     @property
     def is_connected(self) -> bool:

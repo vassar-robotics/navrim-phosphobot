@@ -292,22 +292,11 @@ class BaseManipulator(BaseRobot):
             jointIndex=self.END_EFFECTOR_LINK_INDEX,
         )[0]
 
-        try:
-            if not only_simulation:
-                self.connect()
-                # Register the disconnect method to be called on exit
-                atexit.register(self.move_to_sleep_sync)
-            else:
-                logger.info("Only simulation: Not connecting to the robot.")
-                self.is_connected = False
-        except Exception as e:
-            logger.warning(
-                f"""Error when connecting to robot {self.__class__.__name__}: {e}
-Make sure the robot is connected and powered on.
-Falling back to simulation mode.
-"""
-            )
-            logger.info("Simulation mode enabled.")
+        if not only_simulation:
+            # Register the disconnect method to be called on exit
+            atexit.register(self.move_to_sleep_sync)
+        else:
+            logger.info("Only simulation: Not connecting to the robot.")
             self.is_connected = False
 
         # Once connected, we read the calibration from the motors
@@ -920,7 +909,7 @@ Falling back to simulation mode.
         # Update the simulation
         step_simulation()
 
-    def calibrate(self) -> tuple[Literal["success", "in_progress", "error"], str]:
+    async def calibrate(self) -> tuple[Literal["success", "in_progress", "error"], str]:
         """
         Compute and save offsets and signs for the motors.
 
@@ -983,7 +972,7 @@ Falling back to simulation mode.
             )
 
         if self.calibration_current_step == 1:
-            self.connect()
+            await self.connect()
             # Set the offset to the middle of the motor range
             self.calibrate_motors()
             self.config.servos_offsets = self.read_joints_position(
@@ -1309,20 +1298,9 @@ class BaseMobileRobot(BaseRobot):
         self,
         only_simulation: bool = False,
     ):
-        try:
-            if not only_simulation:
-                self.connect()
-                # Register the disconnect method to be called on exit
-                atexit.register(self.move_to_sleep_sync)
-            else:
-                logger.info("Only simulation: Not connecting to the robot.")
-                self.is_connected = False
-        except Exception as e:
-            logger.warning(
-                f"""Error when connecting to robot {self.__class__.__name__}: {e}
-Make sure the robot is connected and powered on.
-Falling back to simulation mode.
-"""
-            )
-            logger.info("Simulation mode enabled.")
+        if not only_simulation:
+            # Register the disconnect method to be called on exit
+            atexit.register(self.move_to_sleep_sync)
+        else:
+            logger.info("Only simulation: Not connecting to the robot.")
             self.is_connected = False

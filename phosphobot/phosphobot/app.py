@@ -168,7 +168,7 @@ async def status(
         leader_follower_control,
     )
 
-    robots = rcm.robots
+    robots = await rcm.robots
 
     robot_names = [robot.name for robot in robots]
 

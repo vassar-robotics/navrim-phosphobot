@@ -107,7 +107,7 @@ async def move_teleop_ws(
 ):
     await websocket.accept()
 
-    if not rcm.robots:
+    if not await rcm.robots:
         raise HTTPException(status_code=400, detail="No robot connected")
 
     manager = TeleopManager(rcm)
@@ -168,7 +168,7 @@ async def move_to_absolute_position(
     Data: position
     Update the robot position based on the received data
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     # Divide by 100 to convert from cm to m
     query.x = query.x / 100 if query.x is not None else 0
@@ -285,7 +285,7 @@ async def move_relative(
     data.y = data.y / 100 if data.y is not None else None
     data.z = data.z / 100 if data.z is not None else None
 
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if (
         data.x is None
@@ -386,7 +386,7 @@ async def say_hello(
     """
     Make the robot say hello by opening and closing its gripper.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if not hasattr(robot, "control_gripper"):
         raise HTTPException(
@@ -419,7 +419,7 @@ async def move_sleep(
     """
     Put the robot to its sleep position.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
     await robot.move_to_sleep()
     return StatusResponse()
 
@@ -437,7 +437,7 @@ async def end_effector_read(
     """
     Get the position, orientation, and open status of the end effector.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if not isinstance(robot, BaseManipulator):
         raise HTTPException(
@@ -477,7 +477,7 @@ async def read_voltage(
     """
     Read voltage of the robot.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
     if not hasattr(robot, "current_voltage"):
         raise HTTPException(
             status_code=400,
@@ -503,7 +503,7 @@ async def read_torque(
     """
     Read torque of the robot.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if not hasattr(robot, "current_torque"):
         raise HTTPException(
@@ -534,7 +534,7 @@ async def toggle_torque(
     """
 
     if robot_id is not None:
-        robot = rcm.get_robot(robot_id)
+        robot = await rcm.get_robot(robot_id)
 
         if not hasattr(robot, "enable_torque") or not hasattr(robot, "disable_torque"):
             raise HTTPException(
@@ -581,7 +581,7 @@ async def read_joints(
     if request is None:
         request = JointsReadRequest(unit="rad", joints_ids=None)
 
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if not hasattr(robot, "read_joints_position"):
         raise HTTPException(
@@ -618,7 +618,7 @@ async def write_joints(
     """
     Move the robot's joints to the specified angles.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
     if not hasattr(robot, "write_joint_positions"):
         raise HTTPException(
             status_code=400,
@@ -648,7 +648,7 @@ async def calibrate(
 
     This endpoints disable torque. Move the robot to the positions you see in the simulator and call this endpoint again, until the calibration is complete.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if (
         not hasattr(robot, "calibrate")
@@ -663,7 +663,7 @@ async def calibrate(
     if not robot.is_connected:
         raise HTTPException(status_code=400, detail="Robot is not connected")
 
-    status, message = robot.calibrate()
+    status, message = await robot.calibrate()
     current_step = robot.calibration_current_step
     total_nb_steps = robot.calibration_max_steps
     if status == "success":
@@ -712,8 +712,8 @@ async def start_leader_follower(
                 status_code=400,
                 detail=f"Leader ID is required for robot pair {i}.",
             )
-        leader = rcm.get_robot(robot_pair.leader_id)
-        follower = rcm.get_robot(robot_pair.follower_id)
+        leader = await rcm.get_robot(robot_pair.leader_id)
+        follower = await rcm.get_robot(robot_pair.follower_id)
         if not isinstance(leader, SO100Hardware):
             raise HTTPException(
                 status_code=400,
@@ -781,7 +781,7 @@ async def start_gravity(
     if len(rcm.robots) == 0:
         raise HTTPException(status_code=400, detail="No robot connected")
 
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
     if not isinstance(robot, SO100Hardware):
         raise HTTPException(
             status_code=400, detail="Gravity compensation is only for SO-100 robot"

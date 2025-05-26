@@ -60,7 +60,7 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def connect(self) -> None:
+    async def connect(self) -> None:
         """
         Initialize communication with the robot.
 

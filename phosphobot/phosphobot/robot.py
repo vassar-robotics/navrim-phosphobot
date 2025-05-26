@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, List, Set
 
+from async_property import async_property
 import pybullet as p  # type: ignore
 from fastapi import HTTPException
 from loguru import logger
@@ -122,7 +123,7 @@ class RobotConnectionManager:
             old_can_ports=list(old_can_ports_difference),
         )
 
-    def _find_robots(self) -> None:
+    async def _find_robots(self) -> None:
         """
         Loop through all available ports and try to connect to a robot.
 
@@ -166,7 +167,7 @@ class RobotConnectionManager:
                     f"Trying to connect to {robot_class.name} on {port.device}."
                 )
                 try:
-                    robot = robot_class.from_port(
+                    robot = await robot_class.from_port(
                         port,
                         robot_ports_without_power=self.robot_ports_without_power,
                     )
@@ -228,8 +229,8 @@ class RobotConnectionManager:
         if not self._all_robots:
             logger.info("No robot connected.")
 
-    @property
-    def robots(self) -> list[BaseRobot]:
+    @async_property
+    async def robots(self) -> list[BaseRobot]:
         """
         Return all connected robots.
         """
@@ -238,7 +239,7 @@ class RobotConnectionManager:
         if config.ONLY_SIMULATION:
             if self._all_robots:
                 return self._all_robots
-            self._find_robots()
+            await self._find_robots()
             return self._all_robots
 
         # If we are not in simulation, we check the ports
@@ -262,12 +263,12 @@ class RobotConnectionManager:
                     robot.disconnect()
                 self.available_ports = ports
                 self.available_can_ports = can_ports
-                self._find_robots()
+                await self._find_robots()
 
         # Return the stored list of robots
         return self._all_robots
 
-    def get_robot(self, robot_id: int = 0) -> BaseRobot:
+    async def get_robot(self, robot_id: int = 0) -> BaseRobot:
         """
         Return the currently connected robot.
         """
@@ -279,7 +280,7 @@ class RobotConnectionManager:
         if self._all_robots and len(self._all_robots) > robot_id:
             return self._all_robots[robot_id]
 
-        robots = self.robots
+        robots = await self.robots
         if robot_id >= len(robots):
             raise HTTPException(
                 status_code=400,

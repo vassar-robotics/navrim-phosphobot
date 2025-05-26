@@ -95,8 +95,8 @@ async def start_recording_episode(
 
     # Compute the number of connected robots and remove leader arms
     number_of_connected_robots = 0
-    robots_to_record = copy(rcm.robots)
-    for robot in rcm.robots:
+    robots_to_record = copy(await rcm.robots)
+    for robot in await rcm.robots:
         if (
             hasattr(robot, "SERIAL_ID")
             and query.robot_serials_to_ignore is not None
@@ -272,23 +272,23 @@ async def play_recording(
     logger.debug(f"Playing episode at path: {episode.parquet_path}")
 
     if isinstance(query.robot_id, int):
-        if query.robot_id >= len(rcm.robots):
+        if query.robot_id >= len(await rcm.robots):
             raise HTTPException(
                 status_code=400,
                 detail=f"Robot with ID {query.robot_id} not found.",
             )
-        robots = [rcm.get_robot(query.robot_id)]
+        robots = [await rcm.get_robot(query.robot_id)]
     elif isinstance(query.robot_id, list):
         robots = []
         for robot_id in query.robot_id:
-            if robot_id >= len(rcm.robots):
+            if robot_id >= len(await rcm.robots):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Robot with ID {robot_id} not found.",
                 )
-            robots.append(rcm.get_robot(robot_id))
+            robots.append(await rcm.get_robot(robot_id))
     elif query.robot_id is None:
-        robots = copy(rcm.robots)
+        robots = copy(await rcm.robots)
 
     if query.robot_serials_to_ignore is not None:
         for robot in robots:

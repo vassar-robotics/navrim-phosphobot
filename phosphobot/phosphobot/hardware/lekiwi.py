@@ -39,7 +39,6 @@ class LeKiwi(BaseMobileRobot):
 
         # Track movement instructions
         self.movement_queue: Deque[MovementCommand] = deque(maxlen=max_history_len)
-        self.connect()
 
     @property
     def is_connected(self) -> bool:

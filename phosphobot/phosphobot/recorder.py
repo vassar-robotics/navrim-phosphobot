@@ -530,7 +530,7 @@ class Recorder:
 
 
 @lru_cache()
-def get_recorder(
+async def get_recorder(
     rcm: RobotConnectionManager = Depends(get_rcm),
 ) -> Recorder:
     """
@@ -541,7 +541,7 @@ def get_recorder(
     if recorder is not None:
         return recorder
     else:
-        robots = rcm.robots
+        robots = await rcm.robots
         cameras = get_all_cameras()
         recorder = Recorder(
             robots=robots,  # type: ignore
