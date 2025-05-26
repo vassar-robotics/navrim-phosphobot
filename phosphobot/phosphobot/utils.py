@@ -13,7 +13,6 @@ import subprocess
 import sys
 import traceback
 import zipfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal, Tuple, Union
@@ -32,6 +31,9 @@ from pydantic import BaseModel, BeforeValidator, PlainSerializer
 
 
 from phosphobot.types import VideoCodecs
+
+# Disable pyav logs
+av.logging.set_level(None)
 
 
 def is_running_on_pi() -> bool:
@@ -958,7 +960,7 @@ async def scan_network_devices(
                 try:
                     if is_windows:
                         proc = await asyncio.create_subprocess_shell(
-                            f"ping -n 1 -w {int(timeout*1000)} {ip_str}",
+                            f"ping -n 1 -w {int(timeout * 1000)} {ip_str}",
                             stdout=asyncio.subprocess.DEVNULL,
                             stderr=asyncio.subprocess.DEVNULL,
                         )
