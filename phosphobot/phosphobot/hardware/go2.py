@@ -453,7 +453,7 @@ class UnitreeGo2(BaseMobileRobot):
             await asyncio.wait_for(
                 self.conn.datachannel.pub_sub.publish_request_new(
                     RTC_TOPIC["SPORT_MOD"],
-                    {"api_id": SPORT_CMD["Sit"], "parameter": {"data": True}},
+                    {"api_id": SPORT_CMD["StandDown"], "parameter": {"data": True}},
                 ),
                 timeout=10.0,
             )
