@@ -555,7 +555,7 @@ async def toggle_torque(
         return StatusResponse()
 
     # If no robot_id is provided, toggle torque for all robots
-    for robot in rcm.robots:
+    for robot in await rcm.robots:
         if not hasattr(robot, "enable_torque") or not hasattr(robot, "disable_torque"):
             logger.warning(
                 f"Robot {robot.name} does not support torque control. Skipping."
@@ -784,7 +784,7 @@ async def start_gravity(
             status_code=400, detail="Gravity control is already running"
         )
 
-    if len(rcm.robots) == 0:
+    if len(await rcm.robots) == 0:
         raise HTTPException(status_code=400, detail="No robot connected")
 
     robot = await rcm.get_robot(robot_id)
@@ -921,8 +921,8 @@ async def spawn_inference_server(
     supabase_client = await get_client()
     await supabase_client.auth.get_user()
 
-    robots_to_control = copy(rcm.robots)
-    for robot in rcm.robots:
+    robots_to_control = copy(await rcm.robots)
+    for robot in await rcm.robots:
         if (
             hasattr(robot, "SERIAL_ID")
             and query.robot_serials_to_ignore is not None
@@ -997,8 +997,8 @@ async def start_auto_control(
         .execute()
     )
 
-    robots_to_control = copy(rcm.robots)
-    for robot in rcm.robots:
+    robots_to_control = copy(await rcm.robots)
+    for robot in await rcm.robots:
         if (
             hasattr(robot, "SERIAL_ID")
             and query.robot_serials_to_ignore is not None
