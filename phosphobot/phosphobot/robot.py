@@ -282,7 +282,7 @@ class RobotConnectionManager:
         robots_status = [robot.status() for robot in await self.robots]
         return [status for status in robots_status if status is not None]
 
-    def add_connection(self, robot_name: str, connection_details: dict[str, Any]):
+    async def add_connection(self, robot_name: str, connection_details: dict[str, Any]):
         """
         Manually add a connection to a robot using the robot type and connection details.
         Useful when detecting the robot is more complex than just a serial port.
@@ -295,6 +295,7 @@ class RobotConnectionManager:
                 detail=f"Robot {robot_name} not supported. Supported robots: {list(robot_name_to_class.keys())}",
             )
         robot = robot_class(**connection_details)
+        await robot.connect()
         self._all_robots.append(robot)
         self._manually_added_robots.append(robot)
         logger.success(

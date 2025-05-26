@@ -27,12 +27,12 @@ class UnitreeGo2(BaseMobileRobot):
 
     UNITREE_MAC_PREFIXES = ["78:22:88"]
 
-    def __init__(self, ip: str = "192.168.1.42", max_history_len: int = 100, **kwargs):
+    def __init__(self, ip: str, max_history_len: int = 100, **kwargs):
         """
         Initialize the UnitreeGo2 robot.
 
         Args:
-            ip: IP address of the robot
+            ip: Local network IP address of the robot. Eg: 192.168.1.42
             **kwargs: Additional keyword arguments
         """
         self.ip = ip
@@ -44,6 +44,10 @@ class UnitreeGo2(BaseMobileRobot):
         self._connection_thread = None
         self._loop_thread = None
         self._shutdown_event = threading.Event()
+
+        # Status variables about the robot
+        self.lowstate = None
+        self.sportmodstate = None
 
         # Track movement instructions
         self.movement_queue: Deque[MovementCommand] = deque(maxlen=max_history_len)
@@ -57,11 +61,15 @@ class UnitreeGo2(BaseMobileRobot):
         Returns:
             bool: True if connected, False otherwise
         """
-        return (
+        logger.debug(
+            f"Checking connection status: {self._is_connected}, conn={self.conn}, isConnected={getattr(self.conn, 'isConnected', True)}"
+        )
+        status = (
             self._is_connected
             and self.conn is not None
-            and getattr(self.conn, "isConnected", False)
+            and getattr(self.conn, "isConnected", True)
         )
+        return status
 
     @is_connected.setter
     def is_connected(self, value: bool) -> None:
@@ -145,9 +153,9 @@ class UnitreeGo2(BaseMobileRobot):
             logger.error(f"Async operation failed: {e}")
             raise
 
-    async def _connect_async(self):
+    async def connect(self):
         """
-        Async implementation of the connection logic.
+        Initialize communication with the robot.
         """
         try:
             # Create connection and connect
@@ -157,93 +165,31 @@ class UnitreeGo2(BaseMobileRobot):
 
             await self.conn.connect()
 
-            # Wait a bit for connection to stabilize
-            await asyncio.sleep(2)
+            def lowstate_callback(message):
+                self.lowstate = message["data"]
 
-            # Check if connection is actually established
-            if not getattr(self.conn, "isConnected", False):
-                raise Exception("WebRTC connection failed to establish")
+            # Connect to the lowstate topic to receive battery and sensor data
+            self.conn.datachannel.pub_sub.subscribe(
+                RTC_TOPIC["LOW_STATE"], lowstate_callback
+            )
 
-            # Check if in normal mode and switch if needed
-            try:
-                response = await asyncio.wait_for(
-                    self.conn.datachannel.pub_sub.publish_request_new(
-                        RTC_TOPIC["MOTION_SWITCHER"], {"api_id": 1001}
-                    ),
-                    timeout=10.0,
-                )
+            def sportmodestatus_callback(message):
+                self.sportmodstate = message["data"]
 
-                if response["data"]["header"]["status"]["code"] == 0:
-                    data = json.loads(response["data"]["data"])
-                    current_motion_switcher_mode = data["name"]
-
-                    if current_motion_switcher_mode != "normal":
-                        logger.info(
-                            f"Switching from {current_motion_switcher_mode} to 'normal' mode"
-                        )
-                        await asyncio.wait_for(
-                            self.conn.datachannel.pub_sub.publish_request_new(
-                                RTC_TOPIC["MOTION_SWITCHER"],
-                                {"api_id": 1002, "parameter": {"name": "normal"}},
-                            ),
-                            timeout=10.0,
-                        )
-                        # Wait for mode switch
-                        await asyncio.sleep(5)
-                else:
-                    logger.warning("Failed to get motion switcher status")
-            except asyncio.TimeoutError:
-                logger.warning("Timeout while checking/setting motion mode")
-            except Exception as e:
-                logger.warning(f"Error while setting motion mode: {e}")
+            self.conn.datachannel.pub_sub.subscribe(
+                RTC_TOPIC["LF_SPORT_MOD_STATE"], sportmodestatus_callback
+            )
+            self._is_connected = True
 
         except Exception as e:
             # Clean up connection on failure
             if self.conn:
                 try:
                     await asyncio.wait_for(self.conn.disconnect(), timeout=5.0)
-                except:
-                    pass
+                except Exception as disconnect_error:
+                    logger.warning(f"Error during disconnect: {disconnect_error}")
                 self.conn = None
             raise e
-
-    async def connect(self) -> None:
-        """
-        Initialize communication with the robot.
-
-        This method creates a WebRTC connection to the robot.
-
-        Raises:
-            Exception: If the connection fails
-        """
-        try:
-            # First verify the IP is reachable (basic network check)
-            import socket
-
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(5)
-            try:
-                # Try to connect to common robot ports
-                result = sock.connect_ex(
-                    (self.ip, 8081)
-                )  # Common WebRTC signaling port
-                if result != 0:
-                    logger.warning(
-                        f"Port 8081 not reachable on {self.ip}, but continuing..."
-                    )
-            except Exception as e:
-                logger.warning(f"Network check failed: {e}, but continuing...")
-            finally:
-                sock.close()
-
-            self._run_async_safely(self._connect_async())
-            self.is_connected = True
-            logger.info("Successfully connected to UnitreeGo2")
-
-        except Exception as e:
-            logger.error(f"Failed to connect to UnitreeGo2: {e}")
-            self.is_connected = False
-            raise Exception(f"Failed to connect to UnitreeGo2: {e}")
 
     def disconnect(self) -> None:
         """
@@ -315,23 +261,40 @@ class UnitreeGo2(BaseMobileRobot):
         """
         raise NotImplementedError
 
-    async def move_robot_absolute(
+    async def _ensure_normal_mode(self):
+        # Get the current motion_switcher status
+        response = await self.conn.datachannel.pub_sub.publish_request_new(
+            RTC_TOPIC["MOTION_SWITCHER"], {"api_id": 1001}
+        )
+
+        if response["data"]["header"]["status"]["code"] == 0:
+            data = json.loads(response["data"]["data"])
+            current_motion_switcher_mode = data["name"]
+            logger.debug(f"Current motion mode: {current_motion_switcher_mode}")
+
+        # Switch to "normal" mode if not already
+        if current_motion_switcher_mode != "normal":
+            logger.debug(
+                f"Switching motion mode from {current_motion_switcher_mode} to 'normal'..."
+            )
+            await self.conn.datachannel.pub_sub.publish_request_new(
+                RTC_TOPIC["MOTION_SWITCHER"],
+                {"api_id": 1002, "parameter": {"name": "normal"}},
+            )
+            await asyncio.sleep(5)  # Wait while it stands up
+
+    async def _move_robot(
         self,
         target_position: np.ndarray,
         target_orientation_rad: np.ndarray | None,
-        **kwargs,
-    ) -> None:
-        """
-        Move the robot to the target position and orientation asynchronously.
-
-        Args:
-            target_position: Target position as [x, y, z]
-            target_orientation_rad: Target orientation in radians [roll, pitch, yaw]
-            **kwargs: Additional arguments
-        """
+    ):
         if not self.is_connected or self.conn is None:
-            logger.error("Robot is not connected")
+            logger.warning(
+                f"Robot is not connected: conn={self.conn} is_connected={self.is_connected}"
+            )
             return
+
+        await self._ensure_normal_mode()
 
         try:
             self.movement_queue.append(
@@ -346,51 +309,81 @@ class UnitreeGo2(BaseMobileRobot):
             self.current_position = target_position
 
             # Send move command with timeout
-            await asyncio.wait_for(
-                self.conn.datachannel.pub_sub.publish_request_new(
-                    RTC_TOPIC["SPORT_MOD"],
-                    {
-                        "api_id": SPORT_CMD["Move"],
-                        "parameter": {
-                            "x": float(target_position[0]),
-                            "y": float(target_position[1]),
-                            "z": float(target_position[2]),
-                        },
+            await self.conn.datachannel.pub_sub.publish_request_new(
+                RTC_TOPIC["SPORT_MOD"],
+                {
+                    "api_id": SPORT_CMD["Move"],
+                    "parameter": {
+                        "x": float(target_position[0]),
+                        "y": float(target_position[1]),
+                        "z": float(target_position[2]),
                     },
-                ),
-                timeout=10.0,
+                },
             )
 
             if target_orientation_rad is not None:
                 self.current_orientation = target_orientation_rad
-                target_orientation_deg = np.degrees(target_orientation_rad[2])
+                target_orientation_deg = np.degrees(target_orientation_rad)
 
                 # Send orientation command with timeout
-                await asyncio.wait_for(
-                    self.conn.datachannel.pub_sub.publish_request_new(
-                        RTC_TOPIC["SPORT_MOD"],
-                        {
-                            "api_id": SPORT_CMD["Euler"],
-                            "parameter": {
-                                "x": float(target_orientation_rad[0]),
-                                "y": float(target_orientation_rad[1]),
-                                "z": float(target_orientation_deg),
-                            },
+                await self.conn.datachannel.pub_sub.publish_request_new(
+                    RTC_TOPIC["SPORT_MOD"],
+                    {
+                        "api_id": SPORT_CMD["Euler"],
+                        "parameter": {
+                            "x": float(target_orientation_deg[0]),
+                            "y": float(target_orientation_deg[1]),
+                            "z": float(target_orientation_deg[2]),
                         },
-                    ),
-                    timeout=10.0,
+                    },
                 )
 
-            logger.info(
+            logger.debug(
                 f"Moved to position {target_position} with orientation {target_orientation_rad}"
             )
-
-        except asyncio.TimeoutError:
-            logger.error("Move command timed out")
-            raise
         except Exception as e:
             logger.error(f"Error during move: {e}")
-            raise
+            raise e
+
+    async def move_robot_absolute(
+        self,
+        target_position: np.ndarray,
+        target_orientation_rad: np.ndarray | None,
+        **kwargs,
+    ) -> None:
+        """
+        Move the robot to the target position and orientation asynchronously.
+
+        Args:
+            target_position: Target position as [x, y, z]
+            target_orientation_rad: Target orientation in radians [roll, pitch, yaw]
+            **kwargs: Additional arguments
+        """
+        await self._move_robot(
+            target_position=target_position,
+            target_orientation_rad=target_orientation_rad,
+            **kwargs,
+        )
+
+    async def move_robot_relative(
+        self,
+        target_position: np.ndarray,
+        target_orientation_rad: np.ndarray | None,
+        **kwargs,
+    ) -> None:
+        """
+        Move the robot to the target position and orientation asynchronously.
+
+        Args:
+            target_position: Target position as [x, y, z]
+            target_orientation_rad: Target orientation in radians [roll, pitch, yaw]
+            **kwargs: Additional arguments
+        """
+        await self._move_robot(
+            target_position=target_position,
+            target_orientation_rad=target_orientation_rad,
+            **kwargs,
+        )
 
     @classmethod
     def from_ip(cls, ip: str, **kwargs) -> Optional["UnitreeGo2"]:
@@ -430,37 +423,23 @@ class UnitreeGo2(BaseMobileRobot):
         This puts the robot in a stand position ready for operation.
         """
         if not self.is_connected or self.conn is None:
-            logger.error("Robot is not connected")
+            logger.warning("Robot is not connected")
             return
 
-        try:
-            # Stand up the robot
-            await asyncio.wait_for(
-                self.conn.datachannel.pub_sub.publish_request_new(
-                    RTC_TOPIC["SPORT_MOD"],
-                    {"api_id": SPORT_CMD["StandUp"], "parameter": {"data": True}},
-                ),
-                timeout=15.0,
-            )
+        # Stand up the robot
+        await self.conn.datachannel.pub_sub.publish_request_new(
+            RTC_TOPIC["SPORT_MOD"],
+            {"api_id": SPORT_CMD["StandUp"], "parameter": {"data": True}},
+        )
 
-            # Wait for the robot to stand up
-            await asyncio.sleep(5)
+        # Reset position tracking
+        self.current_position = np.zeros(3)
+        self.current_orientation = np.zeros(3)
 
-            # Reset position tracking
-            self.current_position = np.zeros(3)
-            self.current_orientation = np.zeros(3)
+        # Clear movement history
+        self.movement_queue.clear()
 
-            # Clear movement history
-            self.movement_queue.clear()
-
-            logger.info("Robot moved to initial position")
-
-        except asyncio.TimeoutError:
-            logger.error("Move to initial position timed out")
-            raise
-        except Exception as e:
-            logger.error(f"Error moving to initial position: {e}")
-            raise
+        logger.info("Robot moved to initial position")
 
     def move_to_initial_position_sync(self) -> None:
         """
@@ -476,7 +455,7 @@ class UnitreeGo2(BaseMobileRobot):
         This makes the robot sit down before potentially disconnecting.
         """
         if not self.is_connected or self.conn is None:
-            logger.error("Robot is not connected")
+            logger.warning("Robot is not connected")
             return
 
         try:
@@ -508,24 +487,10 @@ class UnitreeGo2(BaseMobileRobot):
         """
         self._run_async_safely(self.move_to_sleep())
 
-    def move_robot_absolute_sync(
-        self,
-        target_position: np.ndarray,
-        target_orientation_rad: np.ndarray | None,
-        **kwargs,
-    ) -> None:
-        """
-        Synchronous wrapper for move_robot_absolute.
-        Move the robot to the target position and orientation.
-        """
-        self._run_async_safely(
-            self.move_robot_absolute(target_position, target_orientation_rad, **kwargs)
-        )
-
     def __del__(self):
         """Cleanup when object is destroyed."""
         try:
             if hasattr(self, "_is_connected") and self._is_connected:
                 self.disconnect()
-        except:
+        except Exception:
             pass

@@ -1146,7 +1146,7 @@ async def add_robot_connection(
     Useful for adding robot that are accessible only via WiFi, for example.
     """
     try:
-        rcm.add_connection(
+        await rcm.add_connection(
             robot_name=query.robot_name,
             connection_details=query.connection_details,
         )
