@@ -24,7 +24,7 @@ import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
 import { Loader2, TrafficCone } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 
 // Data model for robot types
 const ROBOT_TYPES = [
@@ -216,6 +216,9 @@ export function RobotConfigModal({
         // Reset form
         setSelectedRobotType("");
         setFormValues({});
+
+        // mutate /status endpoint
+        mutate("/status");
       }
     } catch (error) {
       console.error("Error adding robot:", error);
@@ -237,7 +240,7 @@ export function RobotConfigModal({
             <div className="border border-destructive bg-destructive/10 text-destructive rounded-md p-2">
               <TrafficCone className="inline mr-2 size-6" />
               This feature is experimental and may not work as expected. Please
-              report any issues you encounter{" "}
+              report any issue you encounter{" "}
               <a
                 href="https://discord.gg/cbkggY6NSK"
                 target="_blank"

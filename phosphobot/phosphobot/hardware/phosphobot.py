@@ -31,7 +31,6 @@ class RemotePhosphobot(BaseRobot):
         self.current_position = np.zeros(3)
         self.current_orientation = np.zeros(3)  # [roll, pitch, yaw]
         self.robot_id = robot_id
-        self.connect()
 
     @property
     def is_connected(self) -> bool:
@@ -53,7 +52,7 @@ class RemotePhosphobot(BaseRobot):
         """
         self._is_connected = value
 
-    def connect(self) -> None:
+    async def connect(self) -> None:
         """
         Initialize communication with the phosphobot server by calling /status
 

@@ -59,16 +59,16 @@ class TeleopManager:
             return True
         return False
 
-    def get_robot(self, source: str) -> Optional[BaseRobot]:
+    async def get_robot(self, source: str) -> Optional[BaseRobot]:
         """Get the appropriate robot based on source"""
         if self.robot_id is not None:
-            return self.rcm.get_robot(self.robot_id)
+            return await self.rcm.get_robot(self.robot_id)
 
         # Otherwise, use the source
         if source == "right":
-            return self.rcm.robots[0]
-        elif source == "left" and len(self.rcm.robots) > 1:
-            return self.rcm.robots[1]
+            return (await self.rcm.robots)[0]
+        elif source == "left" and len(await self.rcm.robots) > 1:
+            return (await self.rcm.robots)[1]
 
         return None
 
@@ -76,7 +76,7 @@ class TeleopManager:
         """
         Move the robot to the initial position.
         """
-        for i, robot in enumerate(self.rcm.robots):
+        for i, robot in enumerate(await self.rcm.robots):
             if robot_id is not None and i != robot_id:
                 continue
             robot.init_config()
@@ -87,12 +87,12 @@ class TeleopManager:
             await robot.move_to_initial_position()
 
         # Hard block the code to wait for the robot to reach the initial position
-        if any(robot.name == "agilex-piper" for robot in self.rcm.robots):
+        if any(robot.name == "agilex-piper" for robot in (await self.rcm.robots)):
             await asyncio.sleep(2.5)
         else:
             await asyncio.sleep(0.5)
 
-        for i, robot in enumerate(self.rcm.robots):
+        for i, robot in enumerate(await self.rcm.robots):
             if robot_id is not None and i != robot_id:
                 continue
             if hasattr(robot, "forward_kinematics"):
@@ -111,7 +111,7 @@ class TeleopManager:
 
             state.last_timestamp = control_data.timestamp
 
-        robot = self.get_robot(control_data.source)
+        robot = await self.get_robot(control_data.source)
         if not robot:
             return False
 
@@ -168,7 +168,7 @@ class TeleopManager:
         now = datetime.now()
 
         for source, state in self.states.items():
-            robot = self.get_robot(source)
+            robot = await self.get_robot(source)
             if robot and (now - state.last_update).total_seconds() > 0.033:
                 if isinstance(robot, BaseManipulator):
                     if state.gripped != robot.is_object_gripped:
