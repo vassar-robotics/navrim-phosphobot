@@ -13,6 +13,9 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from phosphobot.models import InfoModel
 
+# Disable PyAV logs
+av.logging.set_level(None)
+
 
 class ActionModel(ABC):
     """
