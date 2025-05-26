@@ -501,6 +501,12 @@ async def merge_datasets(merge_request: MergeDatasetsRequest):
                 detail="The datasets have different video sizes.",
             )
 
+    if first_info.fps != second_info.fps:
+        raise HTTPException(
+            status_code=400,
+            detail="The datasets have different FPS.",
+        )
+
     if (
         first_info.robot_type != second_info.robot_type
         or first_info.codebase_version != second_info.codebase_version
@@ -508,7 +514,6 @@ async def merge_datasets(merge_request: MergeDatasetsRequest):
         != second_info.total_videos // second_info.total_episodes
         or first_info.features.observation_state.shape[0]
         != second_info.features.observation_state.shape[0]
-        or first_info.fps != second_info.fps
     ):
         raise HTTPException(
             status_code=400,
