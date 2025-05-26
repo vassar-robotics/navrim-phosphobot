@@ -410,25 +410,6 @@ class UnitreeGo2(BaseMobileRobot):
             else 0.0,
         )
 
-    @classmethod
-    def from_ip(cls, ip: str, **kwargs) -> Optional["UnitreeGo2"]:
-        """
-        Create a UnitreeGo2 instance from an IP address.
-
-        Args:
-            ip: IP address of the robot
-            **kwargs: Additional arguments
-
-        Returns:
-            UnitreeGo2 instance or None if the connection fails
-        """
-        try:
-            robot = cls(ip=ip, **kwargs)
-            return robot
-        except Exception as e:
-            logger.error(f"Failed to connect to UnitreeGo2 at {ip}: {e}")
-            return None
-
     def status(self) -> RobotConfigStatus:
         """
         Get the status of the robot.
