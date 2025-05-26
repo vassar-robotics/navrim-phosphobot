@@ -1166,7 +1166,7 @@ class Dataset:
             for camera_folder_full_path in self.get_camera_folders_full_paths():
                 self.reindex_episodes(
                     folder_path=camera_folder_full_path,
-                    old_index_to_new_index=old_index_to_new_index,
+                    old_index_to_new_index=old_index_to_new_index,  # type: ignore
                 )
 
             episodes_model.update_for_episode_removal(
