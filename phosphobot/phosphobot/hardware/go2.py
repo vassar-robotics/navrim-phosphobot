@@ -207,7 +207,7 @@ class UnitreeGo2(BaseMobileRobot):
                 self.conn = None
             raise e
 
-    def connect(self) -> None:
+    async def connect(self) -> None:
         """
         Initialize communication with the robot.
 

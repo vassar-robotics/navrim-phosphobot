@@ -86,25 +86,10 @@ class SO100Hardware(BaseManipulator):
             # The serial number is not always available
             serial_number = port.serial_number or "no_serial"
             robot = cls(device_name=port.device, serial_id=serial_number)
-            # Check if voltage is not None
-            voltages = []
-            for servo_id in robot.SERVO_IDS:
-                voltage = robot.read_motor_voltage(servo_id)
-                if voltage is not None and voltage > 0:
-                    voltages.append(voltage)
-                else:
-                    logger.warning(
-                        f"Robot {robot.name} has voltage {voltage} in servo {servo_id}. Please plug the robot to power and check cable connections."
-                    )
-                    robot_ports_without_power = kwargs.get("robot_ports_without_power")
-                    if isinstance(robot_ports_without_power, set):
-                        robot_ports_without_power.add(port.device)
-
-                    return None
             return robot
         return None
 
-    def connect(self):
+    async def connect(self):
         """
         Connect to the robot.
         """

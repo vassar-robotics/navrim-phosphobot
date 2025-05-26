@@ -49,7 +49,6 @@ class RobotConnectionManager:
     _all_robots: list[BaseRobot]
     _manually_added_robots: list[BaseRobot]
 
-    robot_ports_without_power: Set[str]
     available_ports: List[ListPortInfo]
     available_can_ports: List[str]
     last_scan_time: float
@@ -57,7 +56,6 @@ class RobotConnectionManager:
     def __init__(self):
         self.available_ports = []
         self.available_can_ports = []
-        self.robot_ports_without_power = set()
         self.last_scan_time = 0
 
         self._all_robots = []
@@ -166,16 +164,14 @@ class RobotConnectionManager:
                 logger.debug(
                     f"Trying to connect to {robot_class.name} on {port.device}."
                 )
-                try:
-                    robot = await robot_class.from_port(
-                        port,
-                        robot_ports_without_power=self.robot_ports_without_power,
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Error connecting to {robot_class.name} on {port.device}: {e}"
+                robot = robot_class.from_port(port)
+                if robot is None:
+                    logger.debug(
+                        f"Failed to create robot from {robot_class.name} on {port.device}."
                     )
                     continue
+                logger.debug(f"Robot created: {robot}")
+                await robot.connect()
 
                 if robot is not None:
                     logger.success(f"Connected to {robot_class.name} on {port.device}.")
@@ -184,44 +180,22 @@ class RobotConnectionManager:
                     connected_devices.add(port.device)
                     if serial_num:
                         connected_serials.add(serial_num)
-                    # Remove power-warning flag if present
-                    self.robot_ports_without_power.discard(port.device)
                     break  # stop trying other classes on this port
 
         # Detect CAN-based Agilex Piper robots
         for can_name in self.available_can_ports:
             logger.info(f"Attempting to connect to Agilex Piper on {can_name}")
-            robot = PiperHardware.from_can_port(can_name=can_name)
+            try:
+                robot = PiperHardware.from_can_port(can_name=can_name)
+                await robot.connect()
+            except Exception as e:
+                logger.warning(
+                    f"Error connecting to Agilex Piper on {can_name}: {e}. Skipping."
+                )
+                continue
             if robot is not None:
                 self._all_robots.append(robot)
                 logger.success(f"Connected to Agilex Piper on {can_name}")
-
-        # devices = None
-        # try:
-        #     devices = fast_arp_scan(subnet="192.168.1.0/24")
-        # except PermissionError:
-        #     logger.warning(
-        #         "Can't run fast ARP scan. Please run as root or use sudo. Falling back to slow scan."
-        #     )
-        # except Exception as e:
-        #     logger.error(f"ARP scan failed: {e}. Falling back to slow scan.")
-        # if devices is None:
-        #     devices = slow_arp_scan(subnet="192.168.1.0/24")
-
-        # for device in devices:
-        #     logger.debug(f"Found device: {device}")
-        #     mac = device["mac"]
-        #     ip = device["ip"]
-        #     if any(
-        #         mac.startswith(prefix) for prefix in UnitreeGo2.UNITREE_MAC_PREFIXES
-        #     ):
-        #         logger.success(f"Detected Unitree robot at {ip} with MAC {mac}")
-        #         # You could initiate a connection attempt here if Unitree supports it (e.g., ping, TCP, or SSH)
-        #         robot = UnitreeGo2.from_ip(ip=ip)
-        #         if robot is not None:
-        #             self._all_robots.append(robot)
-        #         # Only 1 Go2 connection supported
-        #         break
 
         # Add manually added robots
         self._all_robots.extend(self._manually_added_robots)
@@ -256,7 +230,6 @@ class RobotConnectionManager:
                 or difference.old_ports
                 or difference.new_can_ports
                 or difference.old_can_ports
-                or self.robot_ports_without_power
             ):
                 # First, disconnect all robots
                 for robot in self._all_robots:
@@ -302,21 +275,11 @@ class RobotConnectionManager:
 
         return self._all_robots.index(robot)
 
-    def status(self) -> list[RobotConfigStatus]:
+    async def status(self) -> list[RobotConfigStatus]:
         """
         Return the status of all robots. Used at server startup
         """
-        robots_status = [robot.status() for robot in self.robots]
-        # If a robot returned None, we disconnect it
-        for status, robot in zip(robots_status, self.robots):
-            if status is None:
-                logger.warning(f"Robot {robot.name} is not connected. Disconnecting.")
-                if hasattr(robot, "device_name") and robot.device_name is not None:
-                    self.robot_ports_without_power.add(robot.device_name)
-
-                robot.disconnect()
-                self._all_robots.remove(robot)
-
+        robots_status = [robot.status() for robot in await self.robots]
         return [status for status in robots_status if status is not None]
 
     def add_connection(self, robot_name: str, connection_details: dict[str, Any]):

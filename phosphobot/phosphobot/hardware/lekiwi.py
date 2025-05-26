@@ -62,7 +62,7 @@ class LeKiwi(BaseMobileRobot):
             raise ValueError("Cannot set is_connected to True without a connection")
         self._is_connected = value
 
-    def connect(self) -> None:
+    async def connect(self) -> None:
         """
         Initialize communication with the robot.
         This method creates a zmq context and connects to the robot's data channel.

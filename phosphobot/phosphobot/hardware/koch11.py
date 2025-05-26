@@ -71,7 +71,7 @@ class KochHardware(BaseManipulator):
             return cls(device_name=port.device, serial_id=port.serial_number)
         return None
 
-    def connect(self):
+    async def connect(self):
         # Initialize PortHandler and PacketHandler
         self.portHandler = PortHandler(self.device_name)
         self.packetHandler = PacketHandler(protocol_version=2.0)

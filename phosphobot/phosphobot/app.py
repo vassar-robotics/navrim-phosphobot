@@ -176,7 +176,7 @@ async def status(
         status="ok",
         name=platform.uname().node,  # Name of the machine
         robots=robot_names,
-        robot_status=rcm.status(),
+        robot_status=await rcm.status(),
         cameras=cameras.status(),
         is_recording=recorder.is_recording,
         ai_running_status=ai_control_signal.status,

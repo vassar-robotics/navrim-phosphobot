@@ -299,18 +299,15 @@ class BaseManipulator(BaseRobot):
             logger.info("Only simulation: Not connecting to the robot.")
             self.is_connected = False
 
-        # Once connected, we read the calibration from the motors
-        if self.is_connected:
-            # Init calibration config
+        if not only_simulation:
             self.init_config()
         else:
-            logger.warning("No robot connected")
             config = self.get_default_base_robot_config(
                 voltage="6V", raise_if_none=True
             )
             if config is None:
                 raise FileNotFoundError(
-                    "No default config found. Please provide a valid config file."
+                    f"Default config file not found for {self.name} at 6V."
                 )
             self.config = config
 

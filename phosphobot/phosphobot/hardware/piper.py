@@ -94,7 +94,7 @@ class PiperHardware(BaseManipulator):
             logger.warning(e)
             return None
 
-    def connect(self):
+    async def connect(self):
         """
         Setup the robot.
         can_number : 0 if only one robot is connected, 1 to connec to second robot

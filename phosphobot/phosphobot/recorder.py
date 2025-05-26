@@ -529,7 +529,6 @@ class Recorder:
             step_count += 1
 
 
-@lru_cache()
 async def get_recorder(
     rcm: RobotConnectionManager = Depends(get_rcm),
 ) -> Recorder:

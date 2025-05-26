@@ -52,7 +52,7 @@ class RemotePhosphobot(BaseRobot):
         """
         self._is_connected = value
 
-    def connect(self) -> None:
+    async def connect(self) -> None:
         """
         Initialize communication with the phosphobot server by calling /status
 
