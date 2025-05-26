@@ -2092,7 +2092,7 @@ It's compatible with LeRobot and RLDS.
             )
 
         # Repair datasets
-        old_to_new = {k: v for k, v in enumerate(shuffle)}
+        old_to_new = {k: int(v) for k, v in enumerate(shuffle)}
         self.reindex_episodes(
             folder_path=new_dataset_path, old_index_to_new_index=old_to_new
         )
