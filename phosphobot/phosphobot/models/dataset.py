@@ -604,9 +604,9 @@ class Episode(BaseModel):
             episode_data["index"].append(frame_index + last_frame_index)
             # TODO: Implement multiple tasks in dataset
             episode_data["task_index"].append(task_index)
-            assert (
-                step.action is not None
-            ), "The action must be set for each step before saving"
+            assert step.action is not None, (
+                "The action must be set for each step before saving"
+            )
             episode_data["action"].append(step.action.tolist())
 
         # Validate frame dimensions and data type
@@ -1028,7 +1028,9 @@ class Dataset:
                     old_index = int(filename.split("_")[-1].split(".")[0])
                     old_index_to_new_index[old_index] = current_new_index_max
                     current_new_index_max += 1
-        current_new_index_max = max(old_index_to_new_index.values()) + 1
+            current_new_index_max = max(old_index_to_new_index.values()) + 1
+        else:
+            current_new_index_max = 0
 
         logger.debug(f"old_index_to_new_index: {old_index_to_new_index}")
 
@@ -2025,6 +2027,158 @@ It's compatible with LeRobot and RLDS.
             f"Dataset {self.dataset_name} split into {first_split_name} and {second_split_name} successfully"
         )
 
+    def shuffle_dataset(self, new_dataset_name) -> None:
+        """
+        Shuffle the episodes in the dataset.
+        Expects a dataset in v2.1 format.
+        This will pick a random shuffle of the episodes and apply it to the videos, data and meta files.
+        """
+        if self.episode_format != "lerobot_v2.1":
+            raise ValueError(
+                f"Dataset {self.dataset_name} is not in v2.1 format, cannot shuffle"
+            )
+
+        # Create a new dataset folder in the parent folder of the current dataset
+        new_dataset_path = os.path.join(
+            os.path.dirname(os.path.dirname(self.folder_full_path)),
+            new_dataset_name,
+        )
+
+        # If the dataset already exists, raise an error
+        if os.path.exists(new_dataset_path):
+            raise ValueError(
+                f"Dataset {new_dataset_name} already exists in {new_dataset_path}"
+            )
+
+        # Find the number of episodes in the dataset
+        logger.info("Shuffling the dataset episodes")
+        path_to_data = self.data_folder_full_path
+        parquet_files = [
+            f
+            for f in os.listdir(path_to_data)
+            if f.endswith(".parquet") and f.startswith("episode_")
+        ]
+        if not parquet_files:
+            raise ValueError(
+                f"No parquet files found in {path_to_data}. Is this a valid dataset?"
+            )
+        number_of_episodes = len(parquet_files)
+        shuffle = np.random.permutation(number_of_episodes)
+
+        ### Data
+        logger.debug("Shuffling data files")
+        os.makedirs(os.path.join(new_dataset_path, "data", "chunk-000"), exist_ok=True)
+
+        for parquet_file in parquet_files:
+            # Get the index of the parquet file
+            parquet_index = int(parquet_file.split("_")[-1].split(".")[0])
+            # Rename the parquet file
+            new_parquet_file = f"episode_{shuffle[parquet_index]:06d}.parquet"
+            # Move the parquet file to the new dataset
+            shutil.copy(
+                os.path.join(path_to_data, parquet_file),
+                os.path.join(new_dataset_path, "data", "chunk-000", new_parquet_file),
+            )
+
+        # Repair datasets
+        old_to_new = {k: v for k, v in enumerate(shuffle)}
+        self.reindex_episodes(
+            folder_path=new_dataset_path, old_index_to_new_index=old_to_new
+        )
+
+        ### Videos
+
+        logger.debug("Shuffling video files")
+        path_to_videos = os.path.join(new_dataset_path, "videos", "chunk-000")
+        os.makedirs(path_to_videos, exist_ok=True)
+
+        for video_folder in os.listdir(self.videos_folder_full_path):
+            if "image" in video_folder:
+                os.makedirs(os.path.join(path_to_videos, video_folder), exist_ok=True)
+                # Move the video folder to the new dataset
+                video_folder_full_path = os.path.join(
+                    self.videos_folder_full_path, video_folder
+                )
+                video_files = [
+                    f for f in os.listdir(video_folder_full_path) if f.endswith(".mp4")
+                ]
+                # Sort the videos by name
+                video_files.sort()
+
+                # Move the videos from the second dataset to the new dataset and increment the index
+                for video_file in video_files:
+                    # Get the index of the video
+                    video_index = int(video_file.split("_")[-1].split(".")[0])
+                    # Rename the video file
+                    new_video_file = f"episode_{shuffle[video_index]:06d}.mp4"
+                    # Move the video file to the new dataset
+                    shutil.copy(
+                        os.path.join(video_folder_full_path, video_file),
+                        os.path.join(path_to_videos, video_folder, new_video_file),
+                    )
+
+        ### Meta files
+        logger.debug("Creating meta files")
+        os.makedirs(os.path.join(new_dataset_path, "meta"), exist_ok=True)
+
+        #### TASKS
+        logger.debug("Copying tasks.json file")
+        tasks_model = TasksModel.from_jsonl(
+            meta_folder_path=self.meta_folder_full_path,
+        )
+        # No need to shuffle, just copy
+        tasks_model.save(
+            meta_folder_path=os.path.join(new_dataset_path, "meta"),
+        )
+
+        #### INFO
+        logger.debug("Copying info.json file")
+        info_model = InfoModel.from_json(
+            meta_folder_path=self.meta_folder_full_path,
+            format="lerobot_v2.1",
+        )
+        # No need to shuffle, just copy
+        info_model.save(
+            meta_folder_path=os.path.join(new_dataset_path, "meta"),
+        )
+
+        #### EPISODES
+        logger.debug("Shuffling episodes.jsonl file")
+        episodes_model = EpisodesModel.from_jsonl(
+            meta_folder_path=self.meta_folder_full_path,
+            format="lerobot_v2.1",
+        )
+        episodes_model.shuffle(
+            permutation=shuffle,
+        )
+        episodes_model.save(
+            meta_folder_path=os.path.join(new_dataset_path, "meta"),
+            save_mode="overwrite",
+        )
+
+        #### EPISODES STATS
+        logger.debug("Shuffling episodes_stats.jsonl file")
+        episodes_stats_model = EpisodesStatsModel.from_jsonl(
+            meta_folder_path=self.meta_folder_full_path,
+        )
+        episodes_stats_model.shuffle(
+            permutation=shuffle,
+        )
+        episodes_stats_model.save(
+            meta_folder_path=os.path.join(new_dataset_path, "meta"),
+        )
+
+        # Create README file
+        logger.debug("Creating README file")
+        readme_path = os.path.join(new_dataset_path, "README.md")
+        if not os.path.exists(readme_path):
+            with open(
+                readme_path,
+                "w",
+                encoding=DEFAULT_FILE_ENCODING,
+            ) as readme_file:
+                readme_file.write(self.generate_read_me_string(new_dataset_name))
+
 
 class Stats(BaseModel):
     """
@@ -2866,6 +3020,19 @@ class EpisodesStatsModel(BaseModel):
             episode_stats.episode_index -= len(first_part.episodes_stats)
 
         return first_part, second_part
+
+    def shuffle(self, permutation: List[int] | np.ndarray) -> None:
+        """
+        Shuffles the episodes stats model according to the given permutation.
+        The permutation is a list of indices that specifies the new order of the episodes.
+        """
+        if len(permutation) != len(self.episodes_stats):
+            raise ValueError("Permutation length must match the number of episodes.")
+
+        self.episodes_stats = [self.episodes_stats[i] for i in permutation]
+        # Update episode_index
+        for new_index, episode_stats in enumerate(self.episodes_stats):
+            episode_stats.episode_index = new_index
 
 
 class FeatureDetails(BaseModel):
@@ -3832,3 +3999,16 @@ class EpisodesModel(BaseModel):
         first_part_model = EpisodesModel(episodes=first_part)
         second_part_model = EpisodesModel(episodes=second_part)
         return first_part_model, second_part_model
+
+    def shuffle(self, permutation: List[int] | np.ndarray) -> None:
+        """
+        Shuffle the episodes in the model.
+        """
+        # Edit the episode indexes based on the permutation
+        for i, episode in enumerate(self.episodes):
+            episode.episode_index = permutation[i]
+        self.episodes.sort(key=lambda x: x.episode_index)
+        # Recreate the _episodes_features dict
+        self._episodes_features = {
+            episode.episode_index: episode for episode in self.episodes
+        }

@@ -444,6 +444,14 @@ class DatasetSplitRequest(BaseModel):
     )
 
 
+class DatasetShuffleRequest(BaseModel):
+    dataset_path: str = Field(
+        ...,
+        description="Path to the dataset to shuffle",
+        examples=["/lerobot_v2.1/example_dataset"],
+    )
+
+
 class SpawnStatusResponse(StatusResponse):
     """
     Response to spawn a server.
