@@ -256,9 +256,15 @@ async def move_to_absolute_position(
         await try_moving_to_target()
     else:
         # Otherwise, run the move_robot_absolute method directly
+        if query.rx is not None:
+            query.rx = np.deg2rad(query.rx)
+        if query.ry is not None:
+            query.ry = np.deg2rad(query.ry)
+        if query.rz is not None:
+            query.rz = np.deg2rad(query.rz)
         await robot.move_robot_absolute(
             target_position=np.array([query.x, query.y, query.z]),
-            target_orientation_rad=np.deg2rad(np.array([query.rx, query.ry, query.rz])),
+            target_orientation_rad=np.array([query.rx, query.ry, query.rz]),
         )
 
     return StatusResponse()

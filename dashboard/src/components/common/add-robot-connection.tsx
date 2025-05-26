@@ -237,7 +237,7 @@ export function RobotConfigModal({
             <div className="border border-destructive bg-destructive/10 text-destructive rounded-md p-2">
               <TrafficCone className="inline mr-2 size-6" />
               This feature is experimental and may not work as expected. Please
-              report any issues you encounter{" "}
+              report any issue you encounter{" "}
               <a
                 href="https://discord.gg/cbkggY6NSK"
                 target="_blank"

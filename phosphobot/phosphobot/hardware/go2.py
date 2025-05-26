@@ -156,36 +156,56 @@ class UnitreeGo2(BaseMobileRobot):
         """
         try:
             # Create connection and connect
+            try:
+                self.conn = Go2WebRTCConnection(
+                    WebRTCConnectionMethod.LocalSTA, ip=self.ip
+                )
+                if self.conn is None:
+                    raise Exception("Failed to create WebRTC connection: conn is None")
+                await asyncio.wait_for(self.conn.connect(), timeout=10.0)
+            except Exception as e:
+                logger.warning(f"Failed to connect using IP {self.ip}: {e}")
+                raise Exception(f"Failed to connect to UnitreeGo2 at {self.ip}: {e}")
+
+            # Switch to AI mode
+            await self.conn.datachannel.pub_sub.publish_request_new(
+                RTC_TOPIC["MOTION_SWITCHER"],
+                {"api_id": 1002, "parameter": {"name": "ai"}},
+            )
+            await asyncio.sleep(5)
+
+            # Shutdown the connection
+            self.disconnect()
+
+            # Connect again
             self.conn = Go2WebRTCConnection(WebRTCConnectionMethod.LocalSTA, ip=self.ip)
-            if self.conn is None:
-                raise Exception("Failed to create WebRTC connection")
+            await asyncio.wait_for(self.conn.connect(), timeout=10.0)
+            await self._ensure_normal_mode()
 
-            await self.conn.connect()
+            # def lowstate_callback(message):
+            #     self.lowstate = message["data"]
 
-            def lowstate_callback(message):
-                self.lowstate = message["data"]
+            # # Connect to the lowstate topic to receive battery and sensor data
+            # self.conn.datachannel.pub_sub.subscribe(
+            #     RTC_TOPIC["LOW_STATE"], lowstate_callback
+            # )
 
-            # Connect to the lowstate topic to receive battery and sensor data
-            self.conn.datachannel.pub_sub.subscribe(
-                RTC_TOPIC["LOW_STATE"], lowstate_callback
-            )
+            # def sportmodestatus_callback(message):
+            #     self.sportmodstate = message["data"]
 
-            def sportmodestatus_callback(message):
-                self.sportmodstate = message["data"]
+            # self.conn.datachannel.pub_sub.subscribe(
+            #     RTC_TOPIC["LF_SPORT_MOD_STATE"], sportmodestatus_callback
+            # )
 
-            self.conn.datachannel.pub_sub.subscribe(
-                RTC_TOPIC["LF_SPORT_MOD_STATE"], sportmodestatus_callback
-            )
+            # await self.conn.datachannel.pub_sub.publish_request_new(
+            #     RTC_TOPIC["MOTION_SWITCHER"],
+            #     {"api_id": 1002, "parameter": {"name": "ai"}},
+            # )
+
             self._is_connected = True
 
         except Exception as e:
             # Clean up connection on failure
-            if self.conn:
-                try:
-                    await asyncio.wait_for(self.conn.disconnect(), timeout=5.0)
-                except Exception as disconnect_error:
-                    logger.warning(f"Error during disconnect: {disconnect_error}")
-                self.conn = None
             raise e
 
     def disconnect(self) -> None:
@@ -280,6 +300,8 @@ class UnitreeGo2(BaseMobileRobot):
             )
             await asyncio.sleep(5)  # Wait while it stands up
 
+        await asyncio.sleep(1)  # Allow time for mode switch to take effect
+
     async def _move_robot(
         self,
         target_position: np.ndarray,
@@ -290,8 +312,6 @@ class UnitreeGo2(BaseMobileRobot):
                 f"Robot is not connected: conn={self.conn} is_connected={self.is_connected}"
             )
             return
-
-        await self._ensure_normal_mode()
 
         try:
             self.movement_queue.append(
@@ -319,7 +339,10 @@ class UnitreeGo2(BaseMobileRobot):
                 },
             )
 
-            if target_orientation_rad is not None:
+            if (
+                all([t is not None for t in target_orientation_rad])
+                and len(target_orientation_rad) == 3
+            ):
                 self.current_orientation = target_orientation_rad
                 target_orientation_deg = np.degrees(target_orientation_rad)
 
