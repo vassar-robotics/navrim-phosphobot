@@ -48,6 +48,7 @@ class UnitreeGo2(BaseMobileRobot):
         # Status variables about the robot
         self.lowstate = None
         self.sportmodstate = None
+        self.last_movement = 0.0
 
         # Track movement instructions
         self.movement_queue: Deque[MovementCommand] = deque(maxlen=max_history_len)
@@ -304,9 +305,20 @@ class UnitreeGo2(BaseMobileRobot):
 
     async def _move_robot(
         self,
-        target_position: np.ndarray,
-        target_orientation_rad: np.ndarray | None,
+        x: float,
+        y: float,
+        rz: float,
     ):
+        current_time = time.perf_counter()
+        if self.last_movement != 0.0 and (
+            current_time - self.last_movement < 0.5
+        ):  # Rate limit to 3 seconds
+            logger.warning(
+                f"Skipping move command due to rate limiting: last_movement={self.last_movement}, current_time={current_time}"
+            )
+            return
+        self.last_movement = current_time
+
         if not self.is_connected or self.conn is None:
             logger.warning(
                 f"Robot is not connected: conn={self.conn} is_connected={self.is_connected}"
@@ -314,22 +326,7 @@ class UnitreeGo2(BaseMobileRobot):
             return
 
         try:
-            self.movement_queue.append(
-                MovementCommand(
-                    position=target_position.copy(),
-                    orientation=target_orientation_rad.copy()
-                    if target_orientation_rad is not None
-                    else None,
-                )
-            )
-
-            self.current_position = target_position
-
-            payload = {
-                "x": float(target_position[0]),
-                "y": float(target_position[1]),
-                "z": float(target_position[2]),
-            }
+            payload = {"x": x, "y": y, "z": rz}
             logger.debug(f"Sending payload for position: {payload}")
             await self.conn.datachannel.pub_sub.publish_request_new(
                 RTC_TOPIC["SPORT_MOD"],
@@ -337,31 +334,6 @@ class UnitreeGo2(BaseMobileRobot):
                     "api_id": SPORT_CMD["Move"],
                     "parameter": payload,
                 },
-            )
-
-            if (
-                all([t is not None for t in target_orientation_rad])
-                and len(target_orientation_rad) == 3
-            ):
-                self.current_orientation = target_orientation_rad
-                target_orientation_deg = np.degrees(target_orientation_rad)
-
-                payload = {
-                    "x": float(target_orientation_deg[0]),
-                    "y": float(target_orientation_deg[1]),
-                    "z": float(target_orientation_deg[2]),
-                }
-                logger.debug(f"Sending payload for orientation: {payload}")
-                await self.conn.datachannel.pub_sub.publish_request_new(
-                    RTC_TOPIC["SPORT_MOD"],
-                    {
-                        "api_id": SPORT_CMD["Euler"],
-                        "parameter": payload,
-                    },
-                )
-
-            logger.debug(
-                f"Moved to position {target_position} with orientation {target_orientation_rad}"
             )
         except Exception as e:
             logger.error(f"Error during move: {e}")
@@ -381,10 +353,26 @@ class UnitreeGo2(BaseMobileRobot):
             target_orientation_rad: Target orientation in radians [roll, pitch, yaw]
             **kwargs: Additional arguments
         """
+        self.current_position = target_position.copy()
+        self.current_orientation = (
+            target_orientation_rad.copy()
+            if target_orientation_rad is not None
+            else np.zeros(3)
+        )
+        self.movement_queue.append(
+            MovementCommand(
+                position=target_position.copy(),
+                orientation=target_orientation_rad.copy()
+                if target_orientation_rad is not None
+                else None,
+            )
+        )
         await self._move_robot(
-            target_position=target_position,
-            target_orientation_rad=target_orientation_rad,
-            **kwargs,
+            x=target_position[0] * 100,
+            y=target_position[1] * 100,
+            rz=np.rad2deg(target_orientation_rad[2])
+            if target_orientation_rad is not None
+            else 0.0,
         )
 
     async def move_robot_relative(
@@ -401,10 +389,25 @@ class UnitreeGo2(BaseMobileRobot):
             target_orientation_rad: Target orientation in radians [roll, pitch, yaw]
             **kwargs: Additional arguments
         """
+        self.current_position += target_position.copy()
+        if target_orientation_rad is not None:
+            self.current_orientation += target_orientation_rad.copy()
+        else:
+            self.current_orientation = np.zeros(3)
+        self.movement_queue.append(
+            MovementCommand(
+                position=target_position.copy(),
+                orientation=target_orientation_rad.copy()
+                if target_orientation_rad is not None
+                else None,
+            )
+        )
         await self._move_robot(
-            target_position=target_position,
-            target_orientation_rad=target_orientation_rad,
-            **kwargs,
+            x=target_position[0] * 100,
+            y=target_position[1] * 100,
+            rz=np.rad2deg(target_orientation_rad[2])
+            if target_orientation_rad is not None
+            else 0.0,
         )
 
     @classmethod
@@ -444,24 +447,8 @@ class UnitreeGo2(BaseMobileRobot):
 
         This puts the robot in a stand position ready for operation.
         """
-        if not self.is_connected or self.conn is None:
-            logger.warning("Robot is not connected")
-            return
-
-        # Stand up the robot
-        await self.conn.datachannel.pub_sub.publish_request_new(
-            RTC_TOPIC["SPORT_MOD"],
-            {"api_id": SPORT_CMD["StandUp"], "parameter": {"data": True}},
-        )
-
-        # Reset position tracking
-        self.current_position = np.zeros(3)
-        self.current_orientation = np.zeros(3)
-
-        # Clear movement history
-        self.movement_queue.clear()
-
-        logger.info("Robot moved to initial position")
+        # Do nothing
+        pass
 
     def move_to_initial_position_sync(self) -> None:
         """

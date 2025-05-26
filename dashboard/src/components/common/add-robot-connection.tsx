@@ -24,7 +24,7 @@ import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
 import { Loader2, TrafficCone } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 
 // Data model for robot types
 const ROBOT_TYPES = [
@@ -216,6 +216,9 @@ export function RobotConfigModal({
         // Reset form
         setSelectedRobotType("");
         setFormValues({});
+
+        // mutate /status endpoint
+        mutate("/status");
       }
     } catch (error) {
       console.error("Error adding robot:", error);
