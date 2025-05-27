@@ -270,6 +270,7 @@ def is_can_active(interface: str = "can0") -> bool:
                 capture_output=True,
                 text=True,
                 check=True,
+                timeout=3,
             )
             return "state UP" in result.stdout
 
@@ -280,6 +281,7 @@ def is_can_active(interface: str = "can0") -> bool:
                 capture_output=True,
                 text=True,
                 check=True,
+                timeout=3,
             )
             return "status: active" in result.stdout.lower()
 
@@ -292,6 +294,7 @@ def is_can_active(interface: str = "can0") -> bool:
                 check=True,
                 encoding="utf-8",
                 errors="replace",
+                timeout=3,
             )
             if result.stdout is None:
                 return False
@@ -309,6 +312,9 @@ def is_can_active(interface: str = "can0") -> bool:
         )
     except FileNotFoundError as e:
         raise OSError(f"Required system command not found: {str(e)}")
+    except TimeoutError as e:
+        logger.warning(f"Timeout while checking CAN interface status: {str(e)}")
+        return False
 
 
 def is_can_plugged(interface: str = "can0") -> bool:
@@ -361,6 +367,8 @@ def is_can_plugged(interface: str = "can0") -> bool:
         logger.error(f"OSError: Required system command not found: {str(e)}")
     except OSError as e:
         logger.warning(f"OSError: {str(e)}")
+    except TimeoutError as e:
+        logger.warning(f"Timeout while checking CAN interface status: {str(e)}")
     return False
 
 
