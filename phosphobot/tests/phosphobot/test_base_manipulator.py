@@ -57,13 +57,24 @@ def so100():
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_inverse_kinematics(robot: BaseManipulator):
+@pytest.mark.asyncio
+async def test_inverse_kinematics(robot: BaseManipulator):
     """
     Assert the function inverse_kinematics returns the correct angles
     """
 
+    # Move to the initial position
+    await robot.move_to_initial_position()
+
     position = robot.initial_position
     orientation = robot.initial_orientation_rad
+
+    assert (
+        position is not None
+    ), "Initial position should not be None after initialization"
+    assert (
+        orientation is not None
+    ), "Initial orientation should not be None after initialization"
 
     q_robot_reference_rad = robot.read_joints_position()
     logger.info(f"q_robot_reference_rad: {q_robot_reference_rad}")
