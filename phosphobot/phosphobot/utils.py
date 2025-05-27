@@ -248,75 +248,6 @@ def zip_folder(folder_path, zip_path):
                 zipf.write(file_path, arcname)
 
 
-def is_can_active(interface: str = "can0") -> bool:
-    """
-    Checks if a specified CAN interface exists and is in UP state.
-
-    Args:
-        interface: CAN interface name (e.g., 'can0', 'can1')
-
-    Returns:
-        bool: True if interface exists and is up, False otherwise
-
-    Raises:
-        OSError: If the platform is not supported
-        subprocess.SubprocessError: If the system command fails unexpectedly
-    """
-    try:
-        if sys.platform == "linux":
-            # Linux implementation using ip command
-            result = subprocess.run(
-                ["ip", "link", "show", interface],
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=3,
-            )
-            return "state UP" in result.stdout
-
-        elif sys.platform == "darwin":  # macOS
-            # macOS implementation using ifconfig
-            result = subprocess.run(
-                ["ifconfig", interface],
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=3,
-            )
-            return "status: active" in result.stdout.lower()
-
-        elif sys.platform == "win32":  # Windows
-            # Windows implementation using netsh
-            result = subprocess.run(
-                ["netsh", "interface", "show", "interface", interface],
-                capture_output=True,
-                text=True,
-                check=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=3,
-            )
-            if result.stdout is None:
-                return False
-            return "connected" in result.stdout.lower()
-
-        else:
-            raise OSError(f"Unsupported platform: {sys.platform}")
-
-    except subprocess.CalledProcessError as e:
-        # Interface doesn't exist or command failed
-        if e.returncode == 1:
-            return False
-        raise subprocess.SubprocessError(
-            f"Failed to check CAN interface status: {str(e)}"
-        )
-    except FileNotFoundError as e:
-        raise OSError(f"Required system command not found: {str(e)}")
-    except TimeoutError as e:
-        logger.warning(f"Timeout while checking CAN interface status: {str(e)}")
-        return False
-
-
 def is_can_plugged(interface: str = "can0") -> bool:
     """
     Checks if a specified CAN interface exists.
@@ -364,10 +295,10 @@ def is_can_plugged(interface: str = "can0") -> bool:
             return False
         logger.error(f"Failed to check CAN interface status: {str(e)}")
     except FileNotFoundError as e:
-        logger.error(f"OSError: Required system command not found: {str(e)}")
+        logger.warning(f"OSError: Required system command not found: {str(e)}")
     except OSError as e:
         logger.warning(f"OSError: {str(e)}")
-    except TimeoutError as e:
+    except subprocess.TimeoutExpired as e:
         logger.warning(f"Timeout while checking CAN interface status: {str(e)}")
     return False
 
