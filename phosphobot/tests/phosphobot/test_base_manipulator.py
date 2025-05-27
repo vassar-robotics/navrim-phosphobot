@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 from loguru import logger
 from phosphobot.utils import step_simulation
-from utils import compare_angles_radian, move_robot_testing
+from utils import move_robot_testing
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -65,6 +65,7 @@ async def test_inverse_kinematics(robot: BaseManipulator):
 
     # Move to the initial position
     await robot.move_to_initial_position()
+    step_simulation()
 
     position = robot.initial_position
     orientation = robot.initial_orientation_rad
