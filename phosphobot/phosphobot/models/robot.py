@@ -24,8 +24,6 @@ class RobotConfigStatus(BaseModel):
 
 class BaseRobot(ABC):
     name: str
-    initial_orientation_rad: np.ndarray = np.zeros(3)
-    initial_position: np.ndarray = np.zeros(3)
     is_connected: bool = False
     is_moving: bool = False
 
@@ -133,6 +131,8 @@ class BaseRobot(ABC):
         Move the robot to its initial position.
         The initial position is a safe position for the robot, where it is moved before starting the calibration.
         This method should be implemented by the robot class.
+
+        This should update self.initial_position  and self.initial_orientation_rad
         """
         raise NotImplementedError
 

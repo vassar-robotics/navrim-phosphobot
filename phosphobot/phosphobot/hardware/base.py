@@ -92,6 +92,11 @@ class BaseManipulator(BaseRobot):
     calibration_current_step: int = 0
     calibration_max_steps: int = 3
 
+    # (x, y, z) position of the robot in the simulation in meters
+    initial_orientation_rad: np.ndarray | None = None
+    # (rx, ry, rz) orientation of the robot in the simulation
+    initial_position: np.ndarray | None = None
+
     @abstractmethod
     def enable_torque(self) -> None:
         """
@@ -281,11 +286,6 @@ class BaseManipulator(BaseRobot):
         self.lower_joint_limits = [info[8] for info in joint_infos]
         self.upper_joint_limits = [info[9] for info in joint_infos]
 
-        (
-            self.initial_position,
-            self.initial_orientation_rad,
-        ) = self.forward_kinematics()
-
         self.gripper_initial_angle = p.getJointState(
             bodyUniqueId=self.p_robot_id,
             jointIndex=self.END_EFFECTOR_LINK_INDEX,
@@ -389,7 +389,13 @@ class BaseManipulator(BaseRobot):
         Move the robot to its initial position.
         """
         zero_position = np.zeros(len(self.SERVO_IDS))
-        self.set_motors_positions(zero_position)
+        self.set_motors_positions(zero_position, enable_gripper=True)
+        # Wait for the robot to move to the initial position
+        await asyncio.sleep(0.5)
+        (
+            self.initial_position,
+            self.initial_orientation_rad,
+        ) = self.forward_kinematics()
 
     async def move_to_sleep(self):
         """

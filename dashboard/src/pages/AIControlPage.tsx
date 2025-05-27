@@ -58,10 +58,8 @@ export default function AIControlPage() {
   );
   const showCamera = useGlobalStore((state) => state.showCamera);
   const setShowCamera = useGlobalStore((state) => state.setShowCamera);
-  const [camerasKeysMapping, setCameraMapping] = useState<Record<
-    string,
-    number
-  > | null>(null);
+  const cameraKeysMapping = useGlobalStore((state) => state.cameraKeysMapping);
+
   const modelsThatRequirePrompt = ["gr00t"];
   const selectedModelType = useGlobalStore((state) => state.selectedModelType);
   const setSelectedModelType = useGlobalStore(
@@ -225,7 +223,7 @@ export default function AIControlPage() {
         robot_serials_to_ignore,
         model_type: selectedModelType,
         speed,
-        cameras_keys_mapping: camerasKeysMapping,
+        cameras_keys_mapping: cameraKeysMapping,
       });
 
       if (!response) {
@@ -458,10 +456,7 @@ export default function AIControlPage() {
                     </Tooltip>
                   </TooltipProvider>
                   <AccordionContent>
-                    <CameraKeyMapper
-                      modelKeys={modelVideoKeys?.video_keys}
-                      onMappingChange={setCameraMapping}
-                    />
+                    <CameraKeyMapper modelKeys={modelVideoKeys?.video_keys} />
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
@@ -518,11 +513,12 @@ export default function AIControlPage() {
                   <Button
                     size="lg"
                     variant="default"
-                    className={`h-16 w-16 rounded-full ${aiStatus?.status === "stopped" ||
+                    className={`h-16 w-16 rounded-full ${
+                      aiStatus?.status === "stopped" ||
                       aiStatus?.status === "paused"
-                      ? "bg-green-600 hover:bg-green-700"
-                      : "bg-gray-400 cursor-not-allowed"
-                      }`}
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-gray-400 cursor-not-allowed"
+                    }`}
                     onClick={
                       aiStatus?.status === "stopped"
                         ? startControlByAI
@@ -558,10 +554,11 @@ export default function AIControlPage() {
                   <Button
                     size="lg"
                     variant="default"
-                    className={`h-16 w-16 rounded-full ${aiStatus?.status === "running"
-                      ? "bg-amber-500 hover:bg-amber-600"
-                      : "bg-gray-400 cursor-not-allowed"
-                      }`}
+                    className={`h-16 w-16 rounded-full ${
+                      aiStatus?.status === "running"
+                        ? "bg-amber-500 hover:bg-amber-600"
+                        : "bg-gray-400 cursor-not-allowed"
+                    }`}
                     onClick={pauseControl}
                     disabled={aiStatus?.status !== "running"}
                     title="Pause AI control"
@@ -573,10 +570,11 @@ export default function AIControlPage() {
                   <Button
                     size="lg"
                     variant="default"
-                    className={`h-16 w-16 rounded-full ${aiStatus?.status !== "stopped"
-                      ? "bg-red-600 hover:bg-red-700"
-                      : "bg-gray-400 cursor-not-allowed"
-                      }`}
+                    className={`h-16 w-16 rounded-full ${
+                      aiStatus?.status !== "stopped"
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "bg-gray-400 cursor-not-allowed"
+                    }`}
                     onClick={stopControl}
                     disabled={aiStatus?.status === "stopped"}
                     title="Stop AI control"

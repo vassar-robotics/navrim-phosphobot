@@ -182,12 +182,24 @@ async def move_to_absolute_position(
             open_command=query.open,
         )
 
+    initial_position = getattr(robot, "initial_position", None)
+    initial_orientation_rad = getattr(robot, "initial_orientation_rad", None)
+    if initial_position is None or initial_orientation_rad is None:
+        await robot.move_to_initial_position()
+        initial_position = getattr(robot, "initial_position", None)
+        initial_orientation_rad = getattr(robot, "initial_orientation_rad", None)
+        if initial_position is None or initial_orientation_rad is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Robot {robot.name} .move_to_initial_position() did not set initial position or orientation: {initial_position=}, {initial_orientation_rad=}",
+            )
+
     if hasattr(robot, "forward_kinematics"):
         # If the robot has a forward_kinematics method, use it to move more precisely to the target
         current_position, current_orientation = robot.forward_kinematics()
 
         target_controller_position = np.array([query.x, query.y, query.z])
-        target_position = robot.initial_position + target_controller_position
+        target_position = initial_position + target_controller_position
         position_residual = np.linalg.norm(current_position - target_position)
 
         # angle
@@ -209,7 +221,7 @@ async def move_to_absolute_position(
             )
 
             target_orientation_rad = (
-                robot.initial_orientation_rad + target_controller_orientation_rad
+                initial_orientation_rad + target_controller_orientation_rad
             )
             use_angles = True
         else:
@@ -328,8 +340,20 @@ async def move_relative(
     if not hasattr(robot, "forward_kinematics"):
         raise HTTPException(
             status_code=400,
-            detail="Robot doesn't have move_robot_relative method or forward_kinematics method",
+            detail="Robot doesn't support move_robot_relative method or forward_kinematics method",
         )
+
+    initial_position = getattr(robot, "initial_position", None)
+    initial_orientation_rad = getattr(robot, "initial_orientation_rad", None)
+    if initial_position is None or initial_orientation_rad is None:
+        await robot.move_to_initial_position()
+        initial_position = getattr(robot, "initial_position", None)
+        initial_orientation_rad = getattr(robot, "initial_orientation_rad", None)
+        if initial_position is None or initial_orientation_rad is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Robot {robot.name} .move_to_initial_position() did not set initial position or orientation: {initial_position=}, {initial_orientation_rad=}",
+            )
 
     logger.info(f"Received relative data: {data}")
     delta_position = np.array([data.x, data.y, data.z])
@@ -343,11 +367,11 @@ async def move_relative(
     # Round to 3 decimals
     current_position = np.round(current_position, 3)
     current_orientation = np.round(current_orientation, 3)
-    target_position = current_position + delta_position - robot.initial_position
+    target_position = current_position + delta_position - initial_position
     target_orientation = (
         np.rad2deg(current_orientation)
         + delta_orientation_euler_degrees
-        - np.rad2deg(robot.initial_orientation_rad)
+        - np.rad2deg(initial_orientation_rad)
     )
 
     # Round to 3 decimals
