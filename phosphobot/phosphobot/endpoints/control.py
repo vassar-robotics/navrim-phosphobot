@@ -475,10 +475,18 @@ async def end_effector_read(
             detail="Robot is not a manipulator and does not have an end effector",
         )
 
+    initial_position = getattr(robot, "initial_position", None)
+    initial_orientation_rad = getattr(robot, "initial_orientation_rad", None)
+    if initial_position is None or initial_orientation_rad is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Call /move/init before using this endpoint for robot {robot.name}. ",
+        )
+
     position, orientation, open_status = robot.get_end_effector_state()
     # Remove the initial position and orientation (used to zero the robot)
-    position = position - robot.initial_position
-    orientation = orientation - robot.initial_orientation_rad
+    position = position - initial_position
+    orientation = orientation - initial_orientation_rad
 
     x, y, z = position
     rx, ry, rz = orientation

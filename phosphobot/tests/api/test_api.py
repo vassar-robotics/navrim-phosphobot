@@ -63,6 +63,11 @@ def get_initial_end_effector_state():
     ), "[TEST_FAILURE] Server status is not OK"
     logger.info(f"[TEST] Status response: {status_response.json()}")
 
+    # Move to intial position
+    requests.post(f"{BASE_URL}/move/init")
+    # Wait for the robot to reach the initial position
+    time.sleep(2)
+
     initial_position_response = requests.post(f"{BASE_URL}/end-effector/read")
     assert (
         initial_position_response.status_code == 200
