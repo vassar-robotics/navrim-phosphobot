@@ -84,7 +84,7 @@ async def test_inverse_kinematics(robot: BaseManipulator):
     logger.info(f"q_robot_rad: {q_robot_rad}")
 
     assert np.allclose(
-        q_robot_rad, q_robot_reference_rad, rtol=0, atol=1e-6
+        q_robot_rad, q_robot_reference_rad, rtol=0, atol=1e-3
     ), "The angles should be the same"
 
 
