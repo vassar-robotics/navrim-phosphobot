@@ -367,6 +367,12 @@ async def move_relative(
     # Round to 3 decimals
     current_position = np.round(current_position, 3)
     current_orientation = np.round(current_orientation, 3)
+    # Replace the None values in delta_position and delta_orientation_euler_degrees with 0
+    delta_position = np.array([0 if v is None else v for v in delta_position])
+    delta_orientation_euler_degrees = np.array(
+        [0 if v is None else v for v in delta_orientation_euler_degrees]
+    )
+
     target_position = current_position + delta_position - initial_position
     target_orientation = (
         np.rad2deg(current_orientation)
