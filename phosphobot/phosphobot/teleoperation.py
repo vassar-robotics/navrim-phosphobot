@@ -127,10 +127,12 @@ class TeleopManager:
                 target_open,
             ) = control_data.to_robot(robot_name=robot.name)
 
-        target_orientation_rad = (
-            np.deg2rad(target_orient_deg) + robot.initial_orientation_rad
-        )
-        target_position = robot.initial_position + target_pos
+        # TODO: Raise an issue if can't find it?
+        initial_position = getattr(robot, "initial_position", np.zeros(3))
+        initial_orientation_rad = getattr(robot, "initial_orientation_rad", np.zeros(3))
+
+        target_position = target_pos + initial_position
+        target_orientation_rad = np.deg2rad(target_orient_deg) + initial_orientation_rad
 
         # if robot.is_moving, wait for it to stop
         start_wait_time = time.perf_counter()

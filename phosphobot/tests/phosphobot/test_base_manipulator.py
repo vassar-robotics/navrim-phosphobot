@@ -57,24 +57,6 @@ def so100():
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_forward_kinematics(robot: BaseManipulator):
-    """
-    Assert the function forward_kinematics returns the correct position
-    """
-
-    # This test is kind of useless since the initial position is initialized with forward kinematics
-    current_effector_position, current_effector_orientation = robot.forward_kinematics()
-
-    assert np.allclose(
-        current_effector_position, robot.initial_position
-    ), "The position should be the same"
-
-    assert np.allclose(
-        current_effector_orientation, robot.initial_orientation_rad
-    ), "The orientation should be the same"
-
-
-@pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
 def test_inverse_kinematics(robot: BaseManipulator):
     """
     Assert the function inverse_kinematics returns the correct angles
