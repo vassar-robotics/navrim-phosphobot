@@ -224,7 +224,6 @@ class TeleopManager:
 
             state.last_timestamp = control_data.timestamp
 
-        robot: BaseRobot | None = None
         # If robot_id is set, get the specific robot and move it accordingly
         if self.robot_id is not None:
             robot = await self.rcm.get_robot(self.robot_id)
