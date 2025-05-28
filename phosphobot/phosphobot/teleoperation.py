@@ -1,4 +1,5 @@
 import asyncio
+from copy import copy
 import json
 from dataclasses import dataclass
 from datetime import datetime
@@ -11,7 +12,7 @@ from fastapi import WebSocket
 from loguru import logger
 from pydantic import ValidationError
 
-from phosphobot.hardware import BaseRobot, BaseManipulator
+from phosphobot.hardware import BaseManipulator
 from phosphobot.hardware.base import BaseMobileRobot
 from phosphobot.models import AppControlData, RobotStatus, UDPServerInformationResponse
 from phosphobot.robot import RobotConnectionManager
@@ -48,8 +49,15 @@ class TeleopManager:
         self._window_start: datetime = datetime.now()
         self._instr_in_window: int = 0
 
+        self._robots: list[BaseManipulator | BaseMobileRobot] = []
+        self.is_initializing: bool = False
+
     def allow_instruction(self) -> bool:
         """Simple 1-second sliding window rate limiter."""
+        if self.is_initializing:
+            logger.debug("Initialization in progress, skipping instruction allowance")
+            return False
+
         now = datetime.now()
         if (now - self._window_start).total_seconds() >= 1.0:
             self._window_start = now
@@ -58,6 +66,7 @@ class TeleopManager:
         if self._instr_in_window < self.MAX_INSTRUCTIONS_PER_SEC:
             self._instr_in_window += 1
             return True
+
         return False
 
     async def get_manipulator_robot(self, source: str) -> Optional[BaseManipulator]:
@@ -71,7 +80,7 @@ class TeleopManager:
         right_robot = None
         left_robot = None
 
-        for robot in await self.rcm.robots:
+        for robot in self._robots:
             if isinstance(robot, BaseManipulator):
                 if right_robot is None:
                     right_robot = robot
@@ -80,9 +89,9 @@ class TeleopManager:
                     break
 
         if source == "right":
-            return left_robot
-        elif source == "left":
             return right_robot
+        elif source == "left":
+            return left_robot
         else:
             logger.error(f"Unknown source '{source}' for manipulator robot")
             return None
@@ -94,7 +103,7 @@ class TeleopManager:
         This means that only the "right" joystick can control the mobile robot.
         """
         if source == "right":
-            for robot in await self.rcm.robots:
+            for robot in self._robots:
                 if isinstance(robot, BaseMobileRobot):
                     return robot
 
@@ -104,6 +113,11 @@ class TeleopManager:
         """
         Move the robot to the initial position.
         """
+        if self.is_initializing:
+            logger.debug("Initialization already in progress, skipping move_init")
+            return
+
+        self.is_initializing = True
         for i, robot in enumerate(await self.rcm.robots):
             if robot_id is not None and i != robot_id:
                 continue
@@ -118,7 +132,7 @@ class TeleopManager:
         if any(robot.name == "agilex-piper" for robot in (await self.rcm.robots)):
             await asyncio.sleep(2.5)
         else:
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.3)
 
         for i, robot in enumerate(await self.rcm.robots):
             if robot_id is not None and i != robot_id:
@@ -127,6 +141,9 @@ class TeleopManager:
                 initial_position, initial_orientation_rad = robot.forward_kinematics()
                 robot.initial_position = initial_position
                 robot.initial_orientation_rad = initial_orientation_rad
+
+        self._robots = []
+        self.is_initializing = False
 
     async def _process_control_data_manipulator(
         self, control_data: AppControlData, robot: BaseManipulator
@@ -157,7 +174,13 @@ class TeleopManager:
             robot.is_moving
             and time.perf_counter() - start_wait_time < self.MOVE_TIMEOUT
         ):
-            await asyncio.sleep(0.0001)
+            await asyncio.sleep(0.00001)
+        if time.perf_counter() - start_wait_time >= self.MOVE_TIMEOUT:
+            logger.warning(
+                f"Robot {robot.name} is still moving after {self.MOVE_TIMEOUT}s; skipping this command"
+            )
+            # skip gripper & counting if move failed
+            return False
 
         try:
             # off-load blocking move_robot into threadpool + enforce timeout
@@ -201,6 +224,7 @@ class TeleopManager:
         x = control_data.direction_y
 
         # Adjust for max speed
+        # TODO: better params
         rz *= 0.5
         x *= 0.4
 
@@ -216,7 +240,13 @@ class TeleopManager:
         Returns:
             True if the command was processed successfully, False otherwise.
         """
+        if self.is_initializing:
+            logger.debug("Initialization in progress, skipping control data processing")
+            return False
+
         state = self.states[control_data.source]
+        if self._robots == []:
+            self._robots = copy(await self.rcm.robots)
 
         # Check timestamp freshness
         if control_data.timestamp is not None:
@@ -227,7 +257,12 @@ class TeleopManager:
 
         # If robot_id is set, get the specific robot and move it accordingly
         if self.robot_id is not None:
-            robot = await self.rcm.get_robot(self.robot_id)
+            # robot = await self.rcm.get_robot(self.robot_id)
+            try:
+                robot = self._robots[self.robot_id]
+            except IndexError:
+                logger.warning(f"Robot ID {self.robot_id} not found in the robot list")
+                return False
             if isinstance(robot, BaseManipulator):
                 await self._process_control_data_manipulator(control_data, robot)
                 return True
@@ -295,6 +330,7 @@ class TeleopManager:
         return updates
 
 
+teleop_manager = None
 udp_server = None
 
 
@@ -366,7 +402,7 @@ class _TeleopProtocol(asyncio.DatagramProtocol):
 
 class UDPServer:
     def __init__(self, rcm: RobotConnectionManager):
-        self.manager = TeleopManager(rcm)
+        self.manager = get_teleop_manager()
         self.transport: Optional[asyncio.DatagramTransport] = None
         self.protocol: Optional[_TeleopProtocol] = None
         self.bound_port: Optional[int] = None
@@ -439,3 +475,17 @@ def get_udp_server() -> UDPServer:
     if udp_server is None:
         udp_server = UDPServer(get_rcm())
     return udp_server
+
+
+@lru_cache()
+def get_teleop_manager() -> TeleopManager:
+    """
+    Get the TeleopManager instance.
+    If it doesn't exist, create it.
+    """
+    from phosphobot.robot import get_rcm
+
+    global teleop_manager
+    if teleop_manager is None:
+        teleop_manager = TeleopManager(get_rcm())
+    return teleop_manager

@@ -50,7 +50,12 @@ from phosphobot.models import (
 )
 from phosphobot.robot import RobotConnectionManager, SO100Hardware, get_rcm
 from phosphobot.supabase import get_client, user_is_logged_in
-from phosphobot.teleoperation import TeleopManager, UDPServer, get_udp_server
+from phosphobot.teleoperation import (
+    UDPServer,
+    get_udp_server,
+    TeleopManager,
+    get_teleop_manager,
+)
 from phosphobot.utils import background_task_log_exceptions
 
 # This is used to send numpy arrays as JSON to OpenVLA server
@@ -73,13 +78,13 @@ vr_control_signal = ControlSignal()
     description="Initialize the robot to its initial position before starting the teleoperation.",
 )
 async def move_init(
-    robot_id: int | None = None, rcm: RobotConnectionManager = Depends(get_rcm)
+    robot_id: int | None = None,
+    teleop_manager: TeleopManager = Depends(get_teleop_manager),
 ):
     """
     Initialize the robot to its initial position before starting the teleoperation.
     """
-    manager = TeleopManager(rcm)
-    await manager.move_init(robot_id=robot_id)
+    await teleop_manager.move_init(robot_id=robot_id)
     return StatusResponse()
 
 
@@ -91,11 +96,11 @@ async def move_init(
 )
 async def move_teleop_post(
     control_data: AppControlData,
-    robot_id: int = 0,
-    rcm: RobotConnectionManager = Depends(get_rcm),
+    robot_id: int | None = None,
+    teleop_manager: TeleopManager = Depends(get_teleop_manager),
 ) -> StatusResponse:
-    manager = TeleopManager(rcm, robot_id=robot_id)
-    await manager.process_control_data(control_data)
+    teleop_manager.robot_id = robot_id
+    await teleop_manager.process_control_data(control_data)
     return StatusResponse()
 
 
@@ -104,21 +109,22 @@ async def move_teleop_post(
 async def move_teleop_ws(
     websocket: WebSocket,
     rcm: RobotConnectionManager = Depends(get_rcm),
+    teleop_manager: TeleopManager = Depends(get_teleop_manager),
 ):
+    teleop_manager.robot_id = None
     await websocket.accept()
 
     if not await rcm.robots:
         raise HTTPException(status_code=400, detail="No robot connected")
 
-    manager = TeleopManager(rcm)
     vr_control_signal.start()
     try:
         while True:
             data = await websocket.receive_text()
             try:
                 control_data = AppControlData.model_validate_json(data)
-                await manager.process_control_data(control_data)
-                await manager.send_status_updates(websocket)
+                await teleop_manager.process_control_data(control_data)
+                await teleop_manager.send_status_updates(websocket)
             except json.JSONDecodeError as e:
                 logger.error(f"WebSocket JSON error: {e}")
 
@@ -130,12 +136,13 @@ async def move_teleop_ws(
 
 @router.post("/move/teleop/udp", response_model=UDPServerInformationResponse)
 async def move_teleop_udp(
-    background_tasks: BackgroundTasks,
     udp_server: UDPServer = Depends(get_udp_server),
+    teleop_manager: TeleopManager = Depends(get_teleop_manager),
 ):
     """
     Start a UDP server to send and receive teleoperation data to the robot.
     """
+    teleop_manager.robot_id = None
     udp_server_info = await udp_server.init()
     return udp_server_info
 
@@ -983,9 +990,9 @@ async def spawn_inference_server(
             )
             robots_to_control.remove(robot)
 
-    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
-        "All robots must be manipulators for AI control"
-    )
+    assert all(
+        isinstance(robot, BaseManipulator) for robot in robots_to_control
+    ), "All robots must be manipulators for AI control"
 
     # Get the modal host and port here
     _, _, server_info = await setup_ai_control(
@@ -1059,9 +1066,9 @@ async def start_auto_control(
             )
             robots_to_control.remove(robot)
 
-    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
-        "All robots must be manipulators for AI control"
-    )
+    assert all(
+        isinstance(robot, BaseManipulator) for robot in robots_to_control
+    ), "All robots must be manipulators for AI control"
 
     # Get the modal host and port here
     model, model_spawn_config, server_info = await setup_ai_control(
