@@ -142,7 +142,7 @@ class TeleopManager:
                 robot.initial_position = initial_position
                 robot.initial_orientation_rad = initial_orientation_rad
 
-        self._robots = []
+        self._robots = copy(await self.rcm.robots)
         self.is_initializing = False
 
     async def _process_control_data_manipulator(
