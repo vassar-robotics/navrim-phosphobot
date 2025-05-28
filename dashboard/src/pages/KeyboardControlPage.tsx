@@ -50,7 +50,7 @@ export default function RobotControllerPage() {
   const [selectedRobotName, setSelectedRobotName] = useState<string | null>(
     null,
   );
-  const [selectedSpeed, setSelectedSpeed] = useState<number>(1.0); // State for speed
+  const [selectedSpeed, setSelectedSpeed] = useState<number>(0.5); // State for speed
 
   // Refs to manage our control loop and state
   const keysPressedRef = useRef(new Set<string>());
@@ -396,17 +396,6 @@ export default function RobotControllerPage() {
                 ))}
               </SelectContent>
             </Select>
-            {isMobileRobot && (
-              <SpeedSelect
-                defaultValue={selectedSpeed} // Current speed state from RobotControllerPage
-                onChange={(newSpeed) => setSelectedSpeed(newSpeed)}
-                disabled={isMoving}
-                title="Movement speed"
-                minSpeed={0.1} // Specific min for mobile robots
-                maxSpeed={1.0} // Specific max for mobile robots
-                step={0.1} // Specific step for mobile robots
-              />
-            )}
             {isMoving ? (
               <Button variant="destructive" onClick={stopMoving}>
                 <Square className="mr-2 h-4 w-4" />
@@ -421,6 +410,16 @@ export default function RobotControllerPage() {
                 <Play className="mr-2 h-4 w-4" />
                 Start Moving Robot
               </Button>
+            )}
+            {isMobileRobot && (
+              <SpeedSelect
+                defaultValue={selectedSpeed} // Current speed state from RobotControllerPage
+                onChange={(newSpeed) => setSelectedSpeed(newSpeed)}
+                title="Movement speed"
+                minSpeed={0.1} // Specific min for mobile robots
+                maxSpeed={1.0} // Specific max for mobile robots
+                step={0.1} // Specific step for mobile robots
+              />
             )}
           </div>
         </CardContent>
@@ -465,7 +464,8 @@ export default function RobotControllerPage() {
                         if (isMobileRobot) {
                           data.x = selectedSpeed;
                           data.y = selectedSpeed;
-                          data.rz = selectedSpeed;
+                          // rz = 0.6 is a 90° degree rotation
+                          data.rz = selectedSpeed * 0.5;
                         }
                         postData(BASE_URL + "move/relative", data, {
                           robot_id: robotIDFromName(selectedRobotName),
