@@ -6,6 +6,7 @@ import shutil
 import time
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple, cast
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -1481,7 +1482,20 @@ It's compatible with LeRobot and RLDS.
         Merge multiple datasets into one.
         This will create a new dataset with the merged data.
 
+        Merge `self` with `second_dataset` and create a new dataset.
+
         Dataset Structure
+
+        Args:
+            second_dataset (Dataset): Dataset to merge with `self`.
+            new_dataset_name (str): Name of the folder where the merged dataset
+                will be created.
+            video_transform (dict[str, str]): Mapping of camera folder names
+                from this dataset to the corresponding folders in
+                ``second_dataset``. It ensures videos are copied to the correct
+                location.
+
+        The resulting dataset will follow this structure:
 
         / videos
             ├── chunk-000
@@ -1527,26 +1541,24 @@ It's compatible with LeRobot and RLDS.
         logger.debug("Moving videos to the new dataset")
 
         # Start by moving videos to the new dataset
-        for video_folder in os.listdir(self.videos_folder_full_path):
-            if "image" in video_folder:
+        for video_key in video_transform.keys():
+            video_folder = video_key
+            src_folder = os.path.join(self.videos_folder_full_path, video_folder)
+            if os.path.exists(src_folder):
                 # Move the video folder to the new dataset
                 shutil.copytree(
-                    os.path.join(self.videos_folder_full_path, video_folder),
+                    src_folder,
                     os.path.join(path_to_videos, video_folder),
                 )
 
-                video_folder_full_path = os.path.join(
-                    self.videos_folder_full_path, video_folder
-                )
-                video_files = [
-                    f for f in os.listdir(video_folder_full_path) if f.endswith(".mp4")
-                ]
+                video_files = [f for f in os.listdir(src_folder) if f.endswith(".mp4")]
                 nb_videos = len(video_files)
 
                 # Move the videos from the second dataset to the new dataset and increment the index
+                second_video_folder = video_transform[video_key]
                 video_folder_full_path = os.path.join(
                     second_dataset.videos_folder_full_path,
-                    video_transform[video_folder],
+                    second_video_folder,
                 )
                 for video_file in os.listdir(video_folder_full_path):
                     if video_file.endswith(".mp4"):
@@ -2036,6 +2048,33 @@ It's compatible with LeRobot and RLDS.
 
         logger.info(
             f"Dataset {self.dataset_name} split into {first_split_name} and {second_split_name} successfully"
+        )
+
+    def delete_video_keys(self, video_keys_to_delete: List[str]) -> None:
+        """
+        Delete the video keys from the dataset.
+        Will update the info.json file and delete the videos from the data folder.
+
+        video_keys_to_delete are of the form "observation.images.{video_key}"
+        """
+        # Step 1: update the info.json file
+        info = InfoModel.from_json(
+            meta_folder_path=self.meta_folder_full_path,
+            format="lerobot_v2.1",
+        )
+        # This method save also the info.json file
+        info.update_for_video_removal(video_keys_to_delete, self.meta_folder_full_path)
+
+        # Step 2: delete the videos from the data folder
+        for video_key in video_keys_to_delete:
+            video_folder = os.path.join(self.videos_folder_full_path, video_key)
+            if os.path.exists(video_folder):
+                shutil.rmtree(video_folder)
+
+        # Step 3: update the stats.jsonl file
+        stats = StatsModel.from_json(self.meta_folder_full_path)
+        stats.update_for_video_key_removal(
+            video_keys_to_delete, self.meta_folder_full_path
         )
 
     def shuffle_dataset(self, new_dataset_name) -> None:
@@ -2800,6 +2839,47 @@ class StatsModel(BaseModel):
         # TODO: Handle everything in one function
         pass
 
+    def update_for_video_key_removal(
+        self,
+        video_keys_to_delete: List[str],
+        meta_folder_path: str,
+        stats_file_name: str = "episodes_stats.jsonl",
+    ) -> None:
+        """
+        Update the stats for given video keys to delete.
+        No need to recompute as we are just removing a column from the stats.jsonl file.
+        """
+        # For each line of the stats.jsonl file, we need to delete the columns corresponding to the video keys to delete
+        with (
+            open(
+                f"{meta_folder_path}/{stats_file_name}",
+                "r",
+                encoding=DEFAULT_FILE_ENCODING,
+            ) as f,
+            tempfile.NamedTemporaryFile(
+                "w", delete=False, encoding=DEFAULT_FILE_ENCODING
+            ) as temp,
+        ):
+            # Process each line
+            for line in f:
+                # Parse the JSON object from the line
+                stats_dict = json.loads(line)
+                if "stats" in stats_dict:
+                    for video_key in video_keys_to_delete:
+                        stats_dict["stats"].pop(video_key, None)
+                else:
+                    raise ValueError(
+                        f"stats_dict does not contain a stats key: {stats_dict}"
+                    )
+                temp.write(json.dumps(stats_dict) + "\n")
+
+        # Replace the original file with the temporary file
+        shutil.move(temp.name, f"{meta_folder_path}/{stats_file_name}")
+
+        logger.debug(
+            f"Stats.jsonl file updated for video keys to delete: {video_keys_to_delete}"
+        )
+
 
 class EpisodesStatsFeatutes(BaseModel):
     """
@@ -3516,6 +3596,46 @@ class InfoModel(BaseModel):
         self.total_videos += second_info_model.total_videos
         self.total_tasks = new_nb_tasks
         self.splits = {"train": f"0:{self.total_episodes}"}
+
+        # Save the info.json file
+        self.to_json(meta_folder_path=meta_folder_to_save_to)
+
+    def update_for_video_removal(
+        self, video_keys_to_delete: List[str], meta_folder_to_save_to: str
+    ) -> None:
+        """
+        Update the info when removing a video from the dataset.
+
+        full_video_keys are of the form "observation.images.{video_key}"
+
+        Need to update:
+        - total_frames
+        - total_videos
+
+        Need to delete:
+        - features.{video_key}
+
+        Will save the info.json file to the meta_folder_to_save_to folder.
+        """
+
+        # Get the current number of video keys before deleting
+        nb_video_keys_before_deletion = len(self.features.observation_images.keys())
+
+        # We keep the number of total frames constant
+
+        self.total_videos -= self.total_episodes * len(video_keys_to_delete)
+
+        print(
+            f"self.features.observation_images: {self.features.observation_images.keys()}"
+        )
+
+        # Remove the video from the folder
+        for video_key in video_keys_to_delete:
+            # Check if it starts with observation.images.
+            if video_key.startswith("observation.images."):
+                del self.features.observation_images[video_key]
+            else:
+                del self.features.observation_images[f"observation.images.{video_key}"]
 
         # Save the info.json file
         self.to_json(meta_folder_path=meta_folder_to_save_to)
