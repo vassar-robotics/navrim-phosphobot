@@ -192,8 +192,8 @@ export default function AIControlPage() {
   const startControlByAI = async () => {
     if (
       serverStatus?.robot_status?.length === 1 &&
-      serverStatus.robot_status[0].usb_port &&
-      leaderArmSerialIds.includes(serverStatus.robot_status[0].usb_port)
+      serverStatus.robot_status[0].device_name &&
+      leaderArmSerialIds.includes(serverStatus.robot_status[0].device_name)
     ) {
       toast.warning(
         "Remove the leader arm mark on your robot to control it with AI",

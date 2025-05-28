@@ -57,7 +57,7 @@ export default function CalibrationPage() {
     try {
       // robot_id is the index of the robot in the robot_status array
       const robot_id = serverStatus?.robot_status.findIndex(
-        (robot) => robot.usb_port === selectedRobotName,
+        (robot) => robot.device_name === selectedRobotName,
       );
       if (robot_id === -1 || robot_id === undefined) {
         throw new Error(`Robot not found: ${robot_id}`);
@@ -105,9 +105,9 @@ export default function CalibrationPage() {
           selectedRobotName === null &&
           serverStatus &&
           serverStatus.robot_status.length > 0 &&
-          serverStatus.robot_status[0].usb_port
+          serverStatus.robot_status[0].device_name
         ) {
-          setSelectedRobotName(serverStatus.robot_status[0].usb_port);
+          setSelectedRobotName(serverStatus.robot_status[0].device_name);
         }
 
         return (
@@ -143,10 +143,10 @@ export default function CalibrationPage() {
                   <SelectContent>
                     {serverStatus?.robot_status.map((robot) => (
                       <SelectItem
-                        key={robot.usb_port}
-                        value={robot.usb_port || "Undefined port"}
+                        key={robot.device_name}
+                        value={robot.device_name || "Undefined port"}
                       >
-                        {robot.name} ({robot.usb_port})
+                        {robot.name} ({robot.device_name})
                       </SelectItem>
                     ))}
                   </SelectContent>

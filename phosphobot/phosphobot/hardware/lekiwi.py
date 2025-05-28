@@ -81,7 +81,7 @@ class LeKiwi(BaseMobileRobot):
             logger.info("Successfully connected to LeKiwi")
 
         except Exception as e:
-            logger.error(f"Failed to connect to LeKiwi: {e}")
+            logger.warning(f"Failed to connect to LeKiwi: {e}")
             raise Exception(f"Failed to connect to LeKiwi: {e}")
 
     def disconnect(self) -> None:
@@ -144,7 +144,7 @@ class LeKiwi(BaseMobileRobot):
             **kwargs: Additional arguments
         """
         if not self.is_connected or self.conn is None:
-            logger.error("Robot is not connected")
+            logger.warning("Robot is not connected")
             return
 
         x_cmd = target_position[0]  # forward/backward
@@ -201,8 +201,7 @@ class LeKiwi(BaseMobileRobot):
             RobotConfigStatus object
         """
         return RobotConfigStatus(
-            name=self.name,
-            usb_port=self.ip,
+            name=self.name, device_name=self.ip, robot_type="mobile"
         )
 
     async def move_to_initial_position(self) -> None:
@@ -219,7 +218,7 @@ class LeKiwi(BaseMobileRobot):
         This makes the robot sit down before potentially disconnecting.
         """
         if not self.is_connected or self.conn is None:
-            logger.error("Robot is not connected")
+            logger.warning("Robot is not connected")
             return
 
     def body_to_wheel_raw(

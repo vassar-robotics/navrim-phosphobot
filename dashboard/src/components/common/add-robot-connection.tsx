@@ -40,6 +40,13 @@ const ROBOT_TYPES = [
     ],
   },
   {
+    id: "unitree-go2",
+    name: "Unitree Go2",
+    category: "mobile",
+    image: placeholderSvg,
+    fields: [{ name: "ip", label: "IP Address", type: "ip" }],
+  },
+  {
     id: "so-100",
     name: "SO-100 / SO-101",
     category: "manipulator",
@@ -53,13 +60,7 @@ const ROBOT_TYPES = [
     image: placeholderSvg,
     fields: [{ name: "device_name", label: "USB Port", type: "device_name" }],
   },
-  {
-    id: "unitree-go2",
-    name: "Unitree Go2",
-    category: "mobile",
-    image: placeholderSvg,
-    fields: [{ name: "ip", label: "IP Address", type: "ip" }],
-  },
+
   {
     id: "lekiwi",
     name: "LeKiwi",

@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections import deque
 from dataclasses import dataclass
-from typing import Deque, Optional
+from typing import Deque
 import concurrent.futures
 import threading
 import time
@@ -154,6 +154,9 @@ class UnitreeGo2(BaseMobileRobot):
     async def connect(self):
         """
         Initialize communication with the robot.
+
+        Current understanding: The robot needs to be first switched to AI mode, then
+        disconnected, and then reconnected to ensure it operates in the correct mode.
         """
         try:
             # Create connection and connect
@@ -181,27 +184,27 @@ class UnitreeGo2(BaseMobileRobot):
             # Connect again
             self.conn = Go2WebRTCConnection(WebRTCConnectionMethod.LocalSTA, ip=self.ip)
             await asyncio.wait_for(self.conn.connect(), timeout=10.0)
-            await self._ensure_normal_mode()
+            await self._ensure_moving_mode()
 
-            # def lowstate_callback(message):
-            #     self.lowstate = message["data"]
+            def lowstate_callback(message):
+                self.lowstate = message["data"]
 
-            # # Connect to the lowstate topic to receive battery and sensor data
-            # self.conn.datachannel.pub_sub.subscribe(
-            #     RTC_TOPIC["LOW_STATE"], lowstate_callback
-            # )
+            # Connect to the lowstate topic to receive battery and sensor data
+            self.conn.datachannel.pub_sub.subscribe(
+                RTC_TOPIC["LOW_STATE"], lowstate_callback
+            )
 
-            # def sportmodestatus_callback(message):
-            #     self.sportmodstate = message["data"]
+            def sportmodestatus_callback(message):
+                self.sportmodstate = message["data"]
 
-            # self.conn.datachannel.pub_sub.subscribe(
-            #     RTC_TOPIC["LF_SPORT_MOD_STATE"], sportmodestatus_callback
-            # )
+            self.conn.datachannel.pub_sub.subscribe(
+                RTC_TOPIC["LF_SPORT_MOD_STATE"], sportmodestatus_callback
+            )
 
-            # await self.conn.datachannel.pub_sub.publish_request_new(
-            #     RTC_TOPIC["MOTION_SWITCHER"],
-            #     {"api_id": 1002, "parameter": {"name": "ai"}},
-            # )
+            await self.conn.datachannel.pub_sub.publish_request_new(
+                RTC_TOPIC["MOTION_SWITCHER"],
+                {"api_id": 1002, "parameter": {"name": "ai"}},
+            )
 
             self._is_connected = True
 
@@ -279,7 +282,14 @@ class UnitreeGo2(BaseMobileRobot):
         """
         raise NotImplementedError
 
-    async def _ensure_normal_mode(self):
+    async def _ensure_moving_mode(self):
+        """
+        The go2 has multiple motions modes.
+        "mcf" is the mode introduced in the 1.1.7 firmware update that allows the robot to move
+        with great stability.
+        On older firmware versions, you need to use the "normal" mode to achieve similar results.
+        In our testing, the "mcf" mode is the most stable and reliable for movement.
+        """
         # Get the current motion_switcher status
         response = await self.conn.datachannel.pub_sub.publish_request_new(
             RTC_TOPIC["MOTION_SWITCHER"], {"api_id": 1001}
@@ -291,13 +301,13 @@ class UnitreeGo2(BaseMobileRobot):
             logger.debug(f"Current motion mode: {current_motion_switcher_mode}")
 
         # Switch to "normal" mode if not already
-        if current_motion_switcher_mode != "normal":
+        if current_motion_switcher_mode != "mcf":
             logger.debug(
-                f"Switching motion mode from {current_motion_switcher_mode} to 'normal'..."
+                f"Switching motion mode from {current_motion_switcher_mode} to 'mcf'..."
             )
             await self.conn.datachannel.pub_sub.publish_request_new(
                 RTC_TOPIC["MOTION_SWITCHER"],
-                {"api_id": 1002, "parameter": {"name": "normal"}},
+                {"api_id": 1002, "parameter": {"name": "mcf"}},
             )
             await asyncio.sleep(5)  # Wait while it stands up
 
@@ -309,6 +319,16 @@ class UnitreeGo2(BaseMobileRobot):
         y: float,
         rz: float,
     ):
+        """
+        Move the robot to the specified position and orientation asynchronously.
+
+        Current understanding: The payload to Unitree expects x, y, z:
+        x: forward/backward movement
+        y: left/right movement
+        rz: rotate right/left
+        The values should be between -1 and 1, where 1 is maximum movement in that direction,
+        and -1 the maximum movement in the opposite direction.
+        """
         current_time = time.perf_counter()
         if self.last_movement != 0.0 and (
             current_time - self.last_movement < 0.5
@@ -418,8 +438,7 @@ class UnitreeGo2(BaseMobileRobot):
             RobotConfigStatus object
         """
         return RobotConfigStatus(
-            name=self.name,
-            usb_port=self.ip,
+            name=self.name, device_name=self.ip, robot_type="mobile"
         )
 
     async def move_to_initial_position(self) -> None:
@@ -428,8 +447,9 @@ class UnitreeGo2(BaseMobileRobot):
 
         This puts the robot in a stand position ready for operation.
         """
-        # Do nothing
-        pass
+        # Zero-in the initial position and orientation
+        self.initial_position = np.zeros(3)
+        self.initial_orientation_rad = np.zeros(3)
 
     def move_to_initial_position_sync(self) -> None:
         """
