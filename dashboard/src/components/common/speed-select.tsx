@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Gauge } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface SpeedSelectProps {
   onChange?: (speed: number) => void;
@@ -22,6 +22,11 @@ export function SpeedSelect({
   title = "Playback Speed",
 }: SpeedSelectProps) {
   const [speed, setSpeed] = useState(defaultValue);
+
+  // Update internal speed if defaultValue prop changes
+  useEffect(() => {
+    setSpeed(defaultValue);
+  }, [defaultValue]);
 
   const handleSpeedChange = (value: number[]) => {
     const newSpeed = value[0];
@@ -55,6 +60,7 @@ export function SpeedSelect({
             max={2}
             step={0.1}
             onValueChange={handleSpeedChange}
+            disabled={disabled}
           />
         </div>
       </PopoverContent>

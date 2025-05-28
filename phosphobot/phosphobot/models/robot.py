@@ -1,7 +1,7 @@
 import asyncio
 import json
 from abc import ABC, abstractmethod
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 import numpy as np
 from loguru import logger
@@ -19,7 +19,8 @@ class RobotConfigStatus(BaseModel):
     """
 
     name: str
-    usb_port: str | None
+    robot_type: Literal["manipulator", "mobile", "other"] = "manipulator"
+    device_name: str | None
 
 
 class BaseRobot(ABC):
@@ -122,7 +123,7 @@ class BaseRobot(ABC):
     def status(self) -> RobotConfigStatus:
         return RobotConfigStatus(
             name=self.name,
-            usb_port=getattr(self, "SERIAL_ID", None),
+            device_name=getattr(self, "SERIAL_ID", None),
         )
 
     @abstractmethod

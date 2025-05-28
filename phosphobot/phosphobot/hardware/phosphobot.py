@@ -257,7 +257,7 @@ class RemotePhosphobot(BaseRobot):
         """
         return RobotConfigStatus(
             name=self.name,
-            usb_port=self.ip,
+            device_name=self.ip,
         )
 
     async def move_to_initial_position(self) -> None:

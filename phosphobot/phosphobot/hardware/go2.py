@@ -339,9 +339,10 @@ class UnitreeGo2(BaseMobileRobot):
             return
         self.last_movement = current_time
 
+        # TODO: Use a speed parameter
         x /= 2
         y /= 2
-        rz /= 4
+        rz /= 2
 
         if not self.is_connected or self.conn is None:
             logger.warning(
@@ -442,8 +443,7 @@ class UnitreeGo2(BaseMobileRobot):
             RobotConfigStatus object
         """
         return RobotConfigStatus(
-            name=self.name,
-            usb_port=self.ip,
+            name=self.name, device_name=self.ip, robot_type="mobile"
         )
 
     async def move_to_initial_position(self) -> None:
