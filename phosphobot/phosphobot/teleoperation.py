@@ -12,6 +12,7 @@ from loguru import logger
 from pydantic import ValidationError
 
 from phosphobot.hardware import BaseRobot, BaseManipulator
+from phosphobot.hardware.base import BaseMobileRobot
 from phosphobot.models import AppControlData, RobotStatus, UDPServerInformationResponse
 from phosphobot.robot import RobotConnectionManager
 from phosphobot.utils import get_local_network_ip
@@ -59,16 +60,43 @@ class TeleopManager:
             return True
         return False
 
-    async def get_robot(self, source: str) -> Optional[BaseRobot]:
-        """Get the appropriate robot based on source"""
-        if self.robot_id is not None:
-            return await self.rcm.get_robot(self.robot_id)
+    async def get_manipulator_robot(self, source: str) -> Optional[BaseManipulator]:
+        """
+        Get the manipulator robot based on source
+        - "right" returns the first manipulator robot
+        - "left" returns the second manipulator robot
 
-        # Otherwise, use the source
+        This is a convention because 90% of people are right-handed.
+        """
+        right_robot = None
+        left_robot = None
+
+        for robot in await self.rcm.robots:
+            if isinstance(robot, BaseManipulator):
+                if right_robot is None:
+                    right_robot = robot
+                elif left_robot is None:
+                    left_robot = robot
+                    break
+
         if source == "right":
-            return (await self.rcm.robots)[0]
-        elif source == "left" and len(await self.rcm.robots) > 1:
-            return (await self.rcm.robots)[1]
+            return left_robot
+        elif source == "left":
+            return right_robot
+        else:
+            logger.error(f"Unknown source '{source}' for manipulator robot")
+            return None
+
+    async def get_mobile_robot(self, source: str) -> Optional[BaseMobileRobot]:
+        """
+        Get the mobile robot.
+        Currently, only one mobile robot is supported, the one linked to the "right" source.
+        This means that only the "right" joystick can control the mobile robot.
+        """
+        if source == "right":
+            for robot in await self.rcm.robots:
+                if isinstance(robot, BaseMobileRobot):
+                    return robot
 
         return None
 
@@ -100,34 +128,23 @@ class TeleopManager:
                 robot.initial_position = initial_position
                 robot.initial_orientation_rad = initial_orientation_rad
 
-    async def process_control_data(self, control_data: AppControlData) -> bool:
-        """Process control data and return if it was processed"""
-        state = self.states[control_data.source]
+    async def _process_control_data_manipulator(
+        self, control_data: AppControlData, robot: BaseManipulator
+    ):
+        """
+        We transform the control data into a target position, orientation and gripper state.
+        We then move the robot to that position and orientation.
+        """
+        if robot.initial_position is None or robot.initial_orientation_rad is None:
+            await self.move_init()
+        # Convert and execute command
+        (
+            target_pos,
+            target_orient_deg,
+            target_open,
+        ) = control_data.to_robot(robot_name=robot.name)
 
-        # Check timestamp freshness
-        if control_data.timestamp is not None:
-            if control_data.timestamp <= state.last_timestamp:
-                return False
-
-            state.last_timestamp = control_data.timestamp
-
-        robot = await self.get_robot(control_data.source)
-        if not robot:
-            return False
-
-        # Initialize robot if needed
-        if isinstance(robot, BaseManipulator):
-            if robot.initial_position is None or robot.initial_orientation_rad is None:
-                await self.move_init()
-
-            # Convert and execute command
-            (
-                target_pos,
-                target_orient_deg,
-                target_open,
-            ) = control_data.to_robot(robot_name=robot.name)
-
-        # TODO: Raise an issue if can't find it?
+        # TODO: Raise an error if initial_position or initial_orientation_rad is None ?
         initial_position = getattr(robot, "initial_position", np.zeros(3))
         initial_orientation_rad = getattr(robot, "initial_orientation_rad", np.zeros(3))
 
@@ -155,11 +172,82 @@ class TeleopManager:
             # skip gripper & counting if move failed
             return False
 
-        if isinstance(robot, BaseManipulator):
-            robot.control_gripper(open_command=target_open)
-            robot.update_object_gripping_status()
-
+        robot.control_gripper(open_command=target_open)
+        robot.update_object_gripping_status()
         self.action_counter += 1
+
+    async def _process_control_data_mobile_robot(
+        self, control_data: AppControlData, robot: BaseMobileRobot
+    ):
+        """
+        We use the control_data.direction_x and control_data.direction_y to move the mobile robot.
+        These values are between -1 and 1, where 0 means no movement.
+        - direciton_x: forward/backward movement
+        - direction_y: rotate left/right (rz axis rotation)
+        """
+        # TODO:
+        # - deadzone detection
+        # - rescaling (the joystick sensitivity is likely not linear)
+        # - some trig ?
+        # - progressive acceleration ?
+
+        x = control_data.direction_x
+        rz = control_data.direction_y * np.pi
+
+        await robot.move_robot_absolute(
+            target_position=np.array([x, 0, 0]),
+            target_orientation_rad=np.array([0, 0, rz]),
+        )
+
+    async def process_control_data(self, control_data: AppControlData) -> bool:
+        """
+        Process control data
+        Returns:
+            True if the command was processed successfully, False otherwise.
+        """
+        state = self.states[control_data.source]
+
+        # Check timestamp freshness
+        if control_data.timestamp is not None:
+            if control_data.timestamp <= state.last_timestamp:
+                return False
+
+            state.last_timestamp = control_data.timestamp
+
+        robot: BaseRobot | None = None
+        # If robot_id is set, get the specific robot and move it accordingly
+        if self.robot_id is not None:
+            robot = await self.rcm.get_robot(self.robot_id)
+            if isinstance(robot, BaseManipulator):
+                await self._process_control_data_manipulator(control_data, robot)
+                return True
+            elif isinstance(robot, BaseMobileRobot):
+                await self._process_control_data_mobile_robot(control_data, robot)
+                return True
+            else:
+                logger.error(f"Unknown robot type for robot_id {self.robot_id}")
+                return False
+
+        # Otherwise (ex: VR control), fetch the manipulators and mobile robots based on control_data.source
+        manipulator_robot = await self.get_manipulator_robot(control_data.source)
+        mobile_robot = await self.get_mobile_robot(control_data.source)
+
+        logger.debug(f"Got mobile robot: {mobile_robot}")
+
+        # No robot -> nothing to do
+        if manipulator_robot is None and mobile_robot is None:
+            return False
+
+        # Manipulator -> move it
+        if manipulator_robot is not None:
+            await self._process_control_data_manipulator(
+                control_data, manipulator_robot
+            )
+
+        # Mobile robot -> move it
+        if mobile_robot is not None:
+            await self._process_control_data_mobile_robot(control_data, mobile_robot)
+
         return True
 
     async def send_status_updates(
@@ -170,7 +258,7 @@ class TeleopManager:
         now = datetime.now()
 
         for source, state in self.states.items():
-            robot = await self.get_robot(source)
+            robot = await self.get_manipulator_robot(source)
             if robot and (now - state.last_update).total_seconds() > 0.033:
                 if isinstance(robot, BaseManipulator):
                     if state.gripped != robot.is_object_gripped:
