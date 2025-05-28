@@ -22,6 +22,7 @@ from phosphobot.models import (
     Dataset,
     DatasetListResponse,
     DatasetRepairRequest,
+    DatasetShuffleRequest,
     DatasetSplitRequest,
     DeleteEpisodeRequest,
     HFDownloadDatasetRequest,
@@ -500,6 +501,12 @@ async def merge_datasets(merge_request: MergeDatasetsRequest):
                 detail="The datasets have different video sizes.",
             )
 
+    if first_info.fps != second_info.fps:
+        raise HTTPException(
+            status_code=400,
+            detail="The datasets have different FPS.",
+        )
+
     if (
         first_info.robot_type != second_info.robot_type
         or first_info.codebase_version != second_info.codebase_version
@@ -507,7 +514,6 @@ async def merge_datasets(merge_request: MergeDatasetsRequest):
         != second_info.total_videos // second_info.total_episodes
         or first_info.features.observation_state.shape[0]
         != second_info.features.observation_state.shape[0]
-        or first_info.fps != second_info.fps
     ):
         raise HTTPException(
             status_code=400,
@@ -599,6 +605,13 @@ async def delete_episode(query: DeleteEpisodeRequest):
         raise HTTPException(
             status_code=404,
             detail="The dataset was not found or the dataset name is incorrect",
+        )
+
+    if "lerobot_v2/" in query.path:
+        # The stats model delete_episode method is not implemented, will probably never be
+        raise HTTPException(
+            status_code=400,
+            detail="This feature is not available for v2 datasets. Please use the v2.1 dataset format.",
         )
 
     # Delete the data file
@@ -891,3 +904,54 @@ async def split_dataset(query: DatasetSplitRequest):
             message=f"Error splitting dataset: {e}",
         )
     return StatusResponse(status="ok", message="Dataset split successfully")
+
+
+@router.post("/dataset/shuffle", response_model=StatusResponse)
+async def shuffle_dataset(query: DatasetShuffleRequest):
+    """
+    Shuffle a dataset in place.
+    """
+    dataset_path = os.path.join(ROOT_DIR, query.dataset_path)
+    # Check if the path exists and is a directory
+    if not os.path.exists(dataset_path) or not os.path.isdir(dataset_path):
+        return StatusResponse(
+            status="error", message=f"Dataset {query.dataset_path} not found"
+        )
+
+    datatype = query.dataset_path.split("/")[0]
+    if datatype != "lerobot_v2.1":
+        return StatusResponse(
+            status="error",
+            message="You can only shuffle datasets of type v2.1",
+        )
+
+    # Shuffle the dataset
+    dataset = Dataset(path=dataset_path)
+
+    # Name of the new dataset after shuffling
+    new_dataset_name = f"{query.dataset_path}_shuffled"
+    while os.path.exists(os.path.join(ROOT_DIR, new_dataset_name)):
+        # Find if a int suffix is already present
+        if new_dataset_name.endswith("_shuffled"):
+            # If it ends with _shuffled, we can add a number
+            new_dataset_name += "_1"
+        else:
+            # Otherwise, parse the int and increment it
+            try:
+                suffix = int(new_dataset_name.split("_")[-1])
+                new_dataset_name = (
+                    "_".join(new_dataset_name.split("_")[:-1]) + f"_{suffix + 1}"
+                )
+            except ValueError:
+                # If the suffix is not an int, we just add _1
+                new_dataset_name += "_1"
+
+    try:
+        dataset.shuffle_dataset(new_dataset_name=new_dataset_name)
+    except Exception as e:
+        logger.warning(f"Error shuffling dataset: {e}")
+        return StatusResponse(
+            status="error",
+            message=f"Error shuffling dataset: {e}",
+        )
+    return StatusResponse(status="ok", message="Dataset shuffled successfully")

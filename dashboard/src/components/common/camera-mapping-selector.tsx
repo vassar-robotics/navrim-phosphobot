@@ -15,13 +15,9 @@ import useSWR from "swr";
 
 export interface CameraKeyMapperProps {
   modelKeys?: string[];
-  onMappingChange?: (mapping: Record<string, number> | null) => void;
 }
 
-export default function CameraKeyMapper({
-  modelKeys,
-  onMappingChange,
-}: CameraKeyMapperProps) {
+export default function CameraKeyMapper({ modelKeys }: CameraKeyMapperProps) {
   const { data: serverStatus } = useSWR<ServerStatus>(["/status"], fetcher, {
     refreshInterval: 5000,
   });
@@ -32,11 +28,13 @@ export default function CameraKeyMapper({
 
   useEffect(() => {
     if (modelKeys === undefined) {
+      console.log("Model keys are undefined, clearing camera mapping");
       setMapping(null);
       return;
     }
 
     if (cameraIds.length > 0) {
+      console.log("Setting initial camera mapping");
       const initial: Record<string, number> = {};
       modelKeys.forEach((key, idx) => {
         initial[key] =
@@ -46,15 +44,13 @@ export default function CameraKeyMapper({
       });
       setMapping(initial);
     } else {
+      console.log("No cameras available, clearing camera mapping");
       setMapping(null);
     }
-  }, [cameraIds, modelKeys]);
-
-  useEffect(() => {
-    onMappingChange?.(mapping);
-  }, [mapping, onMappingChange]);
+  }, [JSON.stringify(cameraIds), JSON.stringify(modelKeys)]);
 
   const handleChange = (modelKey: string, camId: number) => {
+    console.log("Updating mapping for", modelKey, "to camera ID", camId);
     const newValue = mapping
       ? { ...mapping, [modelKey]: camId }
       : { [modelKey]: camId };

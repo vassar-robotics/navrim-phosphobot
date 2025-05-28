@@ -100,7 +100,7 @@ export default function LeaderArmPage() {
         {
           leader_id: 0,
           follower_id: 1,
-          leader_serial_id: connectedRobots[0].usb_port || "",
+          leader_serial_id: connectedRobots[0].device_name || "",
         },
       ];
 
@@ -176,7 +176,7 @@ export default function LeaderArmPage() {
       const tempLeader = pair.leader_id;
       const newLeaderSerialId =
         pair.follower_id !== null
-          ? connectedRobots[pair.follower_id]?.usb_port || ""
+          ? connectedRobots[pair.follower_id]?.device_name || ""
           : "";
 
       newPairs[pairIndex] = {
@@ -212,7 +212,7 @@ export default function LeaderArmPage() {
         {
           leader_id: newLeaderId,
           follower_id: newFollowerId,
-          leader_serial_id: connectedRobots[newLeaderId].usb_port || "",
+          leader_serial_id: connectedRobots[newLeaderId].device_name || "",
         },
       ]);
     } else if (availableRobots.length === 1) {
@@ -222,7 +222,8 @@ export default function LeaderArmPage() {
         {
           leader_id: availableRobots[0],
           follower_id: null,
-          leader_serial_id: connectedRobots[availableRobots[0]].usb_port || "",
+          leader_serial_id:
+            connectedRobots[availableRobots[0]].device_name || "",
         },
       ]);
     } else {
@@ -254,7 +255,7 @@ export default function LeaderArmPage() {
       if (field === "leader_serial_id") {
         // When updating leader serial ID, also update the leader ID
         const selectedRobot = connectedRobots.find(
-          (robot) => robot.usb_port === value,
+          (robot) => robot.device_name === value,
         );
 
         if (selectedRobot) {
@@ -268,7 +269,7 @@ export default function LeaderArmPage() {
       } else if (field === "leader_id") {
         // When updating leader ID, also update the serial ID
         const serialId =
-          value !== null ? connectedRobots[value]?.usb_port || "" : "";
+          value !== null ? connectedRobots[value]?.device_name || "" : "";
         newPairs[pairIndex] = {
           ...newPairs[pairIndex],
           [field]: value,
@@ -481,9 +482,9 @@ export default function LeaderArmPage() {
                       {getAvailableLeaderRobots(index).map((robot, key) => (
                         <SelectItem
                           key={`select-leader-${index}-${key}`}
-                          value={robot.usb_port || "Undefined port"}
+                          value={robot.device_name || "Undefined port"}
                         >
-                          {robot.name} ({robot.usb_port})
+                          {robot.name} ({robot.device_name})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -520,13 +521,13 @@ export default function LeaderArmPage() {
                   <Select
                     value={
                       pair.follower_id !== null
-                        ? connectedRobots[pair.follower_id]?.usb_port || ""
+                        ? connectedRobots[pair.follower_id]?.device_name || ""
                         : ""
                     }
                     onValueChange={(value) => {
                       // Find the robot index by usb_port
                       const selectedRobot = connectedRobots.find(
-                        (robot) => robot.usb_port === value,
+                        (robot) => robot.device_name === value,
                       );
                       if (selectedRobot) {
                         updateRobotPair(
@@ -545,9 +546,9 @@ export default function LeaderArmPage() {
                       {getAvailableFollowerRobots(index).map((robot, key) => (
                         <SelectItem
                           key={`select-follower-${index}-${key}`}
-                          value={robot.usb_port || "Undefined port"}
+                          value={robot.device_name || "Undefined port"}
                         >
-                          {robot.name} ({robot.usb_port})
+                          {robot.name} ({robot.device_name})
                         </SelectItem>
                       ))}
                     </SelectContent>

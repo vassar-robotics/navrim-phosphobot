@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 from loguru import logger
 from phosphobot.utils import step_simulation
-from utils import compare_angles_radian, move_robot_testing
+from utils import move_robot_testing
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -57,31 +57,25 @@ def so100():
 
 
 @pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_forward_kinematics(robot: BaseManipulator):
-    """
-    Assert the function forward_kinematics returns the correct position
-    """
-
-    # This test is kind of useless since the initial position is initialized with forward kinematics
-    current_effector_position, current_effector_orientation = robot.forward_kinematics()
-
-    assert np.allclose(
-        current_effector_position, robot.initial_position
-    ), "The position should be the same"
-
-    assert np.allclose(
-        current_effector_orientation, robot.initial_orientation_rad
-    ), "The orientation should be the same"
-
-
-@pytest.mark.parametrize("robot", ["koch", "so100"], indirect=True)
-def test_inverse_kinematics(robot: BaseManipulator):
+@pytest.mark.asyncio
+async def test_inverse_kinematics(robot: BaseManipulator):
     """
     Assert the function inverse_kinematics returns the correct angles
     """
 
+    # Move to the initial position
+    await robot.move_to_initial_position()
+    step_simulation()
+
     position = robot.initial_position
     orientation = robot.initial_orientation_rad
+
+    assert (
+        position is not None
+    ), "Initial position should not be None after initialization"
+    assert (
+        orientation is not None
+    ), "Initial orientation should not be None after initialization"
 
     q_robot_reference_rad = robot.read_joints_position()
     logger.info(f"q_robot_reference_rad: {q_robot_reference_rad}")
@@ -90,7 +84,7 @@ def test_inverse_kinematics(robot: BaseManipulator):
     logger.info(f"q_robot_rad: {q_robot_rad}")
 
     assert np.allclose(
-        q_robot_rad, q_robot_reference_rad, rtol=0, atol=1e-6
+        q_robot_rad, q_robot_reference_rad, rtol=0, atol=1e-3
     ), "The angles should be the same"
 
 

@@ -1,6 +1,7 @@
 export type RobotConfigStatus = {
   name: string;
-  usb_port?: string;
+  device_name?: string;
+  robot_type: "manipulator" | "mobile" | "other";
 };
 
 export type SingleCameraStatus = {

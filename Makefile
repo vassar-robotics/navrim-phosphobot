@@ -10,6 +10,11 @@ all: prod
 # Run the server for prod settings (able to connect to the Meta Quest). If npm is not installed, it will skip the build step.
 prod:
 	cd ./dashboard && ((npm i && npm run build && mkdir -p ../phosphobot/resources/dist/ && cp -r ./dist/* ../phosphobot/resources/dist/) || echo "npm command failed, continuing anyway") 
+	cd phosphobot && uv run phosphobot run --simulation=headless
+
+# Run the server for prod settings (able to connect to the Meta Quest) but with telemetry disabled. If npm is not installed, it will skip the build step.
+prod_no_telemetry:
+	cd ./dashboard && ((npm i && npm run build && mkdir -p ../phosphobot/resources/dist/ && cp -r ./dist/* ../phosphobot/resources/dist/) || echo "npm command failed, continuing anyway") 
 	cd phosphobot && uv run phosphobot run --simulation=headless --no-telemetry
 
 # Run the server for prod settings with the simulation enabled
@@ -44,15 +49,13 @@ info_bin:
 # Don't use sudo uv run, it will break CICD
 build_pyinstaller:
 	cd phosphobot && \
-	WASMTIME_PATH=$$(uv run python -c "import wasmtime; import os; print(os.path.dirname(wasmtime.__file__))") && \
 	uv run pyinstaller \
 	--onefile \
 	--name $(OUTPUT_FILENAME) \
 	--add-data "resources:resources" \
-	--add-data "$$WASMTIME_PATH:wasmtime" \
+	--additional-hooks-dir "./hooks" \
 	--hidden-import phosphobot \
 	--collect-all phosphobot \
-	--collect-all go2-webrtc-connect \
 	--collect-all wasmtime \
 	--clean -c \
 	phosphobot/main.py \

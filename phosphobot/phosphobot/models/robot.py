@@ -1,7 +1,7 @@
 import asyncio
 import json
 from abc import ABC, abstractmethod
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 import numpy as np
 from loguru import logger
@@ -19,13 +19,12 @@ class RobotConfigStatus(BaseModel):
     """
 
     name: str
-    usb_port: str | None
+    robot_type: Literal["manipulator", "mobile", "other"] = "manipulator"
+    device_name: str | None
 
 
 class BaseRobot(ABC):
     name: str
-    initial_orientation_rad: np.ndarray = np.zeros(3)
-    initial_position: np.ndarray = np.zeros(3)
     is_connected: bool = False
     is_moving: bool = False
 
@@ -60,7 +59,7 @@ class BaseRobot(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def connect(self) -> None:
+    async def connect(self) -> None:
         """
         Initialize communication with the robot.
 
@@ -124,7 +123,7 @@ class BaseRobot(ABC):
     def status(self) -> RobotConfigStatus:
         return RobotConfigStatus(
             name=self.name,
-            usb_port=getattr(self, "SERIAL_ID", None),
+            device_name=getattr(self, "SERIAL_ID", None),
         )
 
     @abstractmethod
@@ -133,6 +132,8 @@ class BaseRobot(ABC):
         Move the robot to its initial position.
         The initial position is a safe position for the robot, where it is moved before starting the calibration.
         This method should be implemented by the robot class.
+
+        This should update self.initial_position  and self.initial_orientation_rad
         """
         raise NotImplementedError
 

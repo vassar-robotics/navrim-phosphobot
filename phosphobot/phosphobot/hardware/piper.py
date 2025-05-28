@@ -94,7 +94,7 @@ class PiperHardware(BaseManipulator):
             logger.warning(e)
             return None
 
-    def connect(self):
+    async def connect(self):
         """
         Setup the robot.
         can_number : 0 if only one robot is connected, 1 to connec to second robot
@@ -316,7 +316,7 @@ class PiperHardware(BaseManipulator):
         position_deg = self.RESOLUTION * radians / (2 * np.pi)
         return position_deg.astype(int)
 
-    def calibrate(self) -> tuple[Literal["success", "in_progress", "error"], str]:
+    async def calibrate(self) -> tuple[Literal["success", "in_progress", "error"], str]:
         """
         This is called during the calibration phase of the robot.
         CAUTION :

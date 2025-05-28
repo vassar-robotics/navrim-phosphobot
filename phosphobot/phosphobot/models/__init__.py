@@ -332,9 +332,9 @@ class JointsReadResponse(BaseModel):
     Response to read the joints of the robot.
     """
 
-    angles: List[float] = Field(
+    angles: List[float | None] = Field(
         ...,
-        description="A list of length 6, with the position of each joint in radian.",
+        description="A list of length 6, with the position of each joint in the unit specified in the request. If a joint is not available, its value will be None.",
     )
     unit: Literal["rad", "motor_units", "degrees"] = Field(
         "rad",
@@ -441,6 +441,14 @@ class DatasetSplitRequest(BaseModel):
         ...,
         description="Name of the second split.",
         examples=["/lerobot_v2.1/example_dataset_validation"],
+    )
+
+
+class DatasetShuffleRequest(BaseModel):
+    dataset_path: str = Field(
+        ...,
+        description="Path to the dataset to shuffle",
+        examples=["/lerobot_v2.1/example_dataset"],
     )
 
 

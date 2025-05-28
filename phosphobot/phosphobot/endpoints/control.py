@@ -50,7 +50,12 @@ from phosphobot.models import (
 )
 from phosphobot.robot import RobotConnectionManager, SO100Hardware, get_rcm
 from phosphobot.supabase import get_client, user_is_logged_in
-from phosphobot.teleoperation import TeleopManager, UDPServer, get_udp_server
+from phosphobot.teleoperation import (
+    UDPServer,
+    get_udp_server,
+    TeleopManager,
+    get_teleop_manager,
+)
 from phosphobot.utils import background_task_log_exceptions
 
 # This is used to send numpy arrays as JSON to OpenVLA server
@@ -73,13 +78,13 @@ vr_control_signal = ControlSignal()
     description="Initialize the robot to its initial position before starting the teleoperation.",
 )
 async def move_init(
-    robot_id: int | None = None, rcm: RobotConnectionManager = Depends(get_rcm)
+    robot_id: int | None = None,
+    teleop_manager: TeleopManager = Depends(get_teleop_manager),
 ):
     """
     Initialize the robot to its initial position before starting the teleoperation.
     """
-    manager = TeleopManager(rcm)
-    await manager.move_init(robot_id=robot_id)
+    await teleop_manager.move_init(robot_id=robot_id)
     return StatusResponse()
 
 
@@ -91,11 +96,11 @@ async def move_init(
 )
 async def move_teleop_post(
     control_data: AppControlData,
-    robot_id: int = 0,
-    rcm: RobotConnectionManager = Depends(get_rcm),
+    robot_id: int | None = None,
+    teleop_manager: TeleopManager = Depends(get_teleop_manager),
 ) -> StatusResponse:
-    manager = TeleopManager(rcm, robot_id=robot_id)
-    await manager.process_control_data(control_data)
+    teleop_manager.robot_id = robot_id
+    await teleop_manager.process_control_data(control_data)
     return StatusResponse()
 
 
@@ -104,21 +109,22 @@ async def move_teleop_post(
 async def move_teleop_ws(
     websocket: WebSocket,
     rcm: RobotConnectionManager = Depends(get_rcm),
+    teleop_manager: TeleopManager = Depends(get_teleop_manager),
 ):
+    teleop_manager.robot_id = None
     await websocket.accept()
 
-    if not rcm.robots:
+    if not await rcm.robots:
         raise HTTPException(status_code=400, detail="No robot connected")
 
-    manager = TeleopManager(rcm)
     vr_control_signal.start()
     try:
         while True:
             data = await websocket.receive_text()
             try:
                 control_data = AppControlData.model_validate_json(data)
-                await manager.process_control_data(control_data)
-                await manager.send_status_updates(websocket)
+                await teleop_manager.process_control_data(control_data)
+                await teleop_manager.send_status_updates(websocket)
             except json.JSONDecodeError as e:
                 logger.error(f"WebSocket JSON error: {e}")
 
@@ -130,12 +136,13 @@ async def move_teleop_ws(
 
 @router.post("/move/teleop/udp", response_model=UDPServerInformationResponse)
 async def move_teleop_udp(
-    background_tasks: BackgroundTasks,
     udp_server: UDPServer = Depends(get_udp_server),
+    teleop_manager: TeleopManager = Depends(get_teleop_manager),
 ):
     """
     Start a UDP server to send and receive teleoperation data to the robot.
     """
+    teleop_manager.robot_id = None
     udp_server_info = await udp_server.init()
     return udp_server_info
 
@@ -168,7 +175,7 @@ async def move_to_absolute_position(
     Data: position
     Update the robot position based on the received data
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     # Divide by 100 to convert from cm to m
     query.x = query.x / 100 if query.x is not None else 0
@@ -182,12 +189,24 @@ async def move_to_absolute_position(
             open_command=query.open,
         )
 
+    initial_position = getattr(robot, "initial_position", None)
+    initial_orientation_rad = getattr(robot, "initial_orientation_rad", None)
+    if initial_position is None or initial_orientation_rad is None:
+        await robot.move_to_initial_position()
+        initial_position = getattr(robot, "initial_position", None)
+        initial_orientation_rad = getattr(robot, "initial_orientation_rad", None)
+        if initial_position is None or initial_orientation_rad is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Robot {robot.name} .move_to_initial_position() did not set initial position or orientation: {initial_position=}, {initial_orientation_rad=}",
+            )
+
     if hasattr(robot, "forward_kinematics"):
         # If the robot has a forward_kinematics method, use it to move more precisely to the target
         current_position, current_orientation = robot.forward_kinematics()
 
         target_controller_position = np.array([query.x, query.y, query.z])
-        target_position = robot.initial_position + target_controller_position
+        target_position = initial_position + target_controller_position
         position_residual = np.linalg.norm(current_position - target_position)
 
         # angle
@@ -209,7 +228,7 @@ async def move_to_absolute_position(
             )
 
             target_orientation_rad = (
-                robot.initial_orientation_rad + target_controller_orientation_rad
+                initial_orientation_rad + target_controller_orientation_rad
             )
             use_angles = True
         else:
@@ -256,9 +275,15 @@ async def move_to_absolute_position(
         await try_moving_to_target()
     else:
         # Otherwise, run the move_robot_absolute method directly
+        if query.rx is not None:
+            query.rx = np.deg2rad(query.rx)
+        if query.ry is not None:
+            query.ry = np.deg2rad(query.ry)
+        if query.rz is not None:
+            query.rz = np.deg2rad(query.rz)
         await robot.move_robot_absolute(
             target_position=np.array([query.x, query.y, query.z]),
-            target_orientation_rad=np.deg2rad(np.array([query.rx, query.ry, query.rz])),
+            target_orientation_rad=np.array([query.rx, query.ry, query.rz]),
         )
 
     return StatusResponse()
@@ -285,7 +310,7 @@ async def move_relative(
     data.y = data.y / 100 if data.y is not None else None
     data.z = data.z / 100 if data.z is not None else None
 
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if (
         data.x is None
@@ -322,8 +347,20 @@ async def move_relative(
     if not hasattr(robot, "forward_kinematics"):
         raise HTTPException(
             status_code=400,
-            detail="Robot doesn't have move_robot_relative method or forward_kinematics method",
+            detail="Robot doesn't support move_robot_relative method or forward_kinematics method",
         )
+
+    initial_position = getattr(robot, "initial_position", None)
+    initial_orientation_rad = getattr(robot, "initial_orientation_rad", None)
+    if initial_position is None or initial_orientation_rad is None:
+        await robot.move_to_initial_position()
+        initial_position = getattr(robot, "initial_position", None)
+        initial_orientation_rad = getattr(robot, "initial_orientation_rad", None)
+        if initial_position is None or initial_orientation_rad is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Robot {robot.name} .move_to_initial_position() did not set initial position or orientation: {initial_position=}, {initial_orientation_rad=}",
+            )
 
     logger.info(f"Received relative data: {data}")
     delta_position = np.array([data.x, data.y, data.z])
@@ -337,11 +374,17 @@ async def move_relative(
     # Round to 3 decimals
     current_position = np.round(current_position, 3)
     current_orientation = np.round(current_orientation, 3)
-    target_position = current_position + delta_position - robot.initial_position
+    # Replace the None values in delta_position and delta_orientation_euler_degrees with 0
+    delta_position = np.array([0 if v is None else v for v in delta_position])
+    delta_orientation_euler_degrees = np.array(
+        [0 if v is None else v for v in delta_orientation_euler_degrees]
+    )
+
+    target_position = current_position + delta_position - initial_position
     target_orientation = (
         np.rad2deg(current_orientation)
         + delta_orientation_euler_degrees
-        - np.rad2deg(robot.initial_orientation_rad)
+        - np.rad2deg(initial_orientation_rad)
     )
 
     # Round to 3 decimals
@@ -386,7 +429,7 @@ async def say_hello(
     """
     Make the robot say hello by opening and closing its gripper.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if not hasattr(robot, "control_gripper"):
         raise HTTPException(
@@ -419,7 +462,7 @@ async def move_sleep(
     """
     Put the robot to its sleep position.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
     await robot.move_to_sleep()
     return StatusResponse()
 
@@ -437,7 +480,7 @@ async def end_effector_read(
     """
     Get the position, orientation, and open status of the end effector.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if not isinstance(robot, BaseManipulator):
         raise HTTPException(
@@ -445,10 +488,18 @@ async def end_effector_read(
             detail="Robot is not a manipulator and does not have an end effector",
         )
 
+    initial_position = getattr(robot, "initial_position", None)
+    initial_orientation_rad = getattr(robot, "initial_orientation_rad", None)
+    if initial_position is None or initial_orientation_rad is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Call /move/init before using this endpoint for robot {robot.name}. ",
+        )
+
     position, orientation, open_status = robot.get_end_effector_state()
     # Remove the initial position and orientation (used to zero the robot)
-    position = position - robot.initial_position
-    orientation = orientation - robot.initial_orientation_rad
+    position = position - initial_position
+    orientation = orientation - initial_orientation_rad
 
     x, y, z = position
     rx, ry, rz = orientation
@@ -477,7 +528,7 @@ async def read_voltage(
     """
     Read voltage of the robot.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
     if not hasattr(robot, "current_voltage"):
         raise HTTPException(
             status_code=400,
@@ -503,7 +554,7 @@ async def read_torque(
     """
     Read torque of the robot.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if not hasattr(robot, "current_torque"):
         raise HTTPException(
@@ -534,7 +585,7 @@ async def toggle_torque(
     """
 
     if robot_id is not None:
-        robot = rcm.get_robot(robot_id)
+        robot = await rcm.get_robot(robot_id)
 
         if not hasattr(robot, "enable_torque") or not hasattr(robot, "disable_torque"):
             raise HTTPException(
@@ -549,7 +600,7 @@ async def toggle_torque(
         return StatusResponse()
 
     # If no robot_id is provided, toggle torque for all robots
-    for robot in rcm.robots:
+    for robot in await rcm.robots:
         if not hasattr(robot, "enable_torque") or not hasattr(robot, "disable_torque"):
             logger.warning(
                 f"Robot {robot.name} does not support torque control. Skipping."
@@ -581,7 +632,7 @@ async def read_joints(
     if request is None:
         request = JointsReadRequest(unit="rad", joints_ids=None)
 
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if not hasattr(robot, "read_joints_position"):
         raise HTTPException(
@@ -592,9 +643,14 @@ async def read_joints(
     current_units_position = robot.read_joints_position(
         unit=request.unit, joints_ids=request.joints_ids
     )
+    # Replace NaN values with None and convert to list
+    current_units_position = [
+        float(angle) if not np.isnan(angle) else None
+        for angle in current_units_position
+    ]
 
     return JointsReadResponse(
-        angles=current_units_position.tolist(),
+        angles=current_units_position,
         unit=request.unit,
     )
 
@@ -613,7 +669,7 @@ async def write_joints(
     """
     Move the robot's joints to the specified angles.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
     if not hasattr(robot, "write_joint_positions"):
         raise HTTPException(
             status_code=400,
@@ -643,7 +699,7 @@ async def calibrate(
 
     This endpoints disable torque. Move the robot to the positions you see in the simulator and call this endpoint again, until the calibration is complete.
     """
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
 
     if (
         not hasattr(robot, "calibrate")
@@ -658,7 +714,7 @@ async def calibrate(
     if not robot.is_connected:
         raise HTTPException(status_code=400, detail="Robot is not connected")
 
-    status, message = robot.calibrate()
+    status, message = await robot.calibrate()
     current_step = robot.calibration_current_step
     total_nb_steps = robot.calibration_max_steps
     if status == "success":
@@ -707,8 +763,8 @@ async def start_leader_follower(
                 status_code=400,
                 detail=f"Leader ID is required for robot pair {i}.",
             )
-        leader = rcm.get_robot(robot_pair.leader_id)
-        follower = rcm.get_robot(robot_pair.follower_id)
+        leader = await rcm.get_robot(robot_pair.leader_id)
+        follower = await rcm.get_robot(robot_pair.follower_id)
         if not isinstance(leader, SO100Hardware):
             raise HTTPException(
                 status_code=400,
@@ -773,10 +829,10 @@ async def start_gravity(
             status_code=400, detail="Gravity control is already running"
         )
 
-    if len(rcm.robots) == 0:
+    if len(await rcm.robots) == 0:
         raise HTTPException(status_code=400, detail="No robot connected")
 
-    robot = rcm.get_robot(robot_id)
+    robot = await rcm.get_robot(robot_id)
     if not isinstance(robot, SO100Hardware):
         raise HTTPException(
             status_code=400, detail="Gravity compensation is only for SO-100 robot"
@@ -858,6 +914,16 @@ async def fetch_auto_control_status(request: AIStatusRequest) -> AIStatusRespons
                     .eq("id", supabase_id)
                     .execute()
                 )
+            # If ai-control signal is stopped but remote status is running, set the remote status to stopped
+            if ai_control_signal.status == "stopped" and supabase_status == "running":
+                supabase_status = "stopped"
+                # Update the status in the database
+                await (
+                    supabase_client.table("ai_control_sessions")
+                    .update({"status": supabase_status})
+                    .eq("id", supabase_id)
+                    .execute()
+                )
 
     # Situation 1: There is already a different, running process in backend
     if (
@@ -910,8 +976,8 @@ async def spawn_inference_server(
     supabase_client = await get_client()
     await supabase_client.auth.get_user()
 
-    robots_to_control = copy(rcm.robots)
-    for robot in rcm.robots:
+    robots_to_control = copy(await rcm.robots)
+    for robot in await rcm.robots:
         if (
             hasattr(robot, "SERIAL_ID")
             and query.robot_serials_to_ignore is not None
@@ -924,9 +990,9 @@ async def spawn_inference_server(
             )
             robots_to_control.remove(robot)
 
-    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
-        "All robots must be manipulators for AI control"
-    )
+    assert all(
+        isinstance(robot, BaseManipulator) for robot in robots_to_control
+    ), "All robots must be manipulators for AI control"
 
     # Get the modal host and port here
     _, _, server_info = await setup_ai_control(
@@ -986,8 +1052,8 @@ async def start_auto_control(
         .execute()
     )
 
-    robots_to_control = copy(rcm.robots)
-    for robot in rcm.robots:
+    robots_to_control = copy(await rcm.robots)
+    for robot in await rcm.robots:
         if (
             hasattr(robot, "SERIAL_ID")
             and query.robot_serials_to_ignore is not None
@@ -1000,9 +1066,9 @@ async def start_auto_control(
             )
             robots_to_control.remove(robot)
 
-    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
-        "All robots must be manipulators for AI control"
-    )
+    assert all(
+        isinstance(robot, BaseManipulator) for robot in robots_to_control
+    ), "All robots must be manipulators for AI control"
 
     # Get the modal host and port here
     model, model_spawn_config, server_info = await setup_ai_control(
@@ -1141,7 +1207,7 @@ async def add_robot_connection(
     Useful for adding robot that are accessible only via WiFi, for example.
     """
     try:
-        rcm.add_connection(
+        await rcm.add_connection(
             robot_name=query.robot_name,
             connection_details=query.connection_details,
         )

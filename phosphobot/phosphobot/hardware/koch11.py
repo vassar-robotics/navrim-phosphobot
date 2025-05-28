@@ -71,7 +71,7 @@ class KochHardware(BaseManipulator):
             return cls(device_name=port.device, serial_id=port.serial_number)
         return None
 
-    def connect(self):
+    async def connect(self):
         # Initialize PortHandler and PacketHandler
         self.portHandler = PortHandler(self.device_name)
         self.packetHandler = PacketHandler(protocol_version=2.0)
@@ -138,20 +138,20 @@ class KochHardware(BaseManipulator):
 
         # Convert PID values to bytes and add to GroupSyncWrite
         successD = all(
-            [
-                groupSyncWriteD.addParam(servo_id, [DXL_LOBYTE(d), DXL_HIBYTE(d)])
+            [  # type: ignore
+                groupSyncWriteD.addParam(servo_id, [DXL_LOBYTE(d), DXL_HIBYTE(d)])  # type: ignore
                 for servo_id, (d, _, _) in zip(self.SERVO_IDS, pid_params)
             ]
         )
         successI = all(
-            [
-                groupSyncWriteI.addParam(servo_id, [DXL_LOBYTE(i), DXL_HIBYTE(i)])
+            [  # type: ignore
+                groupSyncWriteI.addParam(servo_id, [DXL_LOBYTE(i), DXL_HIBYTE(i)])  # type: ignore
                 for servo_id, (_, i, _) in zip(self.SERVO_IDS, pid_params)
             ]
         )
         successP = all(
-            [
-                groupSyncWriteP.addParam(servo_id, [DXL_LOBYTE(p), DXL_HIBYTE(p)])
+            [  # type: ignore
+                groupSyncWriteP.addParam(servo_id, [DXL_LOBYTE(p), DXL_HIBYTE(p)])  # type: ignore
                 for servo_id, (_, _, p) in zip(self.SERVO_IDS, pid_params)
             ]
         )

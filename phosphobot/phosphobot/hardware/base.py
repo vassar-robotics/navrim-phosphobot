@@ -18,7 +18,6 @@ from phosphobot.models import (
 from scipy.spatial.transform import Rotation as R  # type: ignore
 
 from phosphobot.configs import SimulationMode, config
-from phosphobot.models import RobotConfigStatus
 from phosphobot.utils import (
     euler_from_quaternion,
     get_resources_path,
@@ -92,6 +91,11 @@ class BaseManipulator(BaseRobot):
     # Used to keep track of the calibration sequence
     calibration_current_step: int = 0
     calibration_max_steps: int = 3
+
+    # (x, y, z) position of the robot in the simulation in meters
+    initial_orientation_rad: np.ndarray | None = None
+    # (rx, ry, rz) orientation of the robot in the simulation
+    initial_position: np.ndarray | None = None
 
     @abstractmethod
     def enable_torque(self) -> None:
@@ -179,6 +183,7 @@ class BaseManipulator(BaseRobot):
         axis: List[float] | None = None,
         add_debug_lines: bool = False,
         show_debug_link_indices: bool = True,
+        **kwargs: Optional[dict[str, str]],
     ):
         """
         Args:
@@ -194,9 +199,9 @@ class BaseManipulator(BaseRobot):
 
         # When creating a new robot, you should add default values for these
         # These values depends on the hardware
-        assert self.CALIBRATION_POSITION is not None, (
-            "CALIBRATION_POSITION must be defined in the class"
-        )
+        assert (
+            self.CALIBRATION_POSITION is not None
+        ), "CALIBRATION_POSITION must be defined in the class"
         assert self.RESOLUTION is not None, "RESOLUTION must be defined in the class"
         assert self.SERVO_IDS is not None, "SERVO_IDS must be defined in the class"
 
@@ -281,46 +286,27 @@ class BaseManipulator(BaseRobot):
         self.lower_joint_limits = [info[8] for info in joint_infos]
         self.upper_joint_limits = [info[9] for info in joint_infos]
 
-        (
-            self.initial_position,
-            self.initial_orientation_rad,
-        ) = self.forward_kinematics()
-
         self.gripper_initial_angle = p.getJointState(
             bodyUniqueId=self.p_robot_id,
             jointIndex=self.END_EFFECTOR_LINK_INDEX,
         )[0]
 
-        try:
-            if not only_simulation:
-                self.connect()
-                # Register the disconnect method to be called on exit
-                atexit.register(self.move_to_sleep_sync)
-            else:
-                logger.info("Only simulation: Not connecting to the robot.")
-                self.is_connected = False
-        except Exception as e:
-            logger.warning(
-                f"""Error when connecting to robot {self.__class__.__name__}: {e}
-Make sure the robot is connected and powered on.
-Falling back to simulation mode.
-"""
-            )
-            logger.info("Simulation mode enabled.")
+        if not only_simulation:
+            # Register the disconnect method to be called on exit
+            atexit.register(self.move_to_sleep_sync)
+        else:
+            logger.info("Only simulation: Not connecting to the robot.")
             self.is_connected = False
 
-        # Once connected, we read the calibration from the motors
-        if self.is_connected:
-            # Init calibration config
+        if not only_simulation:
             self.init_config()
         else:
-            logger.warning("No robot connected")
             config = self.get_default_base_robot_config(
                 voltage="6V", raise_if_none=True
             )
             if config is None:
                 raise FileNotFoundError(
-                    "No default config found. Please provide a valid config file."
+                    f"Default config file not found for {self.name} at 6V."
                 )
             self.config = config
 
@@ -403,7 +389,13 @@ Falling back to simulation mode.
         Move the robot to its initial position.
         """
         zero_position = np.zeros(len(self.SERVO_IDS))
-        self.set_motors_positions(zero_position)
+        self.set_motors_positions(zero_position, enable_gripper=True)
+        # Wait for the robot to move to the initial position
+        await asyncio.sleep(0.5)
+        (
+            self.initial_position,
+            self.initial_orientation_rad,
+        ) = self.forward_kinematics()
 
     async def move_to_sleep(self):
         """
@@ -673,12 +665,12 @@ Falling back to simulation mode.
         elif unit == "degrees":
             if source_unit == "motor_units":
                 # Convert from motor units to radians
-                output_position = self._units_vec_to_radians(output_position)
+                output_position_rad = self._units_vec_to_radians(output_position)
                 # Convert from radians to degrees
-                output_position = np.rad2deg(output_position)
+                output_position = np.rad2deg(output_position_rad)
             elif source_unit == "rad":
                 # Convert from radians to degrees
-                output_position = np.rad2deg(output_position)
+                output_position = np.rad2deg(output_position)  # type: ignore
         else:
             raise ValueError(
                 f"Invalid unit: {unit}. Must be one of ['rad', 'motor_units', 'degrees']"
@@ -919,7 +911,7 @@ Falling back to simulation mode.
         # Update the simulation
         step_simulation()
 
-    def calibrate(self) -> tuple[Literal["success", "in_progress", "error"], str]:
+    async def calibrate(self) -> tuple[Literal["success", "in_progress", "error"], str]:
         """
         Compute and save offsets and signs for the motors.
 
@@ -982,7 +974,7 @@ Falling back to simulation mode.
             )
 
         if self.calibration_current_step == 1:
-            self.connect()
+            await self.connect()
             # Set the offset to the middle of the motor range
             self.calibrate_motors()
             self.config.servos_offsets = self.read_joints_position(
@@ -1308,20 +1300,9 @@ class BaseMobileRobot(BaseRobot):
         self,
         only_simulation: bool = False,
     ):
-        try:
-            if not only_simulation:
-                self.connect()
-                # Register the disconnect method to be called on exit
-                atexit.register(self.move_to_sleep_sync)
-            else:
-                logger.info("Only simulation: Not connecting to the robot.")
-                self.is_connected = False
-        except Exception as e:
-            logger.warning(
-                f"""Error when connecting to robot {self.__class__.__name__}: {e}
-Make sure the robot is connected and powered on.
-Falling back to simulation mode.
-"""
-            )
-            logger.info("Simulation mode enabled.")
+        if not only_simulation:
+            # Register the disconnect method to be called on exit
+            atexit.register(self.move_to_sleep_sync)
+        else:
+            logger.info("Only simulation: Not connecting to the robot.")
             self.is_connected = False

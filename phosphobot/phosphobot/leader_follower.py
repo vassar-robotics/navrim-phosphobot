@@ -31,6 +31,22 @@ async def leader_follower_loop(
     logger.info("Starting leader-follower control.")
     loop_period = 1 / 150 if not enable_gravity_compensation else 1 / 60
 
+    # Check if the initial position is set, otherwise move them
+    wait_for_initial_position = False
+    for pair in robot_pairs:
+        for robot in [pair.leader, pair.follower]:
+            if robot.initial_position is None or robot.initial_orientation_rad is None:
+                logger.warning(
+                    f"Initial position or orientation not set for {robot.name} {robot.device_name}"
+                    "Moving to initial position before starting leader-follower control."
+                )
+                robot.enable_torque()
+                await robot.move_to_initial_position()
+                wait_for_initial_position = True
+    if wait_for_initial_position:
+        # Give some time for the robots to move to initial position
+        await asyncio.sleep(1)
+
     # Enable torque if using gravity compensation, and on the follower
     for pair in robot_pairs:
         leader = pair.leader

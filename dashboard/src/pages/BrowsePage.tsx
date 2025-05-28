@@ -61,6 +61,7 @@ import {
   MoreVertical,
   Plus,
   Repeat,
+  Shuffle,
   Split,
   Trash2,
   Wrench,
@@ -314,6 +315,9 @@ export default function FileBrowser() {
   const [openDownloadModal, setOpenDownloadModal] = useState(false);
   const [hfDatasetName, setHFDatasetName] = useState("");
   const [confirmRepairOpen, setConfirmRepairOpen] = useState(false);
+
+  // Shuffle modal
+  const [openShuffleModal, setOpenShuffleModal] = useState(false);
 
   // Split modal
   const [openSplitModel, setOpenSplitModel] = useState(false);
@@ -597,7 +601,6 @@ export default function FileBrowser() {
           Download dataset
         </Button>
       </div>
-
       {data.tokenError && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
@@ -605,7 +608,6 @@ export default function FileBrowser() {
           <AlertDescription>{data.tokenError}</AlertDescription>
         </Alert>
       )}
-
       <Table className="bg-background rounded-lg">
         <TableHeader>
           <TableRow>
@@ -753,7 +755,6 @@ export default function FileBrowser() {
           ))}
         </TableBody>
       </Table>
-
       {data.items.length > 0 && data.items[0].previewUrl && (
         <Alert variant="default" className="mt-4">
           <AlertCircle className="h-4 w-4" />
@@ -764,7 +765,6 @@ export default function FileBrowser() {
           </AlertDescription>
         </Alert>
       )}
-
       {/* Show episode selection and replay/delete buttons */}
       {data.episode_ids && data.episode_ids.length > 0 && (
         <div className="mt-6">
@@ -811,7 +811,6 @@ export default function FileBrowser() {
           </div>
         </div>
       )}
-
       {selectedItems.length > 0 &&
         (path.endsWith("lerobot_v2") || path.endsWith("lerobot_v2.1")) && (
           <div className="flex flex-col md:flex-row md:space-x-2 mt-6">
@@ -833,6 +832,14 @@ export default function FileBrowser() {
                   <Split className="mr-2 h-4 w-3" />
                   Split Selected Datasets
                 </Button>
+                <Button
+                  className="mb-4"
+                  variant="outline"
+                  onClick={() => setOpenShuffleModal(true)}
+                >
+                  <Shuffle className="mr-2 h-4 w-3" />
+                  Shuffle Selected Datasets
+                </Button>
               </>
             )}
             <Button
@@ -853,7 +860,6 @@ export default function FileBrowser() {
             </Button>
           </div>
         )}
-
       {/* Dataset deletion dialog */}
       <Modal
         open={confirmDeleteOpen}
@@ -879,7 +885,6 @@ export default function FileBrowser() {
         isLoading={loading}
         onConfirm={handleDeleteMultipleDatasets}
       />
-
       {/* Episode deletion dialog */}
       <Modal
         open={confirmEpisodeDeleteOpen}
@@ -902,7 +907,6 @@ export default function FileBrowser() {
           redirect(path);
         }}
       />
-
       {/* Split modal */}
       <Modal
         open={openSplitModel}
@@ -985,7 +989,6 @@ export default function FileBrowser() {
           />
         </div>
       </Modal>
-
       {/* Download modal */}
       <Modal
         open={openDownloadModal}
@@ -1031,7 +1034,6 @@ export default function FileBrowser() {
           />
         </div>
       </Modal>
-
       {/* Dataset repair dialog */}
       <Modal
         open={confirmRepairOpen}
@@ -1057,7 +1059,54 @@ export default function FileBrowser() {
         isLoading={loading}
         onConfirm={handleRepairDataset}
       />
-
+      {/* Dataset shuffle modal */}
+      <Modal
+        open={openShuffleModal}
+        onOpenChange={setOpenShuffleModal}
+        title="Shuffle Datasets"
+        description="This will shuffle the selected datasets."
+        confirmLabel={loading ? "Shuffling..." : "Shuffle"}
+        isLoading={loading}
+        onConfirm={async () => {
+          if (selectedItems.length === 0) {
+            toast.error("No datasets selected for shuffling");
+            return;
+          }
+          setLoading(true);
+          // iterate over selected items and shuffle them
+          Promise.all(
+            selectedItems.map(async (item) => {
+              const resp = await fetchWithBaseUrl(`/dataset/shuffle`, "POST", {
+                dataset_path: item,
+              });
+              if (resp.status !== "ok") {
+                toast.error(`Failed to shuffle dataset: ${item}`);
+              } else {
+                toast.success(`Dataset shuffled successfully: ${item}`);
+              }
+            }),
+          );
+          setLoading(false);
+          setOpenShuffleModal(false);
+          mutate();
+          redirect(path);
+        }}
+      >
+        <div className="grid gap-4 py-4">
+          <p className="text-sm text-muted-foreground">
+            This will shuffle the selected datasets randomly.
+            <br />
+            {selectedItems.length > 0
+              ? selectedItems.map((item) => (
+                  <span key={item}>
+                    <strong>{item}</strong>
+                    <br />
+                  </span>
+                ))
+              : null}
+          </p>
+        </div>
+      </Modal>
       {/* Merge modal */}
       <Dialog open={mergeModalOpen} onOpenChange={setMergeModalOpen}>
         <MergeDialog

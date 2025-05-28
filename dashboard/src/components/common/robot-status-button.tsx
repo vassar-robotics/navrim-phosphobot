@@ -120,9 +120,9 @@ function RobotStatusMenuItem({
             <div className="font-medium">
               #{robotId}: {robot.name}
             </div>
-            {robot.usb_port && (
+            {robot.device_name && (
               <div className="text-xs text-muted-foreground">
-                {robot.usb_port}
+                {robot.device_name}
               </div>
             )}
           </div>
@@ -253,10 +253,10 @@ export function RobotStatusDropdown() {
     const prev = prevRef.current;
     const current = serverStatus.robot_status ?? [];
     const disconnected = prev.filter(
-      (r) => !current.some((c) => c.usb_port === r.usb_port),
+      (r) => !current.some((c) => c.device_name === r.device_name),
     );
     if (disconnected.length > 0) {
-      const ids = disconnected.map((r) => r.usb_port ?? "").join(", ");
+      const ids = disconnected.map((r) => r.device_name ?? "").join(", ");
       toast(`Robot${disconnected.length > 1 ? "s" : ""} ${ids} disconnected`);
     }
     prevRef.current = current;
@@ -298,8 +298,8 @@ export function RobotStatusDropdown() {
                 {serverStatus.robot_status.map((robot, index) => (
                   <div key={index} className="relative">
                     <Bot className="size-5" />
-                    {robot.usb_port &&
-                      leaderArmSerialIds.includes(robot.usb_port) && (
+                    {robot.device_name &&
+                      leaderArmSerialIds.includes(robot.device_name) && (
                         <Crown className="absolute -top-2 -right-2 size-3 text-green-500" />
                       )}
                   </div>
@@ -338,7 +338,7 @@ export function RobotStatusDropdown() {
                   <RobotStatusMenuItem
                     key={index}
                     robotId={index}
-                    robotUsbPort={robot.usb_port ?? "unknown"}
+                    robotUsbPort={robot.device_name ?? "unknown"}
                     robot={robot}
                   />
                 );
