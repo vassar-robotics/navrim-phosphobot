@@ -1,4 +1,3 @@
-# phosphobot/hooks/hook-wasmtime.py
 from PyInstaller.utils.hooks import collect_data_files, get_package_paths
 import os
 
