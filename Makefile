@@ -49,15 +49,13 @@ info_bin:
 # Don't use sudo uv run, it will break CICD
 build_pyinstaller:
 	cd phosphobot && \
-	WASMTIME_PATH=$$(uv run python -c "import wasmtime; import os; print(os.path.dirname(wasmtime.__file__))") && \
 	uv run pyinstaller \
 	--onefile \
 	--name $(OUTPUT_FILENAME) \
 	--add-data "resources:resources" \
-	--add-data "$$WASMTIME_PATH:wasmtime" \
+	--additional-hooks-dir "./hooks" \
 	--hidden-import phosphobot \
 	--collect-all phosphobot \
-	--collect-all go2-webrtc-connect \
 	--collect-all wasmtime \
 	--clean -c \
 	phosphobot/main.py \

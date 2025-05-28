@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections import deque
 from dataclasses import dataclass
-from typing import Deque, Optional
+from typing import Deque
 import concurrent.futures
 import threading
 import time

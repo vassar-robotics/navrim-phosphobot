@@ -595,15 +595,13 @@ jobs:
         working-directory: phosphobot
         run: |
           # Get wasmtime path and build with PyInstaller
-          $WASMTIME_PATH = uv run python -c "import wasmtime; import os; print(os.path.dirname(wasmtime.__file__))"
           uv run pyinstaller `
             --onefile `
             --name "$env:OUTPUT_FILENAME" `
             --add-data "resources:resources" `
-            --add-data "${WASMTIME_PATH}:wasmtime" `
+            --additional-hooks-dir "./hooks" `
             --hidden-import phosphobot `
             --collect-all phosphobot `
-            --collect-all go2-webrtc-connect `
             --collect-all wasmtime `
             --clean -c `
             phosphobot/main.py
