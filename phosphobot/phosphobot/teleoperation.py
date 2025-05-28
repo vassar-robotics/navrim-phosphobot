@@ -182,8 +182,8 @@ class TeleopManager:
         """
         We use the control_data.direction_x and control_data.direction_y to move the mobile robot.
         These values are between -1 and 1, where 0 means no movement.
-        - direciton_x: forward/backward movement
-        - direction_y: rotate left/right (rz axis rotation)
+        - direction_y: forward/backward movement
+        - direction_x: rotate left/right (rz axis rotation)
         """
         # TODO:
         # - deadzone detection
@@ -191,8 +191,18 @@ class TeleopManager:
         # - some trig ?
         # - progressive acceleration ?
 
-        x = control_data.direction_x
-        rz = control_data.direction_y * np.pi
+        # deadzone: zero if below 0.3
+        if abs(control_data.direction_x) < 0.3:
+            control_data.direction_x = 0.0
+        if abs(control_data.direction_y) < 0.3:
+            control_data.direction_y = 0.0
+
+        rz = -control_data.direction_x * np.pi
+        x = control_data.direction_y
+
+        # Adjust for max speed
+        rz *= 0.5
+        x *= 0.4
 
         await robot.move_robot_absolute(
             target_position=np.array([x, 0, 0]),
