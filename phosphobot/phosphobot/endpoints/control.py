@@ -907,6 +907,16 @@ async def fetch_auto_control_status(request: AIStatusRequest) -> AIStatusRespons
                     .eq("id", supabase_id)
                     .execute()
                 )
+            # If ai-control signal is stopped but remote status is running, set the remote status to stopped
+            if ai_control_signal.status == "stopped" and supabase_status == "running":
+                supabase_status = "stopped"
+                # Update the status in the database
+                await (
+                    supabase_client.table("ai_control_sessions")
+                    .update({"status": supabase_status})
+                    .eq("id", supabase_id)
+                    .execute()
+                )
 
     # Situation 1: There is already a different, running process in backend
     if (
@@ -973,9 +983,9 @@ async def spawn_inference_server(
             )
             robots_to_control.remove(robot)
 
-    assert all(
-        isinstance(robot, BaseManipulator) for robot in robots_to_control
-    ), "All robots must be manipulators for AI control"
+    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
+        "All robots must be manipulators for AI control"
+    )
 
     # Get the modal host and port here
     _, _, server_info = await setup_ai_control(
@@ -1049,9 +1059,9 @@ async def start_auto_control(
             )
             robots_to_control.remove(robot)
 
-    assert all(
-        isinstance(robot, BaseManipulator) for robot in robots_to_control
-    ), "All robots must be manipulators for AI control"
+    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
+        "All robots must be manipulators for AI control"
+    )
 
     # Get the modal host and port here
     model, model_spawn_config, server_info = await setup_ai_control(
