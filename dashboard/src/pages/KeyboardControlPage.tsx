@@ -36,8 +36,6 @@ import {
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
-// Import SpeedSelect
-
 export default function RobotControllerPage() {
   const { data: serverStatus, error: serverError } = useSWR<ServerStatus>(
     ["/status"],
@@ -400,10 +398,13 @@ export default function RobotControllerPage() {
             </Select>
             {isMobileRobot && (
               <SpeedSelect
-                defaultValue={selectedSpeed} // Pass current selectedSpeed as initial for SpeedSelect
+                defaultValue={selectedSpeed} // Current speed state from RobotControllerPage
                 onChange={(newSpeed) => setSelectedSpeed(newSpeed)}
                 disabled={isMoving}
-                title="Robot Speed"
+                title="Movement speed"
+                minSpeed={0.1} // Specific min for mobile robots
+                maxSpeed={1.0} // Specific max for mobile robots
+                step={0.1} // Specific step for mobile robots
               />
             )}
             {isMoving ? (
@@ -462,9 +463,9 @@ export default function RobotControllerPage() {
                         };
                         // Apply speed for mobile robots here too if single step UI clicks should be speed-sensitive
                         if (isMobileRobot) {
-                          data.x *= selectedSpeed;
-                          data.y *= selectedSpeed;
-                          data.rz *= selectedSpeed;
+                          data.x = selectedSpeed;
+                          data.y = selectedSpeed;
+                          data.rz = selectedSpeed;
                         }
                         postData(BASE_URL + "move/relative", data, {
                           robot_id: robotIDFromName(selectedRobotName),

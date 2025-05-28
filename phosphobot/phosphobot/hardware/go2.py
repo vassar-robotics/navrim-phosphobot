@@ -339,11 +339,6 @@ class UnitreeGo2(BaseMobileRobot):
             return
         self.last_movement = current_time
 
-        # TODO: Use a speed parameter
-        x /= 2
-        y /= 2
-        rz /= 2
-
         if not self.is_connected or self.conn is None:
             logger.warning(
                 f"Robot is not connected: conn={self.conn} is_connected={self.is_connected}"
