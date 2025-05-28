@@ -19,6 +19,7 @@ import websockets
 from loguru import logger
 
 BASE_URL = "http://127.0.0.1:8080"
+BASE_WS_URI = "ws://127.0.0.1:8080"
 WEBSOCKET_TEST_TIME = 5  # seconds
 
 
@@ -98,7 +99,7 @@ async def test_send_messages(send_frequency=30, total_seconds=WEBSOCKET_TEST_TIM
     # Shared list for collecting nb_actions_received
     nb_actions_history = []
 
-    async with websockets.connect(f"{BASE_URL}/move/teleop/ws") as websocket:
+    async with websockets.connect(f"{BASE_WS_URI}/move/teleop/ws") as websocket:
         logger.success("[TEST] Connected to WebSocket")
 
         # Create and run tasks concurrently
@@ -177,7 +178,7 @@ async def test_send_messages_500hz_while_recording(
     ##################
     nb_actions_history = []
 
-    async with websockets.connect(f"{BASE_URL}/move/teleop/ws") as websocket:
+    async with websockets.connect(f"{BASE_WS_URI}/move/teleop/ws") as websocket:
         logger.info("[TEST] Connected to WebSocket")
 
         # Create tasks
