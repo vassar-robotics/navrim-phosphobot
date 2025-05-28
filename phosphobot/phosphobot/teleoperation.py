@@ -208,6 +208,7 @@ class TeleopManager:
             target_position=np.array([x, 0, 0]),
             target_orientation_rad=np.array([0, 0, rz]),
         )
+        self.action_counter += 1
 
     async def process_control_data(self, control_data: AppControlData) -> bool:
         """
@@ -240,8 +241,6 @@ class TeleopManager:
         # Otherwise (ex: VR control), fetch the manipulators and mobile robots based on control_data.source
         manipulator_robot = await self.get_manipulator_robot(control_data.source)
         mobile_robot = await self.get_mobile_robot(control_data.source)
-
-        logger.debug(f"Got mobile robot: {mobile_robot}")
 
         # No robot -> nothing to do
         if manipulator_robot is None and mobile_robot is None:
