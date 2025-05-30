@@ -1,5 +1,6 @@
-import platform
 import socket
+import platform
+from random import random
 from contextlib import asynccontextmanager
 
 import sentry_sdk
@@ -208,12 +209,15 @@ app.add_middleware(
 # Add the posthog middleware
 @app.middleware("http")
 def posthog_middleware(request: Request, call_next):
-    # ignore the /move/relative and /move/absolute endpoints
+    # ignore the /move/relative, /move/absolute and /status endpoints
     if request.url.path not in [
         "/move/relative",
         "/move/absolute",
+        "/status",
     ] and not request.url.path.startswith("/asset"):
-        posthog_pageview(request.url.path)
+        # Sample only 20% of the requests
+        if random() < 0.2:
+            posthog_pageview(request.url.path)
     return call_next(request)
 
 
