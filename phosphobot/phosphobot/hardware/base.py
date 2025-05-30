@@ -199,9 +199,9 @@ class BaseManipulator(BaseRobot):
 
         # When creating a new robot, you should add default values for these
         # These values depends on the hardware
-        assert (
-            self.CALIBRATION_POSITION is not None
-        ), "CALIBRATION_POSITION must be defined in the class"
+        assert self.CALIBRATION_POSITION is not None, (
+            "CALIBRATION_POSITION must be defined in the class"
+        )
         assert self.RESOLUTION is not None, "RESOLUTION must be defined in the class"
         assert self.SERVO_IDS is not None, "SERVO_IDS must be defined in the class"
 
@@ -1009,7 +1009,9 @@ class BaseManipulator(BaseRobot):
             logger.info(f"Motor signs computed: {self.config.servos_offsets_signs}")
 
             # Save to file
-            path = self.config.save_local(serial_id=self.SERIAL_ID)
+            path = self.config.save_local(
+                serial_id=self.device_name if self.device_name else self.SERIAL_ID
+            )
             self.calibration_current_step = 0
 
             return (
