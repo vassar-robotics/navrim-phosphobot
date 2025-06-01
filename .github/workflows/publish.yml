@@ -887,7 +887,7 @@ jobs:
           done
 
   create_release:
-    if: github.event_name == 'release'
+    if: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish) }}
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
