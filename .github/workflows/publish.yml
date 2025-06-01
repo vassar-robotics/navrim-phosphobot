@@ -13,6 +13,11 @@ on:
           - linux
           - windows
           - pypi
+      publish:
+        description: "Whether to publish the release when using workflow_dispatch"
+        required: false
+        default: false
+        type: boolean
   release:
     types: [published]
 
@@ -723,7 +728,7 @@ jobs:
           retention-days: 1
 
   publish_pypi:
-    if: ${{ github.event_name == 'release' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'pypi' }}
+    if: ${{ (github.event_name == 'release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'pypi')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -846,6 +851,7 @@ jobs:
 
   publish_apt:
     needs: build_linux
+    if: ${{ (github.event_name == 'release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish) }}
     runs-on: ubuntu-latest
     steps:
       - name: Check-out repository
@@ -899,6 +905,7 @@ jobs:
 
   publish_homebrew:
     needs: [build_macos, create_release]
+    if: ${{ (github.event_name == 'release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish) }}
     runs-on: ubuntu-latest
     steps:
       - name: Set VERSION
@@ -981,6 +988,7 @@ jobs:
 
   publish_windows:
     needs: [build_windows, create_release]
+    if: ${{ (github.event_name == 'release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish) }}
     runs-on: ubuntu-latest
     steps:
       - name: Set VERSION
