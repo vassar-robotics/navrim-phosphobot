@@ -1215,7 +1215,7 @@ async def add_robot_connection(
             status="ok", message=f"Robot connection to {query.robot_name} added"
         )
     except Exception as e:
-        logger.error(f"Failed to add robot connection: {e}")
+        logger.warning(f"Failed to add robot connection: {e}")
         raise HTTPException(
             status_code=400, detail=f"Failed to add robot connection: {e}"
         )

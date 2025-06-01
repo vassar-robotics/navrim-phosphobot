@@ -77,7 +77,6 @@ async def lifespan(app: FastAPI):
         login_to_hf()
     except Exception as e:
         logger.debug(f"Failed to login to Hugging Face: {e}")
-
     try:
         server_ip = get_local_ip()
         logger.success(
