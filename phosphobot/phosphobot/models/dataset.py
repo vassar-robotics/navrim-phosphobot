@@ -2087,10 +2087,10 @@ It's compatible with LeRobot and RLDS.
         Expects a dataset in v2.1 format.
         This will pick a random shuffle of the episodes and apply it to the videos, data and meta files.
         """
-        if self.episode_format != "lerobot_v2.1":
-            raise ValueError(
-                f"Dataset {self.dataset_name} is not in v2.1 format, cannot shuffle"
-            )
+        # if self.episode_format != "lerobot_v2.1":
+        #     raise ValueError(
+        #         f"Dataset {self.dataset_name} is not in v2.1 format, cannot shuffle"
+        #     )
 
         # Create a new dataset folder in the parent folder of the current dataset
         new_dataset_path = os.path.join(
@@ -2116,21 +2116,24 @@ It's compatible with LeRobot and RLDS.
             raise ValueError(
                 f"No parquet files found in {path_to_data}. Is this a valid dataset?"
             )
-        number_of_episodes = len(parquet_files)
+        # Get the number of episodes from the info.json file
+        info = InfoModel.from_json(
+            meta_folder_path=self.meta_folder_full_path,
+            format="lerobot_v2.1",
+        )
+        number_of_episodes = info.total_episodes
         shuffle = np.random.permutation(number_of_episodes)
 
         ### Data
         logger.debug("Shuffling data files")
         os.makedirs(os.path.join(new_dataset_path, "data", "chunk-000"), exist_ok=True)
 
-        for parquet_file in parquet_files:
-            # Get the index of the parquet file
-            parquet_index = int(parquet_file.split("_")[-1].split(".")[0])
+        for parquet_index in range(0, number_of_episodes):
             # Rename the parquet file
             new_parquet_file = f"episode_{shuffle[parquet_index]:06d}.parquet"
             # Move the parquet file to the new dataset
             shutil.copy(
-                os.path.join(path_to_data, parquet_file),
+                os.path.join(path_to_data, f"episode_{parquet_index:06d}.parquet"),
                 os.path.join(new_dataset_path, "data", "chunk-000", new_parquet_file),
             )
 
@@ -2160,14 +2163,15 @@ It's compatible with LeRobot and RLDS.
                 video_files.sort()
 
                 # Move the videos from the second dataset to the new dataset and increment the index
-                for video_file in video_files:
-                    # Get the index of the video
-                    video_index = int(video_file.split("_")[-1].split(".")[0])
+
+                for video_index in range(0, number_of_episodes):
                     # Rename the video file
                     new_video_file = f"episode_{shuffle[video_index]:06d}.mp4"
                     # Move the video file to the new dataset
                     shutil.copy(
-                        os.path.join(video_folder_full_path, video_file),
+                        os.path.join(
+                            video_folder_full_path, f"episode_{video_index:06d}.mp4"
+                        ),
                         os.path.join(path_to_videos, video_folder, new_video_file),
                     )
 
