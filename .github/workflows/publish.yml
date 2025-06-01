@@ -85,6 +85,7 @@ jobs:
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Compare versions
+        if: github.event_name == 'release'
         run: |
           if [ "${{ steps.version.outputs.version }}" != "${{ steps.tag.outputs.tag }}" ]; then
             echo "::error::Version mismatch! pyproject.toml version (${{ steps.version.outputs.version }}) ≠ release tag (${{ steps.tag.outputs.tag }})"
@@ -320,6 +321,7 @@ jobs:
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Compare versions
+        if: ${{ github.event_name == 'release' }}
         run: |
           if [ "${{ steps.version.outputs.version }}" != "${{ steps.tag.outputs.tag }}" ]; then
             echo "::error::Version mismatch! pyproject.toml version (${{ steps.version.outputs.version }}) ≠ release tag (${{ steps.tag.outputs.tag }})"
