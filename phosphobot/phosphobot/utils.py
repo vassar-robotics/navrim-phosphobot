@@ -283,6 +283,7 @@ def is_can_plugged(interface: str = "can0") -> bool:
                 text=True,
                 check=True,
                 timeout=3,
+                errors="replace",
             )
             if result.stdout is None:
                 return False
