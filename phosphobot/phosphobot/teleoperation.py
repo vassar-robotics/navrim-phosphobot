@@ -59,7 +59,7 @@ class TeleopManager:
             return False
 
         now = datetime.now()
-        if (now - self._window_start).total_seconds() >= 1.0:
+        if (now - self._window_start).total_seconds() >= self.MOVE_TIMEOUT:
             self._window_start = now
             self._instr_in_window = 0
 
@@ -214,25 +214,46 @@ class TeleopManager:
         # - some trig ?
         # - progressive acceleration ?
 
+        start_wait_time = time.perf_counter()
+
         # deadzone: zero if below 0.3
-        if abs(control_data.direction_x) < 0.3:
+        if abs(control_data.direction_x) < 0.5:
             control_data.direction_x = 0.0
-        if abs(control_data.direction_y) < 0.3:
+        if abs(control_data.direction_y) < 0.5:
             control_data.direction_y = 0.0
 
-        rz = -control_data.direction_x * np.pi
-        x = control_data.direction_y
-
-        # Adjust for max speed
-        # TODO: better params
-        rz *= 0.5
-        x *= 0.4
-
-        await robot.move_robot_absolute(
-            target_position=np.array([x, 0, 0]),
-            target_orientation_rad=np.array([0, 0, rz]),
+        logger.debug(
+            f"Received control data for mobile robot: {control_data.direction_x}, {control_data.direction_y}"
         )
-        self.action_counter += 1
+
+        rz = -control_data.direction_x * np.pi / 2
+        x = control_data.direction_y / 100
+
+        while (
+            robot.is_moving
+            and time.perf_counter() - start_wait_time < self.MOVE_TIMEOUT
+        ):
+            await asyncio.sleep(0.00001)
+        if time.perf_counter() - start_wait_time >= self.MOVE_TIMEOUT:
+            logger.warning(
+                f"Robot {robot.name} is still moving after {self.MOVE_TIMEOUT}s; skipping this command"
+            )
+            return False
+
+        try:
+            await asyncio.wait_for(
+                robot.move_robot_absolute(
+                    target_position=np.array([x, 0, 0]),
+                    target_orientation_rad=np.array([0, 0, rz]),
+                ),
+                timeout=0.1,
+            )
+            self.action_counter += 1
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"move_robot timed out for mobile robot {robot.name}; skipping this command"
+            )
+            return False
 
     async def process_control_data(self, control_data: AppControlData) -> bool:
         """
@@ -252,8 +273,14 @@ class TeleopManager:
         if control_data.timestamp is not None:
             if control_data.timestamp <= state.last_timestamp:
                 return False
+            # Check if the timestamp is too old
+            if time.time() - control_data.timestamp > self.MOVE_TIMEOUT:
+                logger.warning(
+                    f"Control data timestamp {control_data.timestamp} is too old, skipping command"
+                )
+                return False
 
-            state.last_timestamp = control_data.timestamp
+            state.last_timestamp = time.time()
 
         # If robot_id is set, get the specific robot and move it accordingly
         if self.robot_id is not None:

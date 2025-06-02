@@ -44,6 +44,7 @@ class UnitreeGo2(BaseMobileRobot):
         self._connection_thread = None
         self._loop_thread = None
         self._shutdown_event = threading.Event()
+        self.is_moving = False
 
         # Status variables about the robot
         self.lowstate = None
@@ -172,19 +173,19 @@ class UnitreeGo2(BaseMobileRobot):
                 raise Exception(f"Failed to connect to UnitreeGo2 at {self.ip}: {e}")
 
             # Switch to AI mode
-            await self.conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["MOTION_SWITCHER"],
-                {"api_id": 1002, "parameter": {"name": "ai"}},
-            )
-            await asyncio.sleep(5)
+            # await self.conn.datachannel.pub_sub.publish_request_new(
+            #     RTC_TOPIC["MOTION_SWITCHER"],
+            #     {"api_id": 1002, "parameter": {"name": "ai"}},
+            # )
+            # await asyncio.sleep(5)
 
-            # Shutdown the connection
-            self.disconnect()
+            # # Shutdown the connection
+            # self.disconnect()
 
-            # Connect again
-            self.conn = Go2WebRTCConnection(WebRTCConnectionMethod.LocalSTA, ip=self.ip)
-            await asyncio.wait_for(self.conn.connect(), timeout=10.0)
-            await self._ensure_moving_mode()
+            # # Connect again
+            # self.conn = Go2WebRTCConnection(WebRTCConnectionMethod.LocalSTA, ip=self.ip)
+            # await asyncio.wait_for(self.conn.connect(), timeout=10.0)
+            # await self._ensure_moving_mode()
 
             def lowstate_callback(message):
                 self.lowstate = message["data"]
@@ -201,10 +202,10 @@ class UnitreeGo2(BaseMobileRobot):
                 RTC_TOPIC["LF_SPORT_MOD_STATE"], sportmodestatus_callback
             )
 
-            await self.conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["MOTION_SWITCHER"],
-                {"api_id": 1002, "parameter": {"name": "ai"}},
-            )
+            # await self.conn.datachannel.pub_sub.publish_request_new(
+            #     RTC_TOPIC["MOTION_SWITCHER"],
+            #     {"api_id": 1002, "parameter": {"name": "ai"}},
+            # )
 
             self._is_connected = True
 
@@ -290,28 +291,28 @@ class UnitreeGo2(BaseMobileRobot):
         On older firmware versions, you need to use the "normal" mode to achieve similar results.
         In our testing, the "mcf" mode is the most stable and reliable for movement.
         """
-        # Get the current motion_switcher status
-        response = await self.conn.datachannel.pub_sub.publish_request_new(
-            RTC_TOPIC["MOTION_SWITCHER"], {"api_id": 1001}
-        )
+        # # Get the current motion_switcher status
+        # response = await self.conn.datachannel.pub_sub.publish_request_new(
+        #     RTC_TOPIC["MOTION_SWITCHER"], {"api_id": 1001}
+        # )
 
-        if response["data"]["header"]["status"]["code"] == 0:
-            data = json.loads(response["data"]["data"])
-            current_motion_switcher_mode = data["name"]
-            logger.debug(f"Current motion mode: {current_motion_switcher_mode}")
+        # if response["data"]["header"]["status"]["code"] == 0:
+        #     data = json.loads(response["data"]["data"])
+        #     current_motion_switcher_mode = data["name"]
+        #     logger.debug(f"Current motion mode: {current_motion_switcher_mode}")
 
-        # Switch to "normal" mode if not already
-        if current_motion_switcher_mode != "mcf":
-            logger.debug(
-                f"Switching motion mode from {current_motion_switcher_mode} to 'mcf'..."
-            )
-            await self.conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["MOTION_SWITCHER"],
-                {"api_id": 1002, "parameter": {"name": "mcf"}},
-            )
-            await asyncio.sleep(5)  # Wait while it stands up
+        # # Switch to "normal" mode if not already
+        # if current_motion_switcher_mode != "mcf":
+        #     logger.debug(
+        #         f"Switching motion mode from {current_motion_switcher_mode} to 'mcf'..."
+        #     )
+        #     await self.conn.datachannel.pub_sub.publish_request_new(
+        #         RTC_TOPIC["MOTION_SWITCHER"],
+        #         {"api_id": 1002, "parameter": {"name": "mcf"}},
+        #     )
+        #     await asyncio.sleep(5)  # Wait while it stands up
 
-        await asyncio.sleep(1)  # Allow time for mode switch to take effect
+        # await asyncio.sleep(1)  # Allow time for mode switch to take effect
 
     async def _move_robot(
         self,
@@ -329,10 +330,10 @@ class UnitreeGo2(BaseMobileRobot):
         The values should be between -1 and 1, where 1 is maximum movement in that direction,
         and -1 the maximum movement in the opposite direction.
         """
+
         current_time = time.perf_counter()
-        if self.last_movement != 0.0 and (
-            current_time - self.last_movement < 0.5
-        ):  # Rate limit to 3 seconds
+        # Rate limit
+        if self.last_movement != 0.0 and (current_time - self.last_movement < 0.1):
             logger.warning(
                 f"Skipping move command due to rate limiting: last_movement={self.last_movement}, current_time={current_time}"
             )
@@ -345,19 +346,43 @@ class UnitreeGo2(BaseMobileRobot):
             )
             return
 
+        # Clamp the values to the expected range
+        rz = np.clip(rz, -90, 90)
+        x = np.clip(x, -1, 1)
+        y = np.clip(y, -1, 1)
+        # Convert to float´
+        x, y, rz = float(x), float(y), float(rz)
+
         try:
-            payload = {"x": x, "y": y, "z": rz}
+            self.is_moving = True
+
+            # This is how to use the SPORT_MOD topic to move the robot
+            # payload = {"x": x, "y": y, "z": rz}
+            # await self.conn.datachannel.pub_sub.publish_request_new(
+            #     RTC_TOPIC["SPORT_MOD"],
+            #     {
+            #         "api_id": SPORT_CMD["Move"],
+            #         "parameter": payload,
+            #     },
+            # )
+
+            # Instead, we use the WIRELESS_CONTROLLER topic to move the robot. This is a bit smoother
+            payload = {"lx": y, "ly": x, "rx": -rz, "ry": 0, "keys": 0}
             logger.debug(f"Sending payload for position: {payload}")
-            await self.conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["SPORT_MOD"],
-                {
-                    "api_id": SPORT_CMD["Move"],
-                    "parameter": payload,
-                },
+            await asyncio.wait_for(
+                self.conn.datachannel.pub_sub.publish(
+                    RTC_TOPIC["WIRELESS_CONTROLLER"],
+                    payload,
+                ),
+                timeout=0.1,
             )
+        except asyncio.TimeoutError:
+            logger.warning("UnitreeGo2 move command timed out")
         except Exception as e:
             logger.error(f"Error during move: {e}")
             raise e
+        finally:
+            self.is_moving = False
 
     async def move_robot_absolute(
         self,
