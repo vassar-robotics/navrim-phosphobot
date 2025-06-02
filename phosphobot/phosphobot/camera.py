@@ -130,7 +130,7 @@ def get_camera_names() -> List[str]:
                 if line.strip() != "":
                     camera_names.append(line.strip())
         except FileNotFoundError:
-            logger.error("PowerShell is not available. Cannot list cameras.")
+            logger.warning("PowerShell is not available. Cannot list cameras.")
 
     else:
         logger.error(f"Unsupported operating system: {system_name}")
@@ -386,7 +386,7 @@ class BaseCamera(ABC):
             logger.info(f"{self.camera_name} Keyboard interrupt")
             self.stop()
         except Exception as e:
-            logger.error(f"{self.camera_name} Error generating frames: {str(e)}")
+            logger.warning(f"{self.camera_name} Error generating frames: {str(e)}")
             self.stop()
 
     async def generate_depth_frames(self):
@@ -456,7 +456,7 @@ class VideoCamera(threading.Thread, BaseCamera):
                     cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G")
                 )
             else:
-                logger.error(f"{self.camera_name}: Failed to open")
+                logger.warning(f"{self.camera_name}: Failed to open")
                 return False
 
             success, _ = self.video.read()

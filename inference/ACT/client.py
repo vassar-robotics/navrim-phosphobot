@@ -28,9 +28,7 @@ while True:
     state = httpx.post(f"{PHOSPHOBOT_API_URL}/joints/read").json()
 
     # Generate actions
-    actions = model(
-        {"state": np.array(state["angles_rad"]), "images": np.array(images)}
-    )
+    actions = model({"state": np.array(state["angles"]), "images": np.array(images)})
 
     # Execute actions at 30Hz
     for action in actions:

@@ -607,7 +607,7 @@ async def delete_episode(query: DeleteEpisodeRequest):
             detail="The dataset was not found or the dataset name is incorrect",
         )
 
-    if "lerobot_v2" in query.path:
+    if "lerobot_v2/" in query.path:
         # The stats model delete_episode method is not implemented, will probably never be
         raise HTTPException(
             status_code=400,

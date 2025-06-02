@@ -187,6 +187,11 @@ class RobotConnectionManager:
             logger.info(f"Attempting to connect to Agilex Piper on {can_name}")
             try:
                 robot = PiperHardware.from_can_port(can_name=can_name)
+                if robot is None:
+                    logger.debug(
+                        f"Failed to create PiperHardware from {can_name}. Skipping."
+                    )
+                    continue
                 await robot.connect()
             except Exception as e:
                 logger.warning(

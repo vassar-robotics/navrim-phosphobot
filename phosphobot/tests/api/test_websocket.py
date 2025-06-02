@@ -18,8 +18,8 @@ import requests  # type: ignore
 import websockets
 from loguru import logger
 
+BASE_URL = "http://127.0.0.1:8080"
 BASE_WS_URI = "ws://127.0.0.1:8080"
-BASE_API_URL = "http://127.0.0.1:8080"
 WEBSOCKET_TEST_TIME = 5  # seconds
 
 
@@ -91,12 +91,15 @@ async def test_send_messages(send_frequency=30, total_seconds=WEBSOCKET_TEST_TIM
     - Computes the mean of all nb_actions_received.
     """
 
-    move_uri = BASE_WS_URI + "/move/teleop/ws"
+    # First, move/init so that the robot is ready to receive commands
+    requests.post(f"{BASE_URL}/move/init")
+    # Give some time for the robot to move to the initial position
+    await asyncio.sleep(1)
 
     # Shared list for collecting nb_actions_received
     nb_actions_history = []
 
-    async with websockets.connect(move_uri) as websocket:
+    async with websockets.connect(f"{BASE_WS_URI}/move/teleop/ws") as websocket:
         logger.success("[TEST] Connected to WebSocket")
 
         # Create and run tasks concurrently
@@ -148,6 +151,11 @@ async def test_send_messages_500hz_while_recording(
       4) Print the avegerage nb_actions_received per second.
     """
 
+    # First, move/init so that the robot is ready to receive commands
+    requests.post(f"{BASE_URL}/move/init")
+    # Give some time for the robot to move to the initial position
+    await asyncio.sleep(1)
+
     ##################
     # 1) Start recording
     ##################
@@ -155,9 +163,7 @@ async def test_send_messages_500hz_while_recording(
     start_payload = {"dataset_name": dataset_name, "episode_format": "lerobot_v2"}
 
     # USE WEBSOCKET CONNEXION HERE
-    start_response = requests.post(
-        f"{BASE_API_URL}/recording/start", json=start_payload
-    )
+    start_response = requests.post(f"{BASE_URL}/recording/start", json=start_payload)
     assert (
         start_response.status_code == 200
     ), f"Failed to start recording: {start_response.text}"
@@ -170,10 +176,9 @@ async def test_send_messages_500hz_while_recording(
     ##################
     # 2) WebSocket concurrency: send & receive
     ##################
-    move_uri = BASE_WS_URI + "/move/teleop/ws"
     nb_actions_history = []
 
-    async with websockets.connect(move_uri) as websocket:
+    async with websockets.connect(f"{BASE_WS_URI}/move/teleop/ws") as websocket:
         logger.info("[TEST] Connected to WebSocket")
 
         # Create tasks
@@ -206,7 +211,7 @@ async def test_send_messages_500hz_while_recording(
     # 3) Stop recording
     ##################
     stop_payload = {"save": False, "episode_format": "lerobot_v2"}
-    stop_response = requests.post(f"{BASE_API_URL}/recording/stop", json=stop_payload)
+    stop_response = requests.post(f"{BASE_URL}/recording/stop", json=stop_payload)
     assert (
         stop_response.status_code == 200
     ), f"Failed to stop recording: {stop_response.text}"

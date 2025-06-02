@@ -1,3 +1,4 @@
+from asyncio import CancelledError
 from loguru import logger
 
 logger.info("Starting phosphobot...")
@@ -67,7 +68,9 @@ def fetch_latest_version():
                     f"🧪 Version {version} is available. Please update with: \nsudo apt update && sudo apt upgrade phosphobot"
                 )
             else:
-                logger.warning(f"🧪 Version {version} is available. Please update")
+                logger.warning(
+                    f"🧪 Version {version} is available. Please update: https://docs.phospho.ai/installation#windows"
+                )
     except Exception:
         pass
 
@@ -217,7 +220,7 @@ def update():
         )
     else:
         logger.warning(
-            "To update phosphobot, please refer to the documentation. https://docs.phospho.ai"
+            "To update phosphobot, please refer to the documentation. https://docs.phospho.ai/installation#windows"
         )
 
 
@@ -311,12 +314,18 @@ def run(
                 continue
             logger.error(f"Critical server error: {e}")
             raise typer.Exit(code=1)
+        except KeyboardInterrupt:
+            logger.debug("Server stopped by user.")
+            raise typer.Exit(code=0)
+        except CancelledError:
+            logger.debug("Server shutdown gracefully.")
+            raise typer.Exit(code=0)
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             raise typer.Exit(code=1)
 
     if not success:
-        logger.error(
+        logger.warning(
             "All ports failed. Try a custom port with:\n"
             "phosphobot run --port 8000\n\n"
             "Check used ports with:\n"

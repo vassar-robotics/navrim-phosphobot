@@ -13,6 +13,11 @@ on:
           - linux
           - windows
           - pypi
+      publish:
+        description: "Whether to publish the release when using workflow_dispatch"
+        required: false
+        default: false
+        type: boolean
   release:
     types: [published]
 
@@ -80,6 +85,7 @@ jobs:
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Compare versions
+        if: github.event_name == 'release'
         run: |
           if [ "${{ steps.version.outputs.version }}" != "${{ steps.tag.outputs.tag }}" ]; then
             echo "::error::Version mismatch! pyproject.toml version (${{ steps.version.outputs.version }}) ≠ release tag (${{ steps.tag.outputs.tag }})"
@@ -315,6 +321,7 @@ jobs:
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Compare versions
+        if: ${{ github.event_name == 'release' }}
         run: |
           if [ "${{ steps.version.outputs.version }}" != "${{ steps.tag.outputs.tag }}" ]; then
             echo "::error::Version mismatch! pyproject.toml version (${{ steps.version.outputs.version }}) ≠ release tag (${{ steps.tag.outputs.tag }})"
@@ -595,10 +602,12 @@ jobs:
         working-directory: phosphobot
         run: |
           # Get wasmtime path and build with PyInstaller
+          $WASMTIME_PATH = uv run python -c "import wasmtime; import os; print(os.path.dirname(wasmtime.__file__))"
           uv run pyinstaller `
             --onefile `
             --name "$env:OUTPUT_FILENAME" `
             --add-data "resources:resources" `
+            --add-data "${WASMTIME_PATH}:wasmtime" `
             --additional-hooks-dir "./hooks" `
             --hidden-import phosphobot `
             --collect-all phosphobot `
@@ -721,7 +730,7 @@ jobs:
           retention-days: 1
 
   publish_pypi:
-    if: ${{ github.event_name == 'release' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'pypi' }}
+    if: ${{ (github.event_name == 'release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'pypi')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -844,6 +853,7 @@ jobs:
 
   publish_apt:
     needs: build_linux
+    if: ${{ (github.event_name == 'release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish) }}
     runs-on: ubuntu-latest
     steps:
       - name: Check-out repository
@@ -879,7 +889,7 @@ jobs:
           done
 
   create_release:
-    if: github.event_name == 'release'
+    if: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish) }}
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -897,6 +907,7 @@ jobs:
 
   publish_homebrew:
     needs: [build_macos, create_release]
+    if: ${{ (github.event_name == 'release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish) }}
     runs-on: ubuntu-latest
     steps:
       - name: Set VERSION
@@ -979,6 +990,7 @@ jobs:
 
   publish_windows:
     needs: [build_windows, create_release]
+    if: ${{ (github.event_name == 'release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish) }}
     runs-on: ubuntu-latest
     steps:
       - name: Set VERSION

@@ -1,5 +1,6 @@
-import platform
 import socket
+import platform
+from random import random
 from contextlib import asynccontextmanager
 
 import sentry_sdk
@@ -76,7 +77,6 @@ async def lifespan(app: FastAPI):
         login_to_hf()
     except Exception as e:
         logger.debug(f"Failed to login to Hugging Face: {e}")
-
     try:
         server_ip = get_local_ip()
         logger.success(
@@ -178,7 +178,7 @@ async def status(
         robots=robot_names,
         robot_status=await rcm.status(),
         cameras=cameras.status(),
-        is_recording=recorder.is_recording,
+        is_recording=recorder.is_recording or recorder.is_saving,
         ai_running_status=ai_control_signal.status,
         server_ip=get_local_ip(),
         leader_follower_status=leader_follower_control.is_in_loop(),
@@ -208,12 +208,15 @@ app.add_middleware(
 # Add the posthog middleware
 @app.middleware("http")
 def posthog_middleware(request: Request, call_next):
-    # ignore the /move/relative and /move/absolute endpoints
+    # ignore the /move/relative, /move/absolute and /status endpoints
     if request.url.path not in [
         "/move/relative",
         "/move/absolute",
+        "/status",
     ] and not request.url.path.startswith("/asset"):
-        posthog_pageview(request.url.path)
+        # Sample only 20% of the requests
+        if random() < 0.2:
+            posthog_pageview(request.url.path)
     return call_next(request)
 
 
