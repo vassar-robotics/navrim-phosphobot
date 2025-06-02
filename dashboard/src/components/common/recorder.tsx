@@ -57,7 +57,7 @@ export function Recorder({
     ["/status"],
     fetcher,
     {
-      refreshInterval: 5000, // Poll every 5 seconds
+      refreshInterval: 2000, // Poll every 5 seconds
       revalidateOnFocus: true,
     },
   );
