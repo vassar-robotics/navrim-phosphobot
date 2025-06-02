@@ -43,7 +43,7 @@ dependencies = [
     "pyrealsense2-macosx>=2.54; platform_system == 'Darwin'",
     "fastparquet>=2024.11.0",
     "httpx[socks]>=0.28.1",
-    "go2-webrtc-connect>=0.1.2",
+    "go2-webrtc-connect>=0.2.0",
     "scapy>=2.6.1",
     "netifaces>=0.11.0",
     "wasmtime>=33.0.0",
