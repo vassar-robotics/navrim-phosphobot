@@ -1040,8 +1040,6 @@ class Dataset:
         else:
             current_new_index_max = 0
 
-        # logger.debug(f"old_index_to_new_index: {old_index_to_new_index}")
-
         # Reindex the files in the folder
         total_nb_steps = 0
         for filename in sorted(os.listdir(folder_path)):
@@ -1073,9 +1071,6 @@ class Dataset:
                     df["episode_index"] = df["episode_index"].replace(
                         old_index_to_new_index
                     )
-                    # logger.debug(
-                    #     f"Updating episode index in {new_filename}: {df['episode_index']}"
-                    # )
                     # Replace the global index (total number of steps in the dataset)
                     # First, make it from zero to the total number of rows
                     df["index"] = np.arange(len(df))
