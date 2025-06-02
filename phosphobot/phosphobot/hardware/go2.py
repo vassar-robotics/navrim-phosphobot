@@ -44,6 +44,7 @@ class UnitreeGo2(BaseMobileRobot):
         self._connection_thread = None
         self._loop_thread = None
         self._shutdown_event = threading.Event()
+        self.is_moving = False
 
         # Status variables about the robot
         self.lowstate = None
@@ -171,17 +172,17 @@ class UnitreeGo2(BaseMobileRobot):
                 logger.warning(f"Failed to connect using IP {self.ip}: {e}")
                 raise Exception(f"Failed to connect to UnitreeGo2 at {self.ip}: {e}")
 
-            # # Switch to AI mode
+            # Switch to AI mode
             # await self.conn.datachannel.pub_sub.publish_request_new(
             #     RTC_TOPIC["MOTION_SWITCHER"],
             #     {"api_id": 1002, "parameter": {"name": "ai"}},
             # )
             # await asyncio.sleep(5)
 
-            # Shutdown the connection
+            # # Shutdown the connection
             # self.disconnect()
 
-            # Connect again
+            # # Connect again
             # self.conn = Go2WebRTCConnection(WebRTCConnectionMethod.LocalSTA, ip=self.ip)
             # await asyncio.wait_for(self.conn.connect(), timeout=10.0)
             # await self._ensure_moving_mode()
@@ -290,7 +291,7 @@ class UnitreeGo2(BaseMobileRobot):
         On older firmware versions, you need to use the "normal" mode to achieve similar results.
         In our testing, the "mcf" mode is the most stable and reliable for movement.
         """
-        # Get the current motion_switcher status
+        # # Get the current motion_switcher status
         # response = await self.conn.datachannel.pub_sub.publish_request_new(
         #     RTC_TOPIC["MOTION_SWITCHER"], {"api_id": 1001}
         # )
@@ -312,7 +313,6 @@ class UnitreeGo2(BaseMobileRobot):
         #     await asyncio.sleep(5)  # Wait while it stands up
 
         # await asyncio.sleep(1)  # Allow time for mode switch to take effect
-        pass
 
     async def _move_robot(
         self,
@@ -330,6 +330,7 @@ class UnitreeGo2(BaseMobileRobot):
         The values should be between -1 and 1, where 1 is maximum movement in that direction,
         and -1 the maximum movement in the opposite direction.
         """
+
         current_time = time.perf_counter()
         # Rate limit
         if self.last_movement != 0.0 and (current_time - self.last_movement < 0.1):
@@ -345,7 +346,20 @@ class UnitreeGo2(BaseMobileRobot):
             )
             return
 
+        # Rescale rz: max is 90 degrees, min is -90 degrees
+        rz = np.clip(rz, -90, 90)
+        # Rescale x and y : divide by 100
+        x = x
+        y = y
+        # Rescale x and y: max is 1, min is -1
+        x = np.clip(x, -1, 1)
+        y = np.clip(y, -1, 1)
+        # Convert to float´
+        x, y, rz = float(x), float(y), float(rz)
+
         try:
+            self.is_moving = True
+
             # This is how to use the SPORT_MOD topic to move the robot
             # payload = {"x": x, "y": y, "z": rz}
             # await self.conn.datachannel.pub_sub.publish_request_new(
@@ -359,15 +373,20 @@ class UnitreeGo2(BaseMobileRobot):
             # Instead, we use the WIRELESS_CONTROLLER topic to move the robot. This is a bit smoother
             payload = {"lx": y, "ly": x, "rx": -rz, "ry": 0, "keys": 0}
             logger.debug(f"Sending payload for position: {payload}")
-            self.conn.datachannel.pub_sub.publish(
-                RTC_TOPIC["WIRELESS_CONTROLLER"],
-                payload,
+            await asyncio.wait_for(
+                self.conn.datachannel.pub_sub.publish(
+                    RTC_TOPIC["WIRELESS_CONTROLLER"],
+                    payload,
+                ),
+                timeout=0.1,
             )
         except asyncio.TimeoutError:
             logger.warning("UnitreeGo2 move command timed out")
         except Exception as e:
             logger.error(f"Error during move: {e}")
             raise e
+        finally:
+            self.is_moving = False
 
     async def move_robot_absolute(
         self,

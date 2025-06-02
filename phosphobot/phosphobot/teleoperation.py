@@ -59,7 +59,7 @@ class TeleopManager:
             return False
 
         now = datetime.now()
-        if (now - self._window_start).total_seconds() >= 1.0:
+        if (now - self._window_start).total_seconds() >= self.MOVE_TIMEOUT:
             self._window_start = now
             self._instr_in_window = 0
 
@@ -214,6 +214,8 @@ class TeleopManager:
         # - some trig ?
         # - progressive acceleration ?
 
+        start_wait_time = time.perf_counter()
+
         # deadzone: zero if below 0.3
         if abs(control_data.direction_x) < 0.3:
             control_data.direction_x = 0.0
@@ -224,8 +226,19 @@ class TeleopManager:
             f"Received control data for mobile robot: {control_data.direction_x}, {control_data.direction_y}"
         )
 
-        rz = -control_data.direction_x
-        x = control_data.direction_y
+        rz = -control_data.direction_x * np.pi / 2
+        x = control_data.direction_y / 100
+
+        while (
+            robot.is_moving
+            and time.perf_counter() - start_wait_time < self.MOVE_TIMEOUT
+        ):
+            await asyncio.sleep(0.00001)
+        if time.perf_counter() - start_wait_time >= self.MOVE_TIMEOUT:
+            logger.warning(
+                f"Robot {robot.name} is still moving after {self.MOVE_TIMEOUT}s; skipping this command"
+            )
+            return False
 
         try:
             await asyncio.wait_for(
@@ -261,7 +274,7 @@ class TeleopManager:
             if control_data.timestamp <= state.last_timestamp:
                 return False
 
-            state.last_timestamp = control_data.timestamp
+            state.last_timestamp = time.perf_counter()
 
         # If robot_id is set, get the specific robot and move it accordingly
         if self.robot_id is not None:
