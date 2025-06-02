@@ -1040,7 +1040,7 @@ class Dataset:
         else:
             current_new_index_max = 0
 
-        logger.debug(f"old_index_to_new_index: {old_index_to_new_index}")
+        # logger.debug(f"old_index_to_new_index: {old_index_to_new_index}")
 
         # Reindex the files in the folder
         total_nb_steps = 0
@@ -1064,16 +1064,18 @@ class Dataset:
 
                 # Update the episode index inside the parquet file
                 if file_extension == "parquet":
-                    assert nb_steps_deleted_episode > 0, "Received 0 step deleted"
+                    # Removed the assertion to use in dataset shuffling
+                    # It's now ok to have 0 steps deleted
+
                     # Read the parquet file
                     df = pd.read_parquet(os.path.join(folder_path, new_filename))
                     # Use the mapping to update the episode index
                     df["episode_index"] = df["episode_index"].replace(
                         old_index_to_new_index
                     )
-                    logger.debug(
-                        f"Updating episode index in {new_filename}: {df['episode_index']}"
-                    )
+                    # logger.debug(
+                    #     f"Updating episode index in {new_filename}: {df['episode_index']}"
+                    # )
                     # Replace the global index (total number of steps in the dataset)
                     # First, make it from zero to the total number of rows
                     df["index"] = np.arange(len(df))
@@ -2083,7 +2085,7 @@ It's compatible with LeRobot and RLDS.
 
     def shuffle_dataset(self, new_dataset_name) -> None:
         """
-        Shuffle the episodes in the dataset.
+        Shuffle the episodes in the dataset inplace.
         Expects a dataset in v2.1 format.
         This will pick a random shuffle of the episodes and apply it to the videos, data and meta files.
         """
@@ -2091,114 +2093,53 @@ It's compatible with LeRobot and RLDS.
         #     raise ValueError(
         #         f"Dataset {self.dataset_name} is not in v2.1 format, cannot shuffle"
         #     )
-
-        # Create a new dataset folder in the parent folder of the current dataset
-        new_dataset_path = os.path.join(
-            os.path.dirname(os.path.dirname(self.folder_full_path)),
-            new_dataset_name,
-        )
-
-        # If the dataset already exists, raise an error
-        if os.path.exists(new_dataset_path):
-            raise ValueError(
-                f"Dataset {new_dataset_name} already exists in {new_dataset_path}"
-            )
+        # TODO: add check on info.json
 
         # Find the number of episodes in the dataset
         logger.info("Shuffling the dataset episodes")
-        path_to_data = self.data_folder_full_path
-        parquet_files = [
-            f
-            for f in os.listdir(path_to_data)
-            if f.endswith(".parquet") and f.startswith("episode_")
-        ]
-        if not parquet_files:
-            raise ValueError(
-                f"No parquet files found in {path_to_data}. Is this a valid dataset?"
-            )
+
         # Get the number of episodes from the info.json file
         info = InfoModel.from_json(
             meta_folder_path=self.meta_folder_full_path,
             format="lerobot_v2.1",
         )
-        number_of_episodes = info.total_episodes
-        shuffle = np.random.permutation(number_of_episodes)
 
-        ### Data
-        logger.debug("Shuffling data files")
-        os.makedirs(os.path.join(new_dataset_path, "data", "chunk-000"), exist_ok=True)
-
-        for parquet_index in range(0, number_of_episodes):
-            # Rename the parquet file
-            new_parquet_file = f"episode_{shuffle[parquet_index]:06d}.parquet"
-            # Move the parquet file to the new dataset
-            shutil.copy(
-                os.path.join(path_to_data, f"episode_{parquet_index:06d}.parquet"),
-                os.path.join(new_dataset_path, "data", "chunk-000", new_parquet_file),
-            )
-
-        # Repair datasets
-        old_to_new = {k: int(v) for k, v in enumerate(shuffle)}
-        self.reindex_episodes(
-            folder_path=new_dataset_path, old_index_to_new_index=old_to_new
-        )
-
-        ### Videos
-
-        logger.debug("Shuffling video files")
-        path_to_videos = os.path.join(new_dataset_path, "videos", "chunk-000")
-        os.makedirs(path_to_videos, exist_ok=True)
-
-        for video_folder in os.listdir(self.videos_folder_full_path):
-            if "image" in video_folder:
-                os.makedirs(os.path.join(path_to_videos, video_folder), exist_ok=True)
-                # Move the video folder to the new dataset
-                video_folder_full_path = os.path.join(
-                    self.videos_folder_full_path, video_folder
-                )
-                video_files = [
-                    f for f in os.listdir(video_folder_full_path) if f.endswith(".mp4")
-                ]
-                # Sort the videos by name
-                video_files.sort()
-
-                # Move the videos from the second dataset to the new dataset and increment the index
-
-                for video_index in range(0, number_of_episodes):
-                    # Rename the video file
-                    new_video_file = f"episode_{shuffle[video_index]:06d}.mp4"
-                    # Move the video file to the new dataset
-                    shutil.copy(
-                        os.path.join(
-                            video_folder_full_path, f"episode_{video_index:06d}.mp4"
-                        ),
-                        os.path.join(path_to_videos, video_folder, new_video_file),
-                    )
-
-        ### Meta files
-        logger.debug("Creating meta files")
-        os.makedirs(os.path.join(new_dataset_path, "meta"), exist_ok=True)
-
-        #### TASKS
-        logger.debug("Copying tasks.json file")
-        tasks_model = TasksModel.from_jsonl(
-            meta_folder_path=self.meta_folder_full_path,
-        )
-        # No need to shuffle, just copy
-        tasks_model.save(
-            meta_folder_path=os.path.join(new_dataset_path, "meta"),
-        )
-
-        #### INFO
-        logger.debug("Copying info.json file")
-        info_model = InfoModel.from_json(
+        episodes_model = EpisodesModel.from_jsonl(
             meta_folder_path=self.meta_folder_full_path,
             format="lerobot_v2.1",
         )
-        # No need to shuffle, just copy
-        info_model.save(
-            meta_folder_path=os.path.join(new_dataset_path, "meta"),
+
+        number_of_episodes = info.total_episodes
+        shuffle = np.random.permutation(number_of_episodes)
+        # Generate a mapping of type Dict[int, int] that maps the old episode index to the new episode index
+        # This will be used to reindex the episodes.jsonl file
+        old_index_to_new_index = {k: int(v) for k, v in enumerate(shuffle)}
+
+        # Reindex the data folder
+        old_index_to_new_index = self.reindex_episodes(
+            folder_path=self.data_folder_full_path,
         )
+        # Reindex the episode videos
+        for camera_folder_full_path in self.get_camera_folders_full_paths():
+            self.reindex_episodes(
+                folder_path=camera_folder_full_path,
+                old_index_to_new_index=old_index_to_new_index,  # type: ignore
+            )
+
+        episodes_model.update_for_episode_removal(
+            -1,
+            old_index_to_new_index=old_index_to_new_index,
+        )
+        episodes_model.save(
+            meta_folder_path=self.meta_folder_full_path, save_mode="overwrite"
+        )
+        ### Meta files ###
+
+        #### TASKS
+        # No need to shuffle, just copy
+
+        #### INFO
+        # No need to shuffle
 
         #### EPISODES
         logger.debug("Shuffling episodes.jsonl file")
@@ -2210,7 +2151,7 @@ It's compatible with LeRobot and RLDS.
             permutation=shuffle,
         )
         episodes_model.save(
-            meta_folder_path=os.path.join(new_dataset_path, "meta"),
+            meta_folder_path=self.meta_folder_full_path,
             save_mode="overwrite",
         )
 
@@ -2223,19 +2164,10 @@ It's compatible with LeRobot and RLDS.
             permutation=shuffle,
         )
         episodes_stats_model.save(
-            meta_folder_path=os.path.join(new_dataset_path, "meta"),
+            meta_folder_path=self.meta_folder_full_path,
         )
 
-        # Create README file
-        logger.debug("Creating README file")
-        readme_path = os.path.join(new_dataset_path, "README.md")
-        if not os.path.exists(readme_path):
-            with open(
-                readme_path,
-                "w",
-                encoding=DEFAULT_FILE_ENCODING,
-            ) as readme_file:
-                readme_file.write(self.generate_read_me_string(new_dataset_name))
+        logger.info(f"Dataset shuffled successfully at {self.folder_full_path}")
 
 
 class Stats(BaseModel):
@@ -3049,6 +2981,8 @@ class EpisodesStatsModel(BaseModel):
         """
         Update the episodes_stats model before removing an episode from the dataset.
         We remove the line corresponding to the episode index.
+
+        We pass episode_to_delete_index = -1 when no episode is deleted (shuffling)
         """
         self.episodes_stats = [
             episode_stats
