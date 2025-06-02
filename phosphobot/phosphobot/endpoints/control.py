@@ -112,10 +112,11 @@ async def move_teleop_ws(
     teleop_manager: TeleopManager = Depends(get_teleop_manager),
 ):
     teleop_manager.robot_id = None
-    await websocket.accept()
 
     if not await rcm.robots:
         raise HTTPException(status_code=400, detail="No robot connected")
+
+    await websocket.accept()
 
     vr_control_signal.start()
     try:

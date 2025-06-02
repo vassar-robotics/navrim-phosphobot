@@ -220,19 +220,27 @@ class TeleopManager:
         if abs(control_data.direction_y) < 0.3:
             control_data.direction_y = 0.0
 
-        rz = -control_data.direction_x * np.pi
+        logger.debug(
+            f"Received control data for mobile robot: {control_data.direction_x}, {control_data.direction_y}"
+        )
+
+        rz = -control_data.direction_x
         x = control_data.direction_y
 
-        # Adjust for max speed
-        # TODO: better params
-        rz *= 0.5
-        x *= 0.4
-
-        await robot.move_robot_absolute(
-            target_position=np.array([x, 0, 0]),
-            target_orientation_rad=np.array([0, 0, rz]),
-        )
-        self.action_counter += 1
+        try:
+            await asyncio.wait_for(
+                robot.move_robot_absolute(
+                    target_position=np.array([x, 0, 0]),
+                    target_orientation_rad=np.array([0, 0, rz]),
+                ),
+                timeout=0.1,
+            )
+            self.action_counter += 1
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"move_robot timed out for mobile robot {robot.name}; skipping this command"
+            )
+            return False
 
     async def process_control_data(self, control_data: AppControlData) -> bool:
         """
