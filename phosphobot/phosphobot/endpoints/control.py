@@ -124,9 +124,8 @@ async def move_teleop_ws(
             data = await websocket.receive_text()
             try:
                 control_data = AppControlData.model_validate_json(data)
-                if teleop_manager.allow_instruction():
-                    await teleop_manager.process_control_data(control_data)
-                    await teleop_manager.send_status_updates(websocket)
+                await teleop_manager.process_control_data(control_data)
+                await teleop_manager.send_status_updates(websocket)
             except json.JSONDecodeError as e:
                 logger.error(f"WebSocket JSON error: {e}")
 

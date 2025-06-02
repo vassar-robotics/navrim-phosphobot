@@ -217,9 +217,9 @@ class TeleopManager:
         start_wait_time = time.perf_counter()
 
         # deadzone: zero if below 0.3
-        if abs(control_data.direction_x) < 0.3:
+        if abs(control_data.direction_x) < 0.5:
             control_data.direction_x = 0.0
-        if abs(control_data.direction_y) < 0.3:
+        if abs(control_data.direction_y) < 0.5:
             control_data.direction_y = 0.0
 
         logger.debug(
@@ -271,10 +271,13 @@ class TeleopManager:
 
         # Check timestamp freshness
         if control_data.timestamp is not None:
+            logger.debug(
+                f"Control data timestamp: {control_data.timestamp} vs last: {state.last_timestamp}"
+            )
             if control_data.timestamp <= state.last_timestamp:
                 return False
 
-            state.last_timestamp = time.perf_counter()
+            state.last_timestamp = time.time()
 
         # If robot_id is set, get the specific robot and move it accordingly
         if self.robot_id is not None:
