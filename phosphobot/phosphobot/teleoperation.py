@@ -271,10 +271,13 @@ class TeleopManager:
 
         # Check timestamp freshness
         if control_data.timestamp is not None:
-            logger.debug(
-                f"Control data timestamp: {control_data.timestamp} vs last: {state.last_timestamp}"
-            )
             if control_data.timestamp <= state.last_timestamp:
+                return False
+            # Check if the timestamp is too old
+            if time.time() - control_data.timestamp > self.MOVE_TIMEOUT:
+                logger.warning(
+                    f"Control data timestamp {control_data.timestamp} is too old, skipping command"
+                )
                 return False
 
             state.last_timestamp = time.time()
