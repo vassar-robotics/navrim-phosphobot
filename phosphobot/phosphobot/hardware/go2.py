@@ -346,12 +346,8 @@ class UnitreeGo2(BaseMobileRobot):
             )
             return
 
-        # Rescale rz: max is 90 degrees, min is -90 degrees
+        # Clamp the values to the expected range
         rz = np.clip(rz, -90, 90)
-        # Rescale x and y : divide by 100
-        x = x
-        y = y
-        # Rescale x and y: max is 1, min is -1
         x = np.clip(x, -1, 1)
         y = np.clip(y, -1, 1)
         # Convert to float´
