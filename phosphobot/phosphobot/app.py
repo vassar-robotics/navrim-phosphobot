@@ -178,7 +178,7 @@ async def status(
         robots=robot_names,
         robot_status=await rcm.status(),
         cameras=cameras.status(),
-        is_recording=recorder.is_recording,
+        is_recording=recorder.is_recording or recorder.is_saving,
         ai_running_status=ai_control_signal.status,
         server_ip=get_local_ip(),
         leader_follower_status=leader_follower_control.is_in_loop(),
