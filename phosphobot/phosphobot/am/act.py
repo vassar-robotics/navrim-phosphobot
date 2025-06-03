@@ -1,7 +1,7 @@
 import asyncio
 from collections import deque
 import time
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Optional
 
 import cv2
 import httpx
@@ -20,14 +20,15 @@ from phosphobot.utils import background_task_log_exceptions, get_hf_token
 
 
 class InputFeature(BaseModel):
-    type: Literal["STATE", "VISUAL"]
+    type: Literal["STATE", "VISUAL", "ENV"]
     shape: List[int]
 
 
 # Define the InputFeatures model to parse input_features
 class InputFeatures(BaseModel):
     state_key: str
-    video_keys: List[str]
+    env_key: Optional[str] = None
+    video_keys: List[str] = []
     features: Dict[str, InputFeature]
 
     @property
@@ -45,15 +46,19 @@ class InputFeatures(BaseModel):
         """
         if isinstance(values, dict) and "features" not in values:
             features = values
-            state_keys = [k for k in features if "state" in k.lower()]
+            state_keys = [k for k in features if ".state" in k.lower()]
             video_keys = [k for k in features if "image" in k.lower()]
+            env_keys = [k for k in features if "env" in k.lower()]
             if len(state_keys) != 1:
                 raise ValueError(
                     "Exactly one state key must be present in the features"
                 )
             state_key = state_keys[0]
+            env_key = env_keys[0] if env_keys else None
+            video_keys = video_keys
             return {
                 "state_key": state_key,
+                "env_key": env_key,
                 "video_keys": video_keys,
                 "features": features,
             }
@@ -68,14 +73,17 @@ class InputFeatures(BaseModel):
             raise ValueError("Features must be a dictionary")
         result = {}
         for key, item in value.items():
-            if "state" in key.lower():
+            if ".state" in key.lower():
                 if item.get("type") != "STATE":
                     raise ValueError(f"Key {key} with 'state' must have type 'STATE'")
             elif "image" in key.lower():
                 if item.get("type") != "VISUAL":
                     raise ValueError(f"Key {key} with 'image' must have type 'VISUAL'")
+            elif "env" in key.lower():
+                if item.get("type") != "ENV":
+                    raise ValueError(f"Key {key} with 'env' must have type 'ENV'")
             else:
-                raise ValueError(f"Key {key} must contain 'state' or 'image'")
+                raise ValueError(f"Key {key} must contain 'state', 'image' or 'ENV'")
             result[key] = InputFeature(**item)
         return result
 
@@ -86,24 +94,35 @@ class InputFeatures(BaseModel):
         """
         features = self.features
         state_key = self.state_key
+        env_key = self.env_key
         video_keys = self.video_keys
 
         # Validate state_key
         if state_key not in features:
             raise ValueError(f"State key {state_key} not found in features")
-        if "state" not in state_key.lower():
+        if ".state" not in state_key.lower():
             raise ValueError(f"State key {state_key} must contain 'state'")
         if features[state_key].type != "STATE":
             raise ValueError(f"State key {state_key} must map to a STATE feature")
 
         # Validate video_keys
-        for key in video_keys:
-            if key not in features:
-                raise ValueError(f"Image key {key} not found in features")
-            if "image" not in key.lower():
-                raise ValueError(f"Image key {key} must contain 'image'")
-            if features[key].type != "VISUAL":
-                raise ValueError(f"Image key {key} must map to a VISUAL feature")
+        if video_keys is not None:
+            for key in video_keys:
+                if key not in features:
+                    raise ValueError(f"Image key {key} not found in features")
+                if "image" not in key.lower():
+                    raise ValueError(f"Image key {key} must contain 'image'")
+                if features[key].type != "VISUAL":
+                    raise ValueError(f"Image key {key} must map to a VISUAL feature")
+
+        # Validate env_key if provided
+        if env_key is not None:
+            if env_key not in features:
+                raise ValueError(f"Env key {env_key} not found in features")
+            if "env" not in env_key.lower():
+                raise ValueError(f"Env key {env_key} must contain 'env'")
+            if features[env_key].type != "ENV":
+                raise ValueError(f"Env key {env_key} must map to an ENV feature")
 
         # Ensure all image keys in features are in video_keys
         feature_video_keys = [k for k in features.keys() if "image" in k.lower()]
@@ -127,17 +146,17 @@ class HuggingFaceModelValidator(BaseModel):
 class ACTSpawnConfig(BaseModel):
     state_key: str
     state_size: list[int]
+    env_key: Optional[str] = None
+    env_size: Optional[list[int]] = None
     video_keys: list[str]
     video_size: list[int]
     hf_model_config: HuggingFaceModelValidator
 
-    # not good enough
-    # class Config:
-    #     ser_json_inf_nan = "null"
-    #     json_encoders = {
-    #         float: lambda v: 0.0 if np.isnan(v) or np.isinf(v) else v,
-    #         list: lambda v: [0.0 if np.isnan(i) or np.isinf(i) else i for i in v],
-    #     }
+
+class RetryError(Exception):
+    """Custom exception to retry the inference call."""
+
+    pass
 
 
 class ACT(ActionModel):
@@ -189,6 +208,9 @@ class ACT(ActionModel):
                 f"{self.server_url}/act", json=encoded_payload
             )
 
+            if response.status_code == 307:
+                raise RetryError("Received 307 redirect, retrying the request.")
+
             if response.status_code != 200:
                 raise RuntimeError(response.text)
             actions = json_numpy.loads(response.json())
@@ -239,14 +261,24 @@ class ACT(ActionModel):
 
         state_key: str = hf_model_config.input_features.state_key
         state_size: list[int] = hf_model_config.input_features.features[state_key].shape
+        env_key: Optional[str] = hf_model_config.input_features.env_key
+        env_size: Optional[list[int]] = (
+            hf_model_config.input_features.features[env_key].shape
+            if env_key is not None
+            else None
+        )
         video_keys: list[str] = hf_model_config.input_features.video_keys
-        video_size: list[int] = hf_model_config.input_features.features[
-            video_keys[0]
-        ].shape
+        video_size: list[int] = (
+            hf_model_config.input_features.features[video_keys[0]].shape
+            if len(video_keys) > 0
+            else [3, 224, 224]
+        )
 
         return ACTSpawnConfig(
             state_key=state_key,
             state_size=state_size,
+            env_key=env_key,
+            env_size=env_size,
             video_keys=video_keys,
             video_size=video_size,
             hf_model_config=hf_model_config,
@@ -268,10 +300,18 @@ class ACT(ActionModel):
 
         state_key: str = hf_model_config.input_features.state_key
         state_size: list[int] = hf_model_config.input_features.features[state_key].shape
+        env_key: Optional[str] = hf_model_config.input_features.env_key
+        env_size: Optional[list[int]] = (
+            hf_model_config.input_features.features[env_key].shape
+            if env_key is not None
+            else None
+        )
         video_keys: list[str] = hf_model_config.input_features.video_keys
-        video_size: list[int] = hf_model_config.input_features.features[
-            video_keys[0]
-        ].shape
+        video_size: list[int] = (
+            hf_model_config.input_features.features[video_keys[0]].shape
+            if len(video_keys) > 0
+            else [3, 224, 224]
+        )
 
         if cameras_keys_mapping is None:
             nb_connected_cams = len(all_cameras.video_cameras)
@@ -304,10 +344,38 @@ class ACT(ActionModel):
         return ACTSpawnConfig(
             state_key=state_key,
             state_size=state_size,
+            env_key=env_key,
+            env_size=env_size,
             video_keys=video_keys,
             video_size=video_size,
             hf_model_config=hf_model_config,
         )
+
+    @classmethod
+    def fetch_frame(
+        cls, all_cameras: AllCameras, camera_id: int, resolution: list[int]
+    ) -> np.ndarray:
+        rgb_frame = all_cameras.get_rgb_frame(
+            camera_id=camera_id,
+            resize=(resolution[2], resolution[1]),
+        )
+        if rgb_frame is not None:
+            # Convert to BGR
+            image = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
+            # Ensure dtype is uint8 (if it isn’t already)
+            converted_array = image.astype(np.uint8)
+            return converted_array
+
+        else:
+            logger.warning(f"Camera {camera_id} not available. Sending all black.")
+            return np.zeros(
+                (
+                    resolution[2],
+                    resolution[1],
+                    resolution[0],
+                ),
+                dtype=np.uint8,
+            )
 
     @background_task_log_exceptions
     async def control_loop(
@@ -319,6 +387,8 @@ class ACT(ActionModel):
         fps: int = 30,
         speed: float = 1.0,
         cameras_keys_mapping: Dict[str, int] | None = None,
+        detect_instruction: Optional[str] = None,
+        camera_id_to_use: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -359,25 +429,12 @@ class ACT(ActionModel):
                     camera_id = cameras_keys_mapping.get(camera_name, i)
 
                 video_resolution = config.input_features.features[camera_name].shape
-                rgb_frame = all_cameras.get_rgb_frame(
+                frame_array = ACT.fetch_frame(
+                    all_cameras=all_cameras,
                     camera_id=camera_id,
-                    resize=(video_resolution[2], video_resolution[1]),
+                    resolution=video_resolution,
                 )
-                if rgb_frame is not None:
-                    # Convert to BGR
-                    image = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
-                    # Ensure dtype is uint8 (if it isn’t already)
-                    converted_array = image.astype(np.uint8)
-                    image_inputs[camera_name] = converted_array
-
-                else:
-                    logger.warning(
-                        f"Camera {camera_name} not available. Sending all black."
-                    )
-                    image_inputs[camera_name] = np.zeros(
-                        (video_resolution[2], video_resolution[1], video_resolution[0]),
-                        dtype=np.uint8,
-                    )
+                image_inputs[camera_name] = frame_array
 
             # Number of cameras
             if len(image_inputs) != len(config.input_features.video_keys):
@@ -404,16 +461,33 @@ class ACT(ActionModel):
                     (state, robot.read_joints_position(unit="rad")), axis=0
                 )
 
-            inputs = {
+            inputs: dict[str, np.ndarray | str] = {
                 config.input_features.state_key: state,
                 **image_inputs,
             }
+
+            if config.input_features.env_key is not None:
+                if detect_instruction is None or camera_id_to_use is None:
+                    raise ValueError(
+                        f"detect_instruction and camera_id_to_use must be provided when env_key is set, got {detect_instruction} and {camera_id_to_use}"
+                    )
+                inputs["detect_instruction"] = detect_instruction
+
+                frame_array = ACT.fetch_frame(
+                    all_cameras=all_cameras,
+                    camera_id=camera_id_to_use,
+                    resolution=[3, 224, 224],
+                )
+                inputs["image_for_bboxes"] = frame_array
 
             try:
                 if len(actions_queue) == 0:
                     actions = await self.async_sample_actions(inputs)
                     actions_queue.extend(actions)
                 actions = actions_queue.popleft()
+            except RetryError:
+                logger.warning("Could not detect the target object. Retrying...")
+                continue
             except Exception as e:
                 logger.warning(
                     f"Failed to get actions from model: {e}. Exiting AI control loop."

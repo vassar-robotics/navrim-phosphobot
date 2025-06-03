@@ -663,6 +663,7 @@ async def get_model_video_keys(
     model_type_to_class: dict[str, type[ActionModel]] = {
         "gr00t": Gr00tN1,
         "ACT": ACT,
+        "ACT_BBOX": ACT,  # ACT_BBOX is a variant of ACT
     }
     model_class = model_type_to_class.get(request.model_type)
     if model_class is None:

@@ -990,9 +990,9 @@ async def spawn_inference_server(
             )
             robots_to_control.remove(robot)
 
-    assert all(
-        isinstance(robot, BaseManipulator) for robot in robots_to_control
-    ), "All robots must be manipulators for AI control"
+    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
+        "All robots must be manipulators for AI control"
+    )
 
     # Get the modal host and port here
     _, _, server_info = await setup_ai_control(
@@ -1066,9 +1066,9 @@ async def start_auto_control(
             )
             robots_to_control.remove(robot)
 
-    assert all(
-        isinstance(robot, BaseManipulator) for robot in robots_to_control
-    ), "All robots must be manipulators for AI control"
+    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
+        "All robots must be manipulators for AI control"
+    )
 
     # Get the modal host and port here
     model, model_spawn_config, server_info = await setup_ai_control(
@@ -1101,6 +1101,8 @@ async def start_auto_control(
         model_spawn_config=model_spawn_config,
         speed=query.speed,
         cameras_keys_mapping=query.cameras_keys_mapping,
+        detect_instruction=query.prompt,
+        selected_camera_name=query.camera_id_to_use,
     )
 
     return AIControlStatusResponse(

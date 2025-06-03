@@ -690,7 +690,7 @@ class ModelVideoKeysRequest(BaseModel):
         # no empty string
         pattern=r"^\s*\S.*$",
     )
-    model_type: Literal["gr00t", "ACT"] = Field(
+    model_type: Literal["gr00t", "ACT", "ACT_BBOX"] = Field(
         ...,
         description="Type of model to use.",
     )
@@ -828,9 +828,13 @@ class StartAIControlRequest(BaseModel):
         description="Mapping of the camera keys to the camera ids. If set to None, use the default mapping based on cameras order.",
         examples=[{"wrist_camera": 0, "context_camera": 1}],
     )
-    model_type: Literal["gr00t", "ACT"] = Field(
+    model_type: Literal["gr00t", "ACT", "ACT_BBOX"] = Field(
         ...,
         description="Type of model to use. Can be gr00t or act.",
+    )
+    selected_camera_name: Optional[str] = Field(
+        None,
+        description="Name of the camera to use when ACT_BBOX model is used. This is only required for ACT_BBOX models, and is ignored for other models.",
     )
 
 
