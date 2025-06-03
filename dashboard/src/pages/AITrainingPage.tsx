@@ -406,15 +406,18 @@ export default function AITrainingPage() {
                   <Select
                     defaultValue={selectedModelType}
                     onValueChange={(value) =>
-                      setSelectedModelType(value as "gr00t" | "ACT" | "custom")
+                      setSelectedModelType(
+                        value as "gr00t" | "ACT" | "ACT_BBOX" | "custom",
+                      )
                     }
                   >
                     <SelectTrigger className="w-full border rounded-md p-2">
                       <SelectValue placeholder="Select model type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gr00t">gr00t</SelectItem>
+                      <SelectItem value="ACT_BBOX">Simple ACT</SelectItem>
                       <SelectItem value="ACT">ACT</SelectItem>
+                      <SelectItem value="gr00t">gr00t</SelectItem>
                       <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>

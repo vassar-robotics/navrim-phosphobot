@@ -730,6 +730,9 @@ async def get_training_info(
             elif request.model_type == "ACT":
                 training_params["batch_size"] = 120 // number_of_cameras
                 training_params["steps"] = 8_000
+            elif request.model_type == "ACT_BBOX":
+                training_params["batch_size"] = 100
+                training_params["steps"] = 10_000
 
         # These are heuristics used to determine the training parameters
         random_suffix = "".join(
