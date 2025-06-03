@@ -12,7 +12,7 @@ from loguru import logger
 from phosphobot.camera import AllCameras, get_all_cameras
 from phosphobot.configs import config
 from phosphobot.models import (
-    Dataset,
+    BaseDataset,
     BaseEpisode,
     RecordingPlayRequest,
     RecordingStartRequest,
@@ -44,13 +44,13 @@ async def start_recording_episode(
     """
 
     dataset_name = query.dataset_name or config.DEFAULT_DATASET_NAME
-    dataset_name = Dataset.consolidate_dataset_name(dataset_name)
+    dataset_name = BaseDataset.consolidate_dataset_name(dataset_name)
 
     # Remove .DS_Store files from the dataset folder
     dataset_path = os.path.join(
         get_home_app_path(), "recordings", recorder.episode_format, dataset_name
     )
-    Dataset.remove_ds_store_files(dataset_path)
+    BaseDataset.remove_ds_store_files(dataset_path)
 
     if not cameras or not cameras.has_connected_camera:
         logger.warning(
@@ -242,7 +242,7 @@ async def play_recording(
             recorder.episode_format,
             query.dataset_name,
         )
-        dataset = Dataset(path=dataset_path)
+        dataset = BaseDataset(path=dataset_path)
         if len(dataset.episodes) == 0:
             raise HTTPException(
                 status_code=400,
@@ -256,7 +256,7 @@ async def play_recording(
             )
     elif query.dataset_name is not None and query.episode_id is not None:
         # Load the episode with the given ID
-        dataset = Dataset(path=query.dataset_name)
+        dataset = BaseDataset(path=query.dataset_name)
         if query.episode_id >= len(dataset.episodes):
             raise HTTPException(
                 status_code=400,

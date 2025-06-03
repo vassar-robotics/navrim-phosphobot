@@ -10,7 +10,7 @@ from loguru import logger
 from phosphobot.camera import AllCameras, get_all_cameras
 from phosphobot.configs import config
 from phosphobot.hardware import BaseRobot
-from phosphobot.models import Dataset, Observation, Step
+from phosphobot.models import BaseDataset, Observation, Step
 
 # New imports for refactored Episode structure
 from phosphobot.models.dataset import (
@@ -240,7 +240,7 @@ class Recorder:
         try:
             # Dataset class needs to be robust enough to be initialized with the full path
             # e.g., "recordings/lerobot_v2.1/my_dataset_name"
-            dataset_obj = Dataset(path=dataset_path)
+            dataset_obj = BaseDataset(path=dataset_path)
             dataset_obj.push_dataset_to_hub(branch_path=branch_path)
             logger.success(
                 f"Successfully pushed dataset {dataset_path} to Hugging Face Hub."

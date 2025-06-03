@@ -10,7 +10,7 @@ from phosphobot.utils import NetworkDevice
 from .camera import AllCamerasStatus, SingleCameraStatus
 from .dataset import (
     BaseRobotInfo,
-    Dataset,
+    BaseDataset,
     BaseEpisode,
     EpisodesFeatures,
     EpisodesModel,
