@@ -11,7 +11,7 @@ from .camera import AllCamerasStatus, SingleCameraStatus
 from .dataset import (
     BaseRobotInfo,
     Dataset,
-    Episode,
+    BaseEpisode,
     EpisodesFeatures,
     EpisodesModel,
     EpisodesStatsFeatutes,

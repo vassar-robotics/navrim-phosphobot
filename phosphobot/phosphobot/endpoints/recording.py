@@ -13,7 +13,7 @@ from phosphobot.camera import AllCameras, get_all_cameras
 from phosphobot.configs import config
 from phosphobot.models import (
     Dataset,
-    Episode,
+    BaseEpisode,
     RecordingPlayRequest,
     RecordingStartRequest,
     RecordingStopRequest,
@@ -208,10 +208,12 @@ async def stop_recording_episode(
     # TODO: This step is I/O heavy, we need to optimize it so it doesn't block the main thread
     background_tasks.add_task(background_task_log_exceptions(recorder.save_episode))
 
-    expected_folder_path = recorder.dataset_folder_path
+    expected_folder_path = getattr(recorder.episode, "dataset_folder_path")
+    expected_episode_index = getattr(recorder.episode, "episode_index")
+
     return RecordingStopResponse(
         episode_folder_path=expected_folder_path,
-        episode_index=recorder.episode.index if recorder.episode else None,
+        episode_index=expected_episode_index,
     )
 
 
@@ -231,7 +233,7 @@ async def play_recording(
                 status_code=400,
                 detail=f"Episode path {query.episode_path} does not exist.",
             )
-        episode = Episode.load(query.episode_path, format=recorder.episode_format)
+        episode = BaseEpisode.load(query.episode_path, format=recorder.episode_format)
     elif query.dataset_name is not None and query.episode_id is None:
         # Load the latest episode
         dataset_path = os.path.join(
@@ -268,8 +270,6 @@ async def play_recording(
             status_code=400,
             detail="No episode path given and no episode stored in the recorder.",
         )
-
-    logger.debug(f"Playing episode at path: {episode.parquet_path}")
 
     if isinstance(query.robot_id, int):
         if query.robot_id >= len(await rcm.robots):

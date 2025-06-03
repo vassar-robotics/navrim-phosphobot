@@ -39,7 +39,7 @@ from phosphobot.models import (
     WandBTokenRequest,
     InfoModel,
 )
-from phosphobot.models.dataset import EpisodesModel
+from phosphobot.models.dataset import EpisodesModel, LeRobotDataset
 from phosphobot.utils import (
     get_hf_token,
     get_resources_path,
@@ -600,7 +600,7 @@ async def delete_episode(query: DeleteEpisodeRequest):
     logger.info(f"Deleting episode {query.episode_id} from {query.path}")
 
     try:
-        dataset = Dataset(path=os.path.join(ROOT_DIR, query.path))
+        dataset = LeRobotDataset(path=os.path.join(ROOT_DIR, query.path))
     except ValueError:
         raise HTTPException(
             status_code=404,

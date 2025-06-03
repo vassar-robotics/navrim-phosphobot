@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import asyncio
 import datetime
 import json
@@ -94,320 +95,126 @@ class Step(BaseModel):
         extra = "ignore"
 
 
-class Episode(BaseModel):
-    """
-    # Save an episode
-    episode.save("robot_episode.json")
-
-    # Load episode
-    loaded_episode = Episode.load("robot_episode.json")
-
-    """
-
+class BaseEpisode(BaseModel, ABC):
     steps: List[Step] = Field(default_factory=list)
+    # metadata stores: episode_index, created_at, robot_type, episode_format, dataset_name, instruction (optional)
+    # For JsonEpisode, it might also store base_recording_folder, created_at_str (for filename)
+    # For LeRobotEpisode, dataset_manager (the LeRobotDataset instance) is a direct attribute, not in metadata.
     metadata: dict = Field(default_factory=dict)
 
     class Config:
-        extra = "ignore"
+        arbitrary_types_allowed = True
+        extra = "allow"  # Allow extra fields like dataset_manager for LeRobotEpisode not in schema
 
-    @property
-    def dataset_path(self) -> Path:
-        """
-        Return the file path of the episode
-        """
-        format = self.metadata.get("format")
-        dataset_name = self.metadata.get("dataset_name")
-        if not format:
-            raise ValueError("Episode metadata format not set")
-        if not dataset_name:
-            raise ValueError("Episode metadata dataset_name not set")
+    def add_step(self, step: Step):
+        """Common logic for adding a step to the internal list and managing flags."""
+        # is_terminal and is_last are true by default for a new step
+        step.is_terminal = True
+        step.is_last = True
 
-        path = get_home_app_path() / "recordings" / format / dataset_name
-        os.makedirs(path, exist_ok=True)
-        return path
-
-    @property
-    def episodes_path(self) -> Path:
-        """
-        Return the file path of the episode
-        """
-        path = self.dataset_path / "data" / "chunk-000"
-        os.makedirs(path, exist_ok=True)
-        return path
-
-    @property
-    def parquet_path(self) -> Path:
-        """
-        Return the file path of the episode .
-        """
-        return self.episodes_path / f"episode_{self.index:06d}.parquet"
-
-    @property
-    def json_path(self) -> Path:
-        """
-        Return the file path of the episode
-        """
-        return self.dataset_path / f"episode_{self.metadata['timestamp']}.json"
-
-    @property
-    def cameras_folder_path(self) -> Path:
-        """
-        Return the cameras folder path
-        """
-        return self.dataset_path / "videos" / "chunk-000"
-
-    def get_video_path(self, camera_key: str) -> Path:
-        """
-        Return the file path of the episode
-        """
-        path = self.dataset_path / "videos" / "chunk-000" / camera_key
-        os.makedirs(path, exist_ok=True)
-        return path / f"episode_{self.index:06d}.mp4"
-
-    def save(
-        self,
-        folder_name: str,
-        dataset_name: str,
-        fps: int,
-        format_to_save: Literal["json", "lerobot_v2", "lerobot_v2.1"] = "lerobot_v2.1",
-        last_frame_index: int | None = 0,
-        info_model: Optional["InfoModel"] = None,
-    ):
-        """
-        Save the episode to a JSON file with numpy array handling for phospho recording to RLDS format
-        Save the episode to a parquet file with an mp4 video for LeRobot recording
-
-        Episode are saved in a folder with the following structure:
-
-        ---- <folder_name> : phosphobot
-        |   ---- json
-        |   |   ---- <dataset_name>
-        |   |   |   ---- episode_xxxx-xx-xx_xx-xx-xx.json
-        |   ---- lerobot_v2 or lerobot_v2.1
-        |   |   ---- <dataset_name>
-        |   |   |   ---- data
-        |   |   |   |   ---- chunk-000
-        |   |   |   |   |   ---- episode_xxxxxx.parquet
-        |   |   |   ---- videos
-        |   |   |   |   ---- chunk-000
-        |   |   |   |   |   ---- observation.images.main.right (if stereo else only main)
-        |   |   |   |   |   |   ---- episode_xxxxxx.mp4
-        |   |   |   |   |   ---- observation.images.main.left (if stereo)
-        |   |   |   |   |   |   ---- episode_xxxxxx.mp4
-        |   |   |   |   |   ---- observation.images.secondary_0 (Optional)
-        |   |   |   |   |   |   ---- episode_xxxxxx.mp4
-        |   |   |   |   |   ---- observation.images.secondary_1 (Optional)
-        |   |   |   |   |   |   ---- episode_xxxxxx.mp4
-        |   |   |   ---- meta
-        |   |   |   |   ---- stats.json or episodes_stats.jsonl (depending on format version)
-        |   |   |   |   ---- episodes.jsonl
-        |   |   |   |   ---- tasks.jsonl
-        |   |   |   |   ---- info.json
-
-        """
-
-        # Update the metadata with the format used to save the episode
-        self.metadata["format"] = format_to_save
-        logger.info(f"Saving episode to {folder_name} with format {format_to_save}")
-        self.metadata["dataset_name"] = os.path.join(
-            folder_name, format_to_save, dataset_name
-        )
-
-        if format_to_save.startswith("lerobot"):
-            if not info_model:
-                raise ValueError("InfoModel is required to save in LeRobot format")
-
-            if last_frame_index is None:
-                raise ValueError(
-                    "last_frame_index is required to save in LeRobot format"
-                )
-
-            # Check the elements in the folder folder_name/lerobot_v2-format/dataset_name/data/chunk-000/
-            # the episode index is the max index + 1
-            # We create the list of index from filenames and take the max + 1
-            li_data_filename = os.listdir(self.episodes_path)
-            episode_index = (
-                max(
-                    [
-                        int(data_filename.split("_")[-1].split(".")[0])
-                        for data_filename in li_data_filename
-                    ]
-                )
-                + 1
-                if li_data_filename
-                else 0
-            )
-
-            lerobot_episode_parquet: LeRobotEpisodeModel = (
-                self.convert_episode_data_to_LeRobot(
-                    fps=fps,
-                    episodes_path=str(self.episodes_path),
-                    episode_index=episode_index,
-                    last_frame_index=last_frame_index,
-                    task_index=self.metadata.get("task_index", 0),
-                )
-            )
-            lerobot_episode_parquet.to_parquet(str(self.parquet_path))
-
-            # Create the main video file and path
-            # Get the video_path from the InfoModel
-            secondary_camera_frames = self.get_episode_frames_secondary_cameras()
-            for i, (key, feature) in enumerate(
-                info_model.features.observation_images.items()
-            ):
-                if i == 0:
-                    # First video is the main camera
-                    frames = np.array(self.get_episode_frames_main_camera())
-                elif i > len(secondary_camera_frames):
-                    # There are secondary cameras in the info model, but not in the episode
-                    # Skip video creation.
-                    logger.warning(
-                        f"Secondary camera {key} not found in the episode. Skipping video creation."
-                    )
-                    break
-                else:
-                    # Following videos are the secondary cameras
-                    frames = np.array(secondary_camera_frames[i - 1])
-                video_path = self.get_video_path(camera_key=key)
-                saved_path = create_video_file(
-                    frames=frames,
-                    output_path=str(video_path),
-                    target_size=(feature.shape[1], feature.shape[0]),
-                    fps=feature.info.video_fps,
-                    codec=feature.info.video_codec,
-                )
-                # Check if the video was saved
-                if (isinstance(saved_path, str) and os.path.exists(saved_path)) or (
-                    isinstance(saved_path, tuple)
-                    and all(os.path.exists(path) for path in saved_path)
-                ):
-                    logger.info(f"Video {key} {i} saved to {video_path}")
-                else:
-                    logger.error(f"Video {key} {i} not saved to {video_path}")
-
-        # Case where we save the episode in JSON format
-        # Save the episode to a JSON file
-        else:
-            self.metadata["timestamp"] = datetime.datetime.now().strftime(
-                "%Y-%m-%d_%H-%M-%S"
-            )
-            episode_index = (
-                max(
-                    [
-                        int(data_filename.split("_")[-1].split(".")[0])
-                        for data_filename in os.listdir(self.episodes_path)
-                    ]
-                )
-                + 1
-                if os.listdir(self.episodes_path)
-                else 0
-            )
-            # Convert the episode to a dictionary
-            data_dict = self.model_dump()
-
-            # Save to JSON using the custom encoder
-            with open(self.json_path, "w", encoding=DEFAULT_FILE_ENCODING) as f:
-                json.dump(data_dict, f, cls=NumpyEncoder)
-
-    @classmethod
-    def from_json(cls, episode_data_path: str) -> "Episode":
-        """Load an episode data file. There is numpy array handling for json format."""
-        # Check that the file exists
-        if not os.path.exists(episode_data_path):
-            raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
-
-        with open(episode_data_path, "r", encoding=DEFAULT_FILE_ENCODING) as f:
-            data_dict = json.load(f, object_hook=decode_numpy)
-            logger.debug(f"Data dict keys: {data_dict.keys()}")
-
-        return cls(**data_dict)
-
-    @classmethod
-    def from_parquet(
-        cls, episode_data_path: str, format: Literal["lerobot_v2", "lerobot_v2.1"]
-    ) -> "Episode":
-        """
-        Load an episode data file. We only extract the information from the parquet data file.
-        TODO(adle): Add more information in the Episode when loading from parquet data file from metafiles and videos
-        """
-        # Check that the file exists
-        if not os.path.exists(episode_data_path):
-            raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
-
-        episode_df = pd.read_parquet(episode_data_path)
-        # Try to load the tasks.jsonl
-        dataset_path = str(Path(episode_data_path).parent.parent.parent)
-
-        tasks_path = os.path.join(dataset_path, "meta", "tasks.jsonl")
-        if os.path.exists(tasks_path):
-            # Load the tasks.jsonl file
-            tasks_df = pd.read_json(tasks_path, lines=True)
-            # Get the task index from the task index column
-            episode_df["task_index"] = tasks_df["task_index"].iloc[0]
-            # Merge the task index with the episode_df
-            episode_df = pd.merge(
-                episode_df,
-                tasks_df[["task_index", "task"]],
-                on="task_index",
-                how="left",
-            )
-
-        # Rename the columns to match the expected names in the instance
-        episode_df.rename(
-            columns={
-                "observation.state": "joints_position",
-                "task": "language_instruction",
-            },
-            inplace=True,
-        )
-        # agregate the columns in joints_position, timestamp, main_image, state to a column observation.
-        cols = ["joints_position", "timestamp"]
-        if "language_instruction" in episode_df.columns:
-            cols.append("language_instruction")
-        # Create a new column "observation" that is a dict of the selected columns for each row
-        episode_df["observation"] = episode_df[cols].to_dict(orient="records")
-
-        # Add metadata to the episode
-        # the path is like this : dataset_name/data/chunk-000/episode_xxxxxx.parquet
-        # get the path : dataset_name
-        normalized = os.path.normpath(episode_data_path)
-        parts = normalized.split(os.sep)
-        if len(parts) >= 4:
-            dataset_path = parts[-4]
-        else:
+        # Handle NaN joint positions by copying from the previous step
+        if len(self.steps) > 0 and np.all(np.isnan(step.observation.joints_position)):
             logger.warning(
-                f"Episode {episode_data_path} does not contain the dataset name in the path. Path should be: dataset_name/data/chunk-000/episode_xxxxxx.parquet"
-                + "Using parent folder name as dataset name."
+                f"Step {len(self.steps)} has NaN joint_positions. Copying from previous step."
             )
-            dataset_path = os.path.basename(os.path.dirname(episode_data_path))
+            step.observation.joints_position = self.steps[
+                -1
+            ].observation.joints_position.copy()
 
-        metadata = {
-            "dataset_name": dataset_path,
-            "format": format,
-            "index": episode_df["episode_index"].iloc[0],
-        }
+        if not self.steps:  # This is the first step
+            step.is_first = True
+        else:  # Not the first step
+            step.is_first = False
+            # The previously last step is no longer terminal or last
+            self.steps[-1].is_terminal = False
+            self.steps[-1].is_last = False
 
-        episode_model = cls(
-            steps=cast(List[Step], episode_df.to_dict(orient="records")),
-            metadata=metadata,
-        )
-        return episode_model
+        self.steps.append(step)
+
+    def update_previous_step(self, current_step_data: Step):
+        """
+        Updates the 'action' of the previous step.
+        The action that led to `current_step_data.observation` was `current_step_data.observation.joints_position`.
+        So, `self.steps[-1].action` becomes `current_step_data.observation.joints_position`.
+        """
+        if len(self.steps) > 0:
+            # The action of the previous step is the joints_position of the current observation
+            self.steps[-1].action = current_step_data.observation.joints_position.copy()
+
+    @property
+    def episode_index(self) -> int:
+        idx = self.metadata.get("episode_index")
+        if idx is None:
+            # For JSON episodes, this might not be strictly required if identified by timestamp
+            logger.warning("episode_index not explicitly set in metadata.")
+            return -1  # Or raise error depending on strictness for all episode types
+        return int(idx)
+
+    @episode_index.setter
+    def episode_index(self, value: int):
+        self.metadata["episode_index"] = value
+
+    @property
+    def instruction(self) -> Optional[str]:
+        return self.metadata.get("instruction")
+
+    @classmethod
+    @abstractmethod
+    async def start_new(cls, **kwargs) -> "BaseEpisode":  # type: ignore[misc]
+        """Factory method to create and initialize a new episode."""
+        pass
+
+    @abstractmethod
+    async def append_step(self, step: Step, **kwargs) -> None:
+        """Appends a step and handles related business logic (e.g., updating live meta files)."""
+        pass
+
+    @abstractmethod
+    async def save(self, **kwargs) -> None:
+        """Saves the episode data and any related metadata or artifacts."""
+        pass
+
+    # Common helper methods from old Episode class
+    def get_episode_frames_main_camera(self) -> List[np.ndarray]:
+        return [
+            step.observation.main_image
+            for step in self.steps
+            if step.observation.main_image is not None
+            and step.observation.main_image.size > 0
+        ]
+
+    def get_episode_frames_secondary_cameras(
+        self,
+    ) -> List[List[np.ndarray]]:  # List of frame lists
+        if not self.steps or not self.steps[0].observation.secondary_images:
+            return []
+
+        num_secondary_cameras = len(self.steps[0].observation.secondary_images)
+        all_secondary_frames: List[List[np.ndarray]] = [
+            [] for _ in range(num_secondary_cameras)
+        ]
+
+        for step in self.steps:
+            for i, sec_img in enumerate(step.observation.secondary_images):
+                if sec_img is not None and sec_img.size > 0:
+                    all_secondary_frames[i].append(sec_img)
+        return all_secondary_frames
 
     @classmethod
     def load(
         cls,
         episode_data_path: str,
         format: Literal["json", "lerobot_v2", "lerobot_v2.1"],
-    ) -> "Episode":
+    ) -> "BaseEpisode":
         """Load an episode data file. There is numpy array handling for json format.""
         If we load the parquet file we don't have informations about the images
         """
         episode_data_extension = episode_data_path.split(".")[-1]
 
         if episode_data_extension == "json":
-            return cls.from_json(episode_data_path)
+            return JsonEpisode.from_json(episode_data_path)
         elif episode_data_extension == "parquet":
-            return cls.from_parquet(
+            return LeRobotEpisode.from_parquet(
                 episode_data_path,
                 format=cast(Literal["lerobot_v2", "lerobot_v2.1"], format),
             )
@@ -415,42 +222,6 @@ class Episode(BaseModel):
             raise ValueError(
                 f"Unsupported episode data format: {episode_data_extension}"
             )
-
-    def add_step(self, step: Step):
-        """
-        Add a step to the episode
-        Handles the is_first, is_terminal and is_last flags to set the correct values when appending a step
-        """
-        # When a step is aded, it is the last of the episode by default until we add another step
-        step.is_terminal = True
-        step.is_last = True
-
-        # Check if the observation are all NAN values (this is the case when there is a read error on motors)
-        # If so, replace them with the previous step values
-        if len(self.steps) > 0 and np.isnan(step.observation.joints_position).all():
-            # Replace the joints_position with the previous step
-            step.observation.joints_position = self.steps[
-                -1
-            ].observation.joints_position.copy()
-
-        # If current step is the first step of the episode
-        if not self.steps:
-            step.is_first = True
-        else:
-            step.is_first = False
-            # Change the previous step to not be terminal and last
-            self.steps[-1].is_terminal = False
-            self.steps[-1].is_last = False
-        # Append the step to the episode
-        self.steps.append(step)
-
-    def update_previous_step(self, step: Step):
-        """
-        Update the previous step with the given step.
-        """
-        # The action is an order in absolute on the postion of the robots joints (radians angles)
-        if len(self.steps) > 0:
-            self.steps[-1].action = step.observation.joints_position.copy()
 
     async def play(
         self,
@@ -552,38 +323,486 @@ class Episode(BaseModel):
                 start_time = time.perf_counter()
                 move_robots(curr_step.observation.joints_position)
 
+
+class JsonEpisode(BaseEpisode):
     @property
-    def index(self) -> int:
-        """
-        Return the episode index
-        """
-        return self.metadata.get("index", 0)
+    def _base_recording_folder(self) -> Path:
+        path_str = self.metadata.get("base_recording_folder")
+        if not path_str:
+            raise ValueError("base_recording_folder not in metadata for JsonEpisode")
+        return Path(path_str)
 
-    # Setter
-    @index.setter
-    def index(self, value: int):
-        """
-        Set the episode index
-        """
-        self.metadata["index"] = value
+    @property
+    def _dataset_name(self) -> str:
+        name = self.metadata.get("dataset_name")
+        if not name:
+            raise ValueError("dataset_name not in metadata for JsonEpisode")
+        return name
 
-    def convert_episode_data_to_LeRobot(
+    @property
+    def _dataset_folder_path(self) -> Path:  # Full path to this specific JSON dataset
+        return self._base_recording_folder / "json" / self._dataset_name
+
+    @property
+    def _json_episode_path(self) -> Path:
+        filename = f"episode_{self.metadata['created_at_str']}.json"
+        path = self._dataset_folder_path / filename
+        os.makedirs(path.parent, exist_ok=True)
+        return path
+
+    @classmethod
+    async def start_new(  # type: ignore[override]
+        cls,
+        base_recording_folder: str,  # e.g., ".../phosphobot/recordings"
+        dataset_name: str,
+        robots: List[BaseRobot],
+        instruction: Optional[str] = None,
+        freq: Optional[int] = None,  # Optional for JSON, might be useful for metadata
+        **kwargs,
+    ) -> "JsonEpisode":
+        start_timestamp = time.time()
+        created_at_string = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        metadata = {
+            "base_recording_folder": base_recording_folder,
+            "dataset_name": dataset_name,
+            "episode_format": "json",
+            "created_at": start_timestamp,
+            "created_at_str": created_at_string,  # For filename
+            "robot_type": ", ".join(r.name for r in robots),
+            "instruction": instruction,
+            "freq": freq,
+            # JSON episodes usually don't have a strict sequential index like LeRobot.
+            # If one is needed, logic to determine it (e.g., counting files) would go here.
+            "episode_index": int(
+                start_timestamp
+            ),  # Using timestamp as a pseudo-index for now
+        }
+        logger.info(f"Starting new JSON episode for dataset '{dataset_name}'.")
+        return cls(steps=[], metadata=metadata)
+
+    async def append_step(self, step: Step, **kwargs) -> None:
+        self.add_step(step)  # Uses BaseEpisode.add_step
+        # JSON format typically doesn't have rolling meta-file updates during recording for each step.
+
+    async def save(self, **kwargs) -> None:
+        if not self.steps:
+            logger.warning("JSON Episode has no steps. Skipping save.")
+            return
+
+        data_to_dump = self.model_dump()  # Get all data including steps and metadata
+
+        # Ensure the directory exists
+        os.makedirs(self._json_episode_path.parent, exist_ok=True)
+
+        with open(self._json_episode_path, "w", encoding=DEFAULT_FILE_ENCODING) as f:
+            json.dump(data_to_dump, f, cls=NumpyEncoder, indent=2)
+        logger.success(f"JSON Episode saved to {self._json_episode_path}")
+
+    @classmethod
+    def from_json(cls, episode_data_path: str) -> "JsonEpisode":
+        """Load an episode data file. There is numpy array handling for json format."""
+        # Check that the file exists
+        if not os.path.exists(episode_data_path):
+            raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
+
+        with open(episode_data_path, "r", encoding=DEFAULT_FILE_ENCODING) as f:
+            data_dict = json.load(f, object_hook=decode_numpy)
+            logger.debug(f"Data dict keys: {data_dict.keys()}")
+
+        return cls(**data_dict)
+
+    def delete(self):
+        os.remove(self.json_path)
+
+
+# LeRobotDataset manages the dataset-level files and structure for LeRobot format
+class LeRobotDataset("Dataset"):  # Inherits from existing phosphobot.models.Dataset
+    def __init__(self, path: str, enforce_path: bool = True):
+        # path is like "recordings/lerobot_v2.1/my_dataset_name"
+        super().__init__(
+            path, enforce_path=enforce_path
+        )  # This sets self.folder_full_path etc.
+
+        # Determine format version from path
+        self.format_version: Literal["lerobot_v2", "lerobot_v2.1"] = cast(
+            Literal["lerobot_v2", "lerobot_v2.1"], Path(path).parts[-2]
+        )
+
+        # Ensure base LeRobot directories exist within the dataset path
+        os.makedirs(
+            self.data_folder_full_path, exist_ok=True
+        )  # .../dataset_name/data/chunk-000
+        os.makedirs(self.meta_folder_full_path, exist_ok=True)  # .../dataset_name/meta
+        os.makedirs(
+            self.videos_folder_full_path, exist_ok=True
+        )  # .../dataset_name/videos/chunk-000
+
+        # Meta models are loaded/initialized when needed, typically by initialize_meta_models_if_needed
+        self.info_model: Optional[InfoModel] = None
+        self.episodes_stats_model: Optional[EpisodesStatsModel] = None
+        self.stats_model: Optional[StatsModel] = None  # For lerobot_v2
+        self.episodes_model: Optional[EpisodesModel] = None
+        self.tasks_model: Optional[TasksModel] = None
+        logger.info(
+            f"LeRobotDataset manager initialized for path: {self.folder_full_path}"
+        )
+
+    def initialize_meta_models_if_needed(
         self,
+        robots: List[BaseRobot],
+        codec: VideoCodecs,
+        target_size: tuple[int, int],
         fps: int,
-        episodes_path: str,  # We need the episodes path to load the value of the last frame index
-        episode_index: int = 0,
-        last_frame_index: int = 0,
-        task_index: int = 0,
+        secondary_camera_key_names: List[str],
     ):
-        """
-        Convert a dataset to the LeRobot format
-        """
-        logger.info("Converting dataset to LeRobot format...")
+        """Loads existing meta files or initializes new ones if they don't exist."""
+        logger.debug(
+            f"Initializing/loading meta models for dataset: {self.dataset_name}"
+        )
+        if self.info_model is None:
+            self.info_model = InfoModel.from_json(
+                meta_folder_path=self.meta_folder_full_path,  # Correct path to 'meta' dir
+                robots=robots,  # Passed for initialization if file doesn't exist
+                codec=codec,
+                target_size=target_size,
+                secondary_camera_key_names=secondary_camera_key_names,
+                fps=fps,
+                format=self.format_version,
+            )
 
-        # Prepare the data for the Parquet file
-        episode_data: Dict[str, List] = {
+        if self.format_version == "lerobot_v2.1":
+            if self.episodes_stats_model is None:
+                self.episodes_stats_model = EpisodesStatsModel.from_jsonl(
+                    meta_folder_path=self.meta_folder_full_path
+                )
+        elif self.format_version == "lerobot_v2":
+            if self.stats_model is None:  # Only for v2
+                self.stats_model = StatsModel.from_json(
+                    meta_folder_path=self.meta_folder_full_path
+                )
+
+        if self.episodes_model is None:
+            self.episodes_model = EpisodesModel.from_jsonl(
+                meta_folder_path=self.meta_folder_full_path, format=self.format_version
+            )
+        if self.tasks_model is None:
+            self.tasks_model = TasksModel.from_jsonl(
+                meta_folder_path=self.meta_folder_full_path
+            )
+        logger.debug("Meta models initialization/loading complete.")
+
+    def get_next_episode_index(self) -> int:
+        if self.info_model is None:
+            raise ValueError(
+                "InfoModel not initialized in LeRobotDataset. Call initialize_meta_models_if_needed first."
+            )
+        return self.info_model.total_episodes  # total_episodes is 0-indexed for next
+
+    def get_current_total_frames(self) -> int:
+        if self.info_model is None:
+            raise ValueError("InfoModel not initialized in LeRobotDataset.")
+        return self.info_model.total_frames
+
+    def save_all_meta_models(self):
+        """Saves all currently loaded meta models to disk."""
+        logger.debug(f"Saving all meta models for dataset: {self.dataset_name}")
+        if self.info_model:
+            self.info_model.save(self.meta_folder_full_path)
+        if self.episodes_stats_model:
+            self.episodes_stats_model.save(self.meta_folder_full_path)
+        if self.stats_model:
+            self.stats_model.save(self.meta_folder_full_path)  # v2 only
+        if self.episodes_model:
+            self.episodes_model.save(self.meta_folder_full_path, save_mode="overwrite")
+        if self.tasks_model:
+            self.tasks_model.save(self.meta_folder_full_path)
+        logger.debug("All meta models saved.")
+
+    def delete_episode(self, episode_id: int, update_hub: bool = True) -> None:
+        """
+        Delete the episode data from the dataset.
+        If format is lerobot, also delete the episode videos from the dataset
+        and updates the meta data.
+        JSON format not supported
+
+        If update_hub is True, also delete the episode data from the Hugging Face repository
+        """
+
+        episode_to_delete = LeRobotEpisode.from_parquet(
+            self.get_episode_data_path(episode_id), format=self.format_version
+        )
+        # Get the full path to the data with episode id
+
+        if self.episode_format == "lerobot_v2.0":
+            raise NotImplementedError(
+                "Episode deletion is not implemented for LeRobot v2.0 format. Please use v2.1 format."
+            )
+
+        if self.check_repo_exists(self.repo_id) is False:
+            logger.warning(
+                f"Repository {self.repo_id} does not exist on Hugging Face. Skipping deletion on Hugging Face"
+            )
+            update_hub = False
+
+        logger.info(
+            f"Deleting episode {episode_id} from dataset {self.dataset_name} with episode format {self.episode_format}"
+        )
+
+        if self.episode_format.startswith("lerobot"):
+            # Start loading current meta data
+            info_model = InfoModel.from_json(
+                meta_folder_path=self.meta_folder_full_path
+            )
+            tasks_model = TasksModel.from_jsonl(
+                meta_folder_path=self.meta_folder_full_path
+            )
+            episodes_model = EpisodesModel.from_jsonl(
+                meta_folder_path=self.meta_folder_full_path,
+                format=cast(Literal["lerobot_v2", "lerobot_v2.1"], self.episode_format),
+            )
+            if info_model.codebase_version == "v2.1":
+                episodes_stats_model = EpisodesStatsModel.from_jsonl(
+                    meta_folder_path=self.meta_folder_full_path
+                )
+            elif info_model.codebase_version == "v2.0":
+                stats_model = StatsModel.from_json(
+                    meta_folder_path=self.meta_folder_full_path
+                )
+            else:
+                raise NotImplementedError(
+                    f"Codebase version {info_model.codebase_version} not supported, should be v2.1 or v2.0"
+                )
+
+            # Update meta data before episode removal
+            try:
+                episode_parquet = episode_to_delete.parquet()
+            except FileNotFoundError as e:
+                logger.warning(f"Episode {episode_id} not found: {e}")
+                episode_parquet = pd.DataFrame()
+            tasks_model.update_for_episode_removal(
+                df_episode_to_delete=episode_parquet,
+                data_folder_full_path=self.data_folder_full_path,
+            )
+            tasks_model.save(meta_folder_path=self.meta_folder_full_path)
+            logger.info("Tasks model updated")
+
+            info_model.update_for_episode_removal(
+                df_episode_to_delete=episode_parquet,
+            )
+            info_model.save(meta_folder_path=self.meta_folder_full_path)
+            logger.info("Info model updated")
+
+            # Delete the actual episode files (parquet and mp4 video)
+            episode_to_delete.delete(update_hub=update_hub)
+
+            # Rename the remaining episodes to keep the numbering consistent
+            # be sure to reindex AFTER deleting the episode data
+            old_index_to_new_index = self.reindex_episodes(
+                nb_steps_deleted_episode=len(episode_to_delete.steps),
+                folder_path=self.data_folder_full_path,
+            )
+            # Reindex the episode videos
+            for camera_folder_full_path in self.get_camera_folders_full_paths():
+                self.reindex_episodes(
+                    folder_path=camera_folder_full_path,
+                    old_index_to_new_index=old_index_to_new_index,  # type: ignore
+                )
+
+            episodes_model.update_for_episode_removal(
+                episode_to_delete_index=episode_id,
+                old_index_to_new_index=old_index_to_new_index,
+            )
+            episodes_model.save(
+                meta_folder_path=self.meta_folder_full_path, save_mode="overwrite"
+            )
+            logger.info("Episodes model updated")
+
+            if info_model.codebase_version == "v2.1":
+                episodes_stats_model.update_for_episode_removal(
+                    episode_to_delete_index=episode_id,
+                    old_index_to_new_index=old_index_to_new_index,
+                )
+                episodes_stats_model.save(meta_folder_path=self.meta_folder_full_path)
+                logger.info("Episodes stats model updated")
+            elif info_model.codebase_version == "v2.0":
+                # Update for episode removal is not implemented
+                stats_model.update_for_episode_removal(
+                    data_folder_path=self.data_folder_full_path,
+                )
+                stats_model.save(meta_folder_path=self.meta_folder_full_path)
+                logger.info("Stats model updated")
+
+            if update_hub:
+                upload_folder(
+                    folder_path=self.meta_folder_full_path,
+                    repo_id=self.repo_id,
+                    repo_type="dataset",
+                    path_in_repo="meta",
+                )
+
+
+class LeRobotEpisode(BaseEpisode):
+    # Direct attributes, not in metadata for Pydantic validation and type hinting
+    dataset_manager: LeRobotDataset  # Link to the dataset it belongs to
+    freq: int  # Recording frequency (Hz)
+    codec: VideoCodecs  # For saving videos
+    target_size: tuple[int, int]  # For video creation (width, height)
+
+    # Paths are derived from the dataset_manager and episode_index (from metadata)
+    @property
+    def _parquet_path(self) -> Path:
+        # episode_index comes from self.metadata
+        return (
+            Path(self.dataset_manager.data_folder_full_path)
+            / f"episode_{self.episode_index:06d}.parquet"
+        )
+
+    @property
+    def episodes_path(self) -> Path:
+        """
+        Return the file path of the episode
+        """
+        path = self.dataset_path / "data" / "chunk-000"
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def _get_video_path(self, camera_key: str) -> Path:
+        # episode_index comes from self.metadata
+        path = Path(self.dataset_manager.videos_folder_full_path) / camera_key
+        os.makedirs(path, exist_ok=True)  # Ensure camera-specific subfolder exists
+        return path / f"episode_{self.episode_index:06d}.mp4"
+
+    @property
+    def dataset_path(self) -> Path:
+        """
+        Return the file path of the episode
+        """
+        format = self.metadata.get("format")
+        dataset_name = self.metadata.get("dataset_name")
+        if not format:
+            raise ValueError("Episode metadata format not set")
+        if not dataset_name:
+            raise ValueError("Episode metadata dataset_name not set")
+
+        path = get_home_app_path() / "recordings" / format / dataset_name
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    @property
+    def _cameras_folder_path(self) -> Path:
+        """
+        Return the cameras folder path
+        """
+        return self.dataset_path / "videos" / "chunk-000"
+
+    @classmethod
+    async def start_new(  # type: ignore[override]
+        cls,
+        dataset_manager: LeRobotDataset,  # Pass the fully initialized dataset manager
+        robots: List[BaseRobot],
+        codec: VideoCodecs,
+        freq: int,
+        target_size: tuple[int, int],  # width, height
+        instruction: str | None,
+        secondary_camera_key_names: List[str],
+        **kwargs,
+    ) -> "LeRobotEpisode":
+        # Ensure meta models are loaded/initialized in the dataset manager
+        dataset_manager.initialize_meta_models_if_needed(
+            robots=robots,
+            codec=codec,
+            target_size=target_size,  # Used by InfoModel if creating new
+            fps=freq,
+            secondary_camera_key_names=secondary_camera_key_names,
+        )
+
+        # These must not be None after the above call
+        assert dataset_manager.info_model is not None
+        assert dataset_manager.episodes_model is not None
+        assert dataset_manager.tasks_model is not None
+        if dataset_manager.format_version == "lerobot_v2.1":
+            assert dataset_manager.episodes_stats_model is not None
+        elif dataset_manager.format_version == "lerobot_v2":
+            assert dataset_manager.stats_model is not None
+
+        episode_idx = (
+            dataset_manager.get_next_episode_index()
+        )  # e.g., if 0 episodes, next is 0
+
+        task_idx = len(dataset_manager.tasks_model.tasks)  # Default: new task
+        if instruction:  # If an instruction is provided, try to find its index
+            for task_feature in dataset_manager.tasks_model.tasks:
+                if task_feature.task == instruction:
+                    task_idx = task_feature.task_index
+                    break
+            # If not found, it will be added as a new task when tasks_model.update() is called
+
+        start_timestamp = time.time()
+        episode_metadata = {
+            "episode_index": episode_idx,
+            "created_at": start_timestamp,
+            "robot_type": ", ".join(r.name for r in robots),
+            "episode_format": dataset_manager.format_version,
+            "dataset_name": dataset_manager.dataset_name,
+            "instruction": instruction,  # Store the actual instruction string
+            "task_index": task_idx,  # Store the determined or default task index
+            "freq": freq,  # Store freq for reference, e.g. in play method
+        }
+        logger.info(
+            f"Starting new LeRobotEpisode, index: {episode_idx}, task: '{instruction}' (idx: {task_idx}) for dataset '{dataset_manager.dataset_name}'."
+        )
+
+        return cls(
+            steps=[],
+            metadata=episode_metadata,
+            dataset_manager=dataset_manager,
+            freq=freq,
+            codec=codec,
+            target_size=target_size,
+        )
+
+    async def append_step(self, step: Step, **kwargs) -> None:
+        self.add_step(step)  # Appends to self.steps, manages is_first/is_last flags
+
+        current_step_in_episode_index = (
+            len(self.steps) - 1
+        )  # 0-indexed count of steps in this episode
+
+        # Update live meta models stored in the dataset_manager
+        if self.dataset_manager.format_version == "lerobot_v2.1":
+            assert self.dataset_manager.episodes_stats_model is not None
+            self.dataset_manager.episodes_stats_model.update(
+                step=step,
+                episode_index=self.episode_index,  # from self.metadata
+                current_step_index=current_step_in_episode_index,
+            )
+        elif self.dataset_manager.format_version == "lerobot_v2":
+            assert self.dataset_manager.stats_model is not None
+            self.dataset_manager.stats_model.update(
+                step=step,
+                episode_index=self.episode_index,
+                current_step_index=current_step_in_episode_index,
+            )
+
+        assert self.dataset_manager.episodes_model is not None
+        self.dataset_manager.episodes_model.update(
+            step=step, episode_index=self.episode_index
+        )
+
+        assert self.dataset_manager.tasks_model is not None
+        # tasks_model.update will add the instruction as a new task if it's not already present
+        self.dataset_manager.tasks_model.update(step=step)
+
+    def _convert_to_le_robot_episode_model(self) -> "LeRobotEpisodeModel":
+        """Converts internal steps to the LeRobotEpisodeModel for Parquet saving."""
+        assert self.dataset_manager.info_model is not None
+        # global_frame_offset is the total number of frames in the dataset *before* this episode's frames.
+        global_frame_offset = self.dataset_manager.info_model.total_frames
+
+        episode_data_dict: Dict[str, List] = {
             "action": [],
-            "observation.state": [],  # with a dot, not an underscore
+            "observation.state": [],
             "timestamp": [],
             "task_index": [],
             "episode_index": [],
@@ -591,125 +810,267 @@ class Episode(BaseModel):
             "index": [],
         }
 
-        if self.steps[0].observation.timestamp is None:
-            raise ValueError(
-                "The first step of the episode must have a timestamp to calculate the other timestamps during reedition of timestamps."
+        # Generate timestamps if not present or if first is None (e.g. if playback or loaded without them)
+        # During live recording, step.observation.timestamp should be set.
+        if not self.steps or self.steps[0].observation.timestamp is None:
+            logger.warning(
+                "Generating timestamps based on frequency as they are missing in steps."
             )
+            timestamps_for_episode = (np.arange(len(self.steps)) / self.freq).tolist()
+        else:
+            timestamps_for_episode = [s.observation.timestamp for s in self.steps]  # type: ignore
 
-        logger.info(f"Number of steps during conversion: {len(self.steps)}")
+        episode_data_dict["timestamp"] = timestamps_for_episode
 
-        # episode_data["timestamp"] = [step.observation.timestamp for step in self.steps]
-        episode_data["timestamp"] = (np.arange(len(self.steps)) / fps).tolist()
-
-        for frame_index, step in enumerate(self.steps):
-            # Fill in the data for each step
-            episode_data["episode_index"].append(episode_index)
-            episode_data["frame_index"].append(frame_index)
-            episode_data["observation.state"].append(
-                step.observation.joints_position.astype(np.float32)
+        for local_frame_idx, step_item in enumerate(self.steps):
+            episode_data_dict["episode_index"].append(
+                self.episode_index
+            )  # from self.metadata
+            episode_data_dict["frame_index"].append(
+                local_frame_idx
+            )  # 0 to N-1 for this episode
+            # LeRobot's "observation.state" is our "joints_position"
+            episode_data_dict["observation.state"].append(
+                step_item.observation.joints_position.astype(np.float32)
             )
-            episode_data["index"].append(frame_index + last_frame_index)
-            # TODO: Implement multiple tasks in dataset
-            episode_data["task_index"].append(task_index)
-            assert step.action is not None, (
-                "The action must be set for each step before saving"
-            )
-            episode_data["action"].append(step.action.tolist())
+            # "index" is the global frame index across the entire dataset
+            episode_data_dict["index"].append(local_frame_idx + global_frame_offset)
+            episode_data_dict["task_index"].append(self.metadata["task_index"])
 
-        # Validate frame dimensions and data type
-        height, width = self.steps[0].observation.main_image.shape[:2]
-        if any(
-            frame.shape[:2] != (height, width) or frame.ndim != 3
-            for frame in self.get_episode_frames_main_camera()
-        ):
-            raise ValueError(
-                "All frames must have the same dimensions and be 3-channel RGB images."
-            )
+            if (
+                step_item.action is None
+            ):  # Should have been set by update_previous_step, except for the very last step
+                if (
+                    local_frame_idx == len(self.steps) - 1
+                ):  # Last step, action can be a placeholder (e.g., repeat joints_position)
+                    logger.debug(
+                        f"Last step (idx {local_frame_idx}) of episode {self.episode_index} has no action; using its own joints_position."
+                    )
+                    episode_data_dict["action"].append(
+                        step_item.observation.joints_position.astype(
+                            np.float32
+                        ).tolist()
+                    )
+                else:  # Should not happen for intermediate steps
+                    raise ValueError(
+                        f"Step {local_frame_idx} in episode {self.episode_index} has no action set before saving."
+                    )
+            else:
+                episode_data_dict["action"].append(
+                    step_item.action.astype(np.float32).tolist()
+                )
 
-        return LeRobotEpisodeModel(
-            action=episode_data["action"],
-            observation_state=episode_data["observation.state"],
-            timestamp=episode_data["timestamp"],
-            task_index=episode_data["task_index"],
-            episode_index=episode_data["episode_index"],
-            frame_index=episode_data["frame_index"],
-            index=episode_data["index"],
+        # Basic validation for main camera frames (if any)
+        main_cam_frames = self.get_episode_frames_main_camera()
+        if main_cam_frames:
+            first_frame_shape = main_cam_frames[0].shape
+            if not all(
+                f.shape == first_frame_shape and f.ndim == 3 for f in main_cam_frames
+            ):
+                logger.warning(
+                    "Main camera frames have inconsistent shapes or dimensions."
+                )
+                # This could be an error depending on strictness:
+                # raise ValueError("All main_image frames must have the same dimensions and be 3-channel RGB images.")
+
+        return LeRobotEpisodeModel(**episode_data_dict)
+
+    async def save(self, **kwargs) -> None:
+        if not self.steps:
+            logger.warning(
+                f"LeRobotEpisode {self.episode_index} has no steps. Skipping save."
+            )
+            return
+
+        logger.info(
+            f"Saving LeRobotEpisode {self.episode_index} for dataset '{self.dataset_manager.dataset_name}'..."
+        )
+        assert (
+            self.dataset_manager.info_model is not None
+        )  # Should have been initialized
+
+        # 1. Save Parquet data for the episode
+        lerobot_parquet_model = self._convert_to_le_robot_episode_model()
+        lerobot_parquet_model.to_parquet(str(self._parquet_path))
+        logger.debug(
+            f"Episode data for {self.episode_index} saved to {self._parquet_path}"
         )
 
-    def get_episode_frames_main_camera(self) -> List[np.ndarray]:
-        """
-        Return the frames of the main camera
-        """
-        return [step.observation.main_image for step in self.steps]
+        # 2. Save Videos for the episode
+        main_camera_frames = self.get_episode_frames_main_camera()
+        secondary_camera_frames_by_cam = (
+            self.get_episode_frames_secondary_cameras()
+        )  # List of frame lists
 
-    def get_episode_frames_secondary_cameras(self) -> List[np.ndarray]:
-        """
-        Returns a list, where each np.array is a series of frames for a secondary camera.
-        """
-        # Handle the case where there are no secondary images
-        if len(self.steps) == 0 or not self.steps[0].observation.secondary_images:
-            return []
-
-        # Convert the nested structure to a numpy array first
-        all_images = [
-            np.array([step.observation.secondary_images[i] for step in self.steps])
-            for i in range(len(self.steps[0].observation.secondary_images))
-        ]
-
-        return all_images
-
-    def delete(self, update_hub: bool = True, repo_id: str | None = None) -> None:
-        """
-        Remove files related to the episode. Note: this doesn't update the meta files from the dataset.
-        Call Data.delete_episode to update the meta files.
-
-        If update_hub is True, the files will be removed from the Hugging Face repository.
-        There is no verification that the files are actually in the repository or that the repository exists.
-        You need to do that beforehand.
-        """
-        if (
-            self.metadata.get("format") == "lerobot_v2"
-            or self.metadata.get("format") == "lerobot_v2.1"
+        # Iterate through camera configurations in InfoModel to ensure all expected videos are handled
+        for i, (cam_key_in_info, video_feature_details) in enumerate(
+            self.dataset_manager.info_model.features.observation_images.items()
         ):
-            # Delete the parquet file
-            try:
-                os.remove(self.parquet_path)
-            except FileNotFoundError:
+            frames_for_this_video: Optional[List[np.ndarray]] = None
+
+            if cam_key_in_info == "observation.images.main":
+                frames_for_this_video = main_camera_frames
+            else:  # Secondary camera
+                # Try to match cam_key_in_info with available secondary_camera_frames_by_cam
+                # This assumes secondary_camera_frames_by_cam is ordered as per info_model's secondary keys.
+                # A more robust match would use actual keys if secondary_images in Observation were a dict.
+                # For now, simple positional matching after main.
+                secondary_cam_idx = (
+                    i - 1
+                )  # If i=0 is main, i=1 is first secondary (idx 0 in list)
+                if 0 <= secondary_cam_idx < len(secondary_camera_frames_by_cam):
+                    frames_for_this_video = secondary_camera_frames_by_cam[
+                        secondary_cam_idx
+                    ]
+
+            if frames_for_this_video and len(frames_for_this_video) > 0:
+                video_file_path = self._get_video_path(camera_key=cam_key_in_info)
+                # target_size for create_video_file is (width, height)
+                # video_feature_details.shape is [height, width, channels]
+                video_target_size = (
+                    video_feature_details.shape[1],
+                    video_feature_details.shape[0],
+                )
+
+                saved_path = create_video_file(
+                    frames=np.array(
+                        frames_for_this_video
+                    ),  # create_video_file expects np.array of frames
+                    output_path=str(video_file_path),
+                    target_size=video_target_size,  # Ensure this is (width, height)
+                    fps=video_feature_details.info.video_fps,
+                    codec=video_feature_details.info.video_codec,
+                )
+                if (isinstance(saved_path, str) and os.path.exists(saved_path)) or (
+                    isinstance(saved_path, tuple)
+                    and all(os.path.exists(p) for p in saved_path)
+                ):  # Stereo case
+                    logger.debug(
+                        f"Video for {cam_key_in_info} (episode {self.episode_index}) saved to {video_file_path}"
+                    )
+                else:
+                    logger.error(
+                        f"Failed to save video for {cam_key_in_info} (episode {self.episode_index}) to {video_file_path}"
+                    )
+            else:
                 logger.warning(
-                    f"Parquet file {self.parquet_path} not found. Skipping deletion."
+                    f"No frames found for camera {cam_key_in_info} in episode {self.episode_index}. Skipping video saving."
                 )
 
-            if update_hub and repo_id is not None:
-                # In the huggingface dataset, we need to pass the relative path.
-                relative_episode_path = (
-                    f"data/chunk-000/episode_{self.index:06d}.parquet"
-                )
-                delete_file(
-                    repo_id=repo_id,
-                    path_in_repo=relative_episode_path,
-                    repo_type="dataset",
-                )
+        # 3. Update Dataset-level InfoModel (after this episode is fully processed)
+        self.dataset_manager.info_model.total_frames += len(self.steps)
+        # total_episodes should be the count of saved episodes. If this is episode N, total_episodes becomes N+1.
+        # This assumes episodes are saved sequentially and episode_index is 0-based.
+        self.dataset_manager.info_model.total_episodes = self.episode_index + 1
+        self.dataset_manager.info_model.total_videos += len(
+            self.dataset_manager.info_model.features.observation_images
+        )
+        self.dataset_manager.info_model.splits = {
+            "train": f"0:{self.dataset_manager.info_model.total_episodes}"
+        }  # Update split range
 
-            # Remove the video files from the HF repository
-            all_camera_folders = os.listdir(self.cameras_folder_path)
-            for camera_key in all_camera_folders:
-                if "image" not in camera_key:
-                    continue
-                try:
-                    os.remove(self.get_video_path(camera_key))
-                except FileNotFoundError:
-                    logger.warning(
-                        f"Video file {self.get_video_path(camera_key)} not found. Skipping deletion."
-                    )
-                if update_hub and repo_id is not None:
-                    delete_file(
-                        repo_id=repo_id,
-                        path_in_repo=f"videos/chunk-000/{camera_key}/episode_{self.index:06d}.mp4",
-                        repo_type="dataset",
-                    )
+        # Ensure total_tasks in info_model is up-to-date
+        # self.metadata['task_index'] was set during start_new
+        if self.metadata["task_index"] >= self.dataset_manager.info_model.total_tasks:
+            self.dataset_manager.info_model.total_tasks = (
+                self.metadata["task_index"] + 1
+            )
 
-        elif self.metadata.get("format") == "json":
-            os.remove(self.json_path)
+        # 4. Save all (potentially updated) meta models from the dataset manager
+        self.dataset_manager.save_all_meta_models()
+        logger.success(
+            f"LeRobotEpisode {self.episode_index} and all dataset meta files saved for '{self.dataset_manager.dataset_name}'."
+        )
+
+    @classmethod
+    def from_parquet(
+        cls, episode_data_path: str, format: Literal["lerobot_v2", "lerobot_v2.1"]
+    ) -> "LeRobotEpisode":
+        """
+        Load an episode data file. We only extract the information from the parquet data file.
+        TODO(adle): Add more information in the Episode when loading from parquet data file from metafiles and videos
+        """
+        # Check that the file exists
+        if not os.path.exists(episode_data_path):
+            raise FileNotFoundError(f"Episode file {episode_data_path} not found.")
+
+        episode_df = pd.read_parquet(episode_data_path)
+        # Try to load the tasks.jsonl
+        dataset_path = str(Path(episode_data_path).parent.parent.parent)
+
+        tasks_path = os.path.join(dataset_path, "meta", "tasks.jsonl")
+        if os.path.exists(tasks_path):
+            # Load the tasks.jsonl file
+            tasks_df = pd.read_json(tasks_path, lines=True)
+            # Get the task index from the task index column
+            episode_df["task_index"] = tasks_df["task_index"].iloc[0]
+            # Merge the task index with the episode_df
+            episode_df = pd.merge(
+                episode_df,
+                tasks_df[["task_index", "task"]],
+                on="task_index",
+                how="left",
+            )
+
+        # Rename the columns to match the expected names in the instance
+        episode_df.rename(
+            columns={
+                "observation.state": "joints_position",
+                "task": "language_instruction",
+            },
+            inplace=True,
+        )
+        # agregate the columns in joints_position, timestamp, main_image, state to a column observation.
+        cols = ["joints_position", "timestamp"]
+        if "language_instruction" in episode_df.columns:
+            cols.append("language_instruction")
+        # Create a new column "observation" that is a dict of the selected columns for each row
+        episode_df["observation"] = episode_df[cols].to_dict(orient="records")
+
+        # Add metadata to the episode
+        # the path is like this : dataset_name/data/chunk-000/episode_xxxxxx.parquet
+        # get the path : dataset_name
+        normalized = os.path.normpath(episode_data_path)
+        parts = normalized.split(os.sep)
+        if len(parts) >= 4:
+            dataset_path = parts[-4]
+        else:
+            logger.warning(
+                f"Episode {episode_data_path} does not contain the dataset name in the path. Path should be: dataset_name/data/chunk-000/episode_xxxxxx.parquet"
+                + "Using parent folder name as dataset name."
+            )
+            dataset_path = os.path.basename(os.path.dirname(episode_data_path))
+
+        # Load the dataset
+        dataset = LeRobotDataset(path=dataset_path)
+        if dataset.info_model:
+            freq = dataset.info_model.fps
+            codec = list(dataset.info_model.features.observation_images.values())[
+                0
+            ].info.video_codec
+            target_size = list(dataset.info_model.features.observation_images.values())[
+                0
+            ].shape
+        else:
+            freq = 30
+            codec = "avc1"
+            target_size = [320, 240]
+
+        metadata = {
+            "dataset_name": dataset_path,
+            "format": format,
+            "index": episode_df["episode_index"].iloc[0],
+        }
+
+        episode_model = cls(
+            dataset_manager=dataset,
+            steps=cast(List[Step], episode_df.to_dict(orient="records")),
+            metadata=metadata,
+            freq=freq,
+            codec=codec,
+            target_size=(target_size[0], target_size[1]),
+        )
+        return episode_model
 
     def parquet(self) -> pd.DataFrame:
         """
@@ -723,17 +1084,61 @@ class Episode(BaseModel):
                 "The episode must be in LeRobot format to convert it to a DataFrame"
             )
 
-        return pd.read_parquet(self.parquet_path)
+        return pd.read_parquet(self._parquet_path)
+
+    def delete(self, update_hub: bool = True, repo_id: str | None = None) -> None:
+        """
+        Remove files related to the episode. Note: this doesn't update the meta files from the dataset.
+        Call Dataset.delete_episode to update the meta files.
+
+        If update_hub is True, the files will be removed from the Hugging Face repository.
+        There is no verification that the files are actually in the repository or that the repository exists.
+        You need to do that beforehand.
+        """
+
+        # Delete the parquet file
+        try:
+            os.remove(self._parquet_path)
+        except FileNotFoundError:
+            logger.warning(
+                f"Parquet file {self._parquet_path} not found. Skipping deletion."
+            )
+
+        if update_hub and repo_id is not None:
+            # In the huggingface dataset, we need to pass the relative path.
+            relative_episode_path = (
+                f"data/chunk-000/episode_{self.episode_index:06d}.parquet"
+            )
+            delete_file(
+                repo_id=repo_id,
+                path_in_repo=relative_episode_path,
+                repo_type="dataset",
+            )
+
+        # Remove the video files from the HF repository
+        all_camera_folders = os.listdir(self._cameras_folder_path)
+        for camera_key in all_camera_folders:
+            if "image" not in camera_key:
+                continue
+            try:
+                os.remove(self._get_video_path(camera_key))
+            except FileNotFoundError:
+                logger.warning(
+                    f"Video file {self._get_video_path(camera_key)} not found. Skipping deletion."
+                )
+            if update_hub and repo_id is not None:
+                delete_file(
+                    repo_id=repo_id,
+                    path_in_repo=f"videos/chunk-000/{camera_key}/episode_{self.episode_index:06d}.mp4",
+                    repo_type="dataset",
+                )
 
 
 class LeRobotEpisodeModel(BaseModel):
-    """
-    Data model for LeRobot episode in Parquet format
-    Stored in a parquet in dataset_name/data/chunk-000/episode_xxxxxx.parquet
-    """
-
     action: List[List[float]]
-    observation_state: List[List[float]]
+    observation_state: List[List[float]] = Field(
+        validation_alias=AliasChoices("observation.state", "observation_state")
+    )
     timestamp: List[float]
     task_index: List[int]
     episode_index: List[int]
@@ -742,36 +1147,50 @@ class LeRobotEpisodeModel(BaseModel):
 
     @model_validator(mode="before")
     def validate_lengths(cls, values):
-        """
-        Ensure all lists have the same length.
-        """
-        lengths = [
-            len(values.get(field, []))
-            for field in [
-                "action",
-                "observation_state",
-                "timestamp",
-                "task_index",
-                "episode_index",
-                "frame_index",
-                "index",
-            ]
+        fields_to_check = [
+            "action",
+            "observation_state",
+            "timestamp",
+            "task_index",
+            "episode_index",
+            "frame_index",
+            "index",
         ]
-        if len(set(lengths)) != 1:
+        # Adjust for alias, Pydantic v2 uses the defined field name 'observation_state' internally
+        # For validation, ensure the actual data key (could be 'observation.state') is handled by AliasChoices
+        # and here we check the Pydantic model field name.
+
+        lengths = []
+        for field_name in fields_to_check:
+            # Pydantic v2's AliasChoices handles mapping from 'observation.state' to 'observation_state' on input.
+            # So 'values' dict here will have 'observation_state' as key if alias was used.
+            val = values.get(field_name)
+            if (
+                val is None and field_name == "observation_state"
+            ):  # Try the alias if not found
+                val = values.get("observation.state")
+
+            if val is not None:
+                lengths.append(len(val))
+            else:  # Field is missing, which might be an issue depending on requirements
+                # For now, let's assume all these fields are mandatory for a valid parquet row
+                raise ValueError(
+                    f"Missing data for field '{field_name}' in LeRobotEpisodeModel."
+                )
+
+        if len(set(lengths)) > 1:
             raise ValueError(
-                "All items in LeRobotEpisodeParquet must have the same length."
+                f"All items in LeRobotEpisodeModel must have the same length. Got lengths: {lengths}"
             )
         return values
 
     def to_parquet(self, filename: str):
-        """
-        Save the episode to a Parquet file
-        """
-        df = pd.DataFrame(self.model_dump())
-        # Rename the columns to match the expected names in the Parquet file
-        df.rename(columns={"observation_state": "observation.state"}, inplace=True)
+        # Use model_dump with by_alias=True to get keys like "observation.state"
+        df = pd.DataFrame(self.model_dump(by_alias=True, mode="python"))
+        # Pydantic v2: self.model_dump(by_alias=True) should correctly use 'observation.state'
+        # No manual rename needed if aliases are set up correctly.
         df.to_parquet(filename, index=False)
-        logger.debug(f"Wrote {df.shape[0]} rows dataset to {filename}")
+        logger.debug(f"Wrote {df.shape[0]} rows of LeRobot episode data to {filename}")
 
 
 class Dataset:
@@ -779,7 +1198,7 @@ class Dataset:
     Handle common dataset operations. Useful to manage the dataset.
     """
 
-    episodes: List[Episode]
+    episodes: List[BaseEpisode]
     metadata: dict = Field(default_factory=dict)
     path: str
     dataset_name: str
@@ -1090,128 +1509,6 @@ class Dataset:
                     df.to_json(os.path.join(folder_path, new_filename))
 
         return old_index_to_new_index
-
-    def delete_episode(self, episode_id: int, update_hub: bool = True) -> None:
-        """
-        Delete the episode data from the dataset.
-        If format is lerobot, also delete the episode videos from the dataset
-        and updates the meta data.
-        JSON format not supported
-
-        If update_hub is True, also delete the episode data from the Hugging Face repository
-        """
-
-        episode_to_delete = Episode.load(
-            self.get_episode_data_path(episode_id), format=self.episode_format
-        )
-        # Get the full path to the data with episode id
-
-        if self.episode_format == "lerobot_v2.0":
-            raise NotImplementedError(
-                "Episode deletion is not implemented for LeRobot v2.0 format. Please use v2.1 format."
-            )
-
-        if self.check_repo_exists(self.repo_id) is False:
-            logger.warning(
-                f"Repository {self.repo_id} does not exist on Hugging Face. Skipping deletion on Hugging Face"
-            )
-            update_hub = False
-
-        logger.info(
-            f"Deleting episode {episode_id} from dataset {self.dataset_name} with episode format {self.episode_format}"
-        )
-
-        if self.episode_format.startswith("lerobot"):
-            # Start loading current meta data
-            info_model = InfoModel.from_json(
-                meta_folder_path=self.meta_folder_full_path
-            )
-            tasks_model = TasksModel.from_jsonl(
-                meta_folder_path=self.meta_folder_full_path
-            )
-            episodes_model = EpisodesModel.from_jsonl(
-                meta_folder_path=self.meta_folder_full_path,
-                format=cast(Literal["lerobot_v2", "lerobot_v2.1"], self.episode_format),
-            )
-            if info_model.codebase_version == "v2.1":
-                episodes_stats_model = EpisodesStatsModel.from_jsonl(
-                    meta_folder_path=self.meta_folder_full_path
-                )
-            elif info_model.codebase_version == "v2.0":
-                stats_model = StatsModel.from_json(
-                    meta_folder_path=self.meta_folder_full_path
-                )
-            else:
-                raise NotImplementedError(
-                    f"Codebase version {info_model.codebase_version} not supported, should be v2.1 or v2.0"
-                )
-
-            # Update meta data before episode removal
-            try:
-                episode_parquet = episode_to_delete.parquet()
-            except FileNotFoundError as e:
-                logger.warning(f"Episode {episode_id} not found: {e}")
-                episode_parquet = pd.DataFrame()
-            tasks_model.update_for_episode_removal(
-                df_episode_to_delete=episode_parquet,
-                data_folder_full_path=self.data_folder_full_path,
-            )
-            tasks_model.save(meta_folder_path=self.meta_folder_full_path)
-            logger.info("Tasks model updated")
-
-            info_model.update_for_episode_removal(
-                df_episode_to_delete=episode_parquet,
-            )
-            info_model.save(meta_folder_path=self.meta_folder_full_path)
-            logger.info("Info model updated")
-
-            # Delete the actual episode files (parquet and mp4 video)
-            episode_to_delete.delete(update_hub=update_hub)
-
-            # Rename the remaining episodes to keep the numbering consistent
-            # be sure to reindex AFTER deleting the episode data
-            old_index_to_new_index = self.reindex_episodes(
-                nb_steps_deleted_episode=len(episode_to_delete.steps),
-                folder_path=self.data_folder_full_path,
-            )
-            # Reindex the episode videos
-            for camera_folder_full_path in self.get_camera_folders_full_paths():
-                self.reindex_episodes(
-                    folder_path=camera_folder_full_path,
-                    old_index_to_new_index=old_index_to_new_index,  # type: ignore
-                )
-
-            episodes_model.update_for_episode_removal(
-                episode_to_delete_index=episode_id,
-                old_index_to_new_index=old_index_to_new_index,
-            )
-            episodes_model.save(
-                meta_folder_path=self.meta_folder_full_path, save_mode="overwrite"
-            )
-            logger.info("Episodes model updated")
-
-            if info_model.codebase_version == "v2.1":
-                episodes_stats_model.update_for_episode_removal(
-                    episode_to_delete_index=episode_id,
-                    old_index_to_new_index=old_index_to_new_index,
-                )
-                episodes_stats_model.save(meta_folder_path=self.meta_folder_full_path)
-                logger.info("Episodes stats model updated")
-            elif info_model.codebase_version == "v2.0":
-                # Update for episode removal is not implemented
-                stats_model.update_for_episode_removal(
-                    data_folder_path=self.data_folder_full_path,
-                )
-                stats_model.save(meta_folder_path=self.meta_folder_full_path)
-                logger.info("Stats model updated")
-
-            if update_hub:
-                upload_folder(
-                    folder_path=self.meta_folder_full_path,
-                    repo_id=self.repo_id,
-                    repo_type="dataset",
-                    path_in_repo="meta",
-                )
 
     def get_camera_folders_full_paths(self) -> List[str]:
         """
@@ -3452,7 +3749,7 @@ class InfoModel(BaseModel):
         ) as f:
             f.write(json.dumps(self.to_dict(), indent=4))
 
-    def update(self, episode: Episode) -> None:
+    def update(self, episode: LeRobotEpisode) -> None:
         """
         Update the info given a new recorded Episode.
         """
@@ -3904,7 +4201,9 @@ class EpisodesModel(BaseModel):
                             f"episode_{i:06d}.parquet",
                         )
                         if os.path.exists(episode_path):
-                            episode = Episode.from_parquet(episode_path, format=format)
+                            episode = LeRobotEpisode.from_parquet(
+                                episode_path, format=format
+                            )
                             _episodes_features[i] = EpisodesFeatures(
                                 episode_index=i,
                                 tasks=[
