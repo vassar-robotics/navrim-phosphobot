@@ -17,7 +17,7 @@ from phosphobot.models import (
     SupabaseTrainingModel,
     TrainingConfig,
 )
-from phosphobot.models.dataset import InfoModel
+from phosphobot.models import InfoModel
 from phosphobot.supabase import get_client, user_is_logged_in
 from phosphobot.utils import get_hf_token, get_home_app_path, get_tokens
 

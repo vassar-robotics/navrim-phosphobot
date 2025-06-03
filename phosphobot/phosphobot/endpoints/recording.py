@@ -20,7 +20,7 @@ from phosphobot.models import (
     RecordingStopResponse,
     StatusResponse,
 )
-from phosphobot.models.dataset import InfoModel
+from phosphobot.models import InfoModel
 from phosphobot.posthog import is_github_actions
 from phosphobot.recorder import Recorder, get_recorder
 from phosphobot.robot import RobotConnectionManager, get_rcm

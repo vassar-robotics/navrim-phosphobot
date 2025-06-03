@@ -8,26 +8,13 @@ from phosphobot.types import VideoCodecs
 from phosphobot.utils import NetworkDevice
 
 from .camera import AllCamerasStatus, SingleCameraStatus
-from .dataset import (
+from .dataset import BaseDataset, BaseEpisode, JsonEpisode, Observation, Step
+from .lerobot_dataset import (
     BaseRobotInfo,
-    BaseDataset,
-    BaseEpisode,
-    EpisodesFeatures,
     EpisodesModel,
-    EpisodesStatsFeatutes,
-    EpisodesStatsModel,
-    FeatureDetails,
-    InfoFeatures,
     InfoModel,
-    LeRobotEpisodeModel,
-    Observation,
-    Stats,
-    StatsModel,
-    Step,
-    TasksFeatures,
-    TasksModel,
-    VideoFeatureDetails,
-    VideoInfo,
+    LeRobotDataset,
+    LeRobotEpisode,
 )
 from .robot import BaseRobot, BaseRobotConfig, BaseRobotPIDGains, RobotConfigStatus
 

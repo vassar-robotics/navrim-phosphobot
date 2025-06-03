@@ -39,7 +39,7 @@ from phosphobot.models import (
     WandBTokenRequest,
     InfoModel,
 )
-from phosphobot.models.dataset import EpisodesModel, LeRobotDataset
+from phosphobot.models import EpisodesModel, LeRobotDataset
 from phosphobot.utils import (
     get_hf_token,
     get_resources_path,

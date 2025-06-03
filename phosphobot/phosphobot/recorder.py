@@ -13,7 +13,7 @@ from phosphobot.hardware import BaseRobot
 from phosphobot.models import BaseDataset, Observation, Step
 
 # New imports for refactored Episode structure
-from phosphobot.models.dataset import (
+from phosphobot.models import (
     BaseEpisode,
     JsonEpisode,
     LeRobotEpisode,

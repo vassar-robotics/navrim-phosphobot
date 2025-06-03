@@ -2819,7 +2819,7 @@ class StatsModel(BaseModel):
         )
 
 
-class EpisodesStatsFeatutes(BaseModel):
+class EpisodesStatsFeatures(BaseModel):
     """
     Features for each line of the episodes_stats.jsonl file.
     """
@@ -2861,7 +2861,7 @@ class EpisodesStatsModel(BaseModel):
     Creates the structure of the episodes_stats.jsonl file.
     """
 
-    episodes_stats: List[EpisodesStatsFeatutes] = Field(default_factory=list)
+    episodes_stats: List[EpisodesStatsFeatures] = Field(default_factory=list)
 
     def update(self, step: Step, episode_index: int, current_step_index: int) -> None:
         """
@@ -2881,7 +2881,7 @@ class EpisodesStatsModel(BaseModel):
             return
 
         # If the episode index does not exist, create a new entry
-        new_episode_stats = EpisodesStatsFeatutes(
+        new_episode_stats = EpisodesStatsFeatures(
             episode_index=episode_index,
             stats=StatsModel(),
         )
@@ -2921,11 +2921,11 @@ class EpisodesStatsModel(BaseModel):
             "r",
             encoding=DEFAULT_FILE_ENCODING,
         ) as f:
-            _episodes_stats_dict: dict[int, EpisodesStatsFeatutes] = {}
+            _episodes_stats_dict: dict[int, EpisodesStatsFeatures] = {}
             for line in f:
                 parsed_line: dict = json.loads(line)
 
-                episodes_stats_feature = EpisodesStatsFeatutes.model_validate(
+                episodes_stats_feature = EpisodesStatsFeatures.model_validate(
                     parsed_line
                 )
                 # We need to parse the observation_images properly when loading the jsonl file
