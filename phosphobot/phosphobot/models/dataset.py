@@ -792,8 +792,10 @@ class Dataset:
         """
         Load an existing dataset.
         """
-        # Check path format
+
         path_obj = Path(path)
+        self.folder_full_path = path_obj
+        # Check path format
         path_parts = path_obj.parts
         if enforce_path:
             if len(path_parts) < 2 or path_parts[-2] not in [
@@ -806,22 +808,30 @@ class Dataset:
         self.path = str(path_obj)
         self.episodes = []
         self.dataset_name = path_parts[-1]
-        self.episode_format = cast(
-            Literal["json", "lerobot_v2", "lerobot_v2.1"], path_parts[-2]
-        )
-        self.folder_full_path = path_obj
+
+        # Check if a meta folder exists
+        if not os.path.exists(os.path.join(self.folder_full_path, "meta")):
+            self.episode_format = "json"
+        else:
+            if (self.folder_full_path / "meta" / "stats.json").exists():
+                self.episode_format = "lerobot_v2"
+            elif (self.folder_full_path / "meta" / "episodes_stats.jsonl").exists():
+                self.episode_format = "lerobot_v2.1"
+            else:
+                raise ValueError("Could not determine dataset format.")
+
         self.data_file_extension = "json" if path_parts[-2] == "json" else "parquet"
         self.HF_API = HfApi(token=get_hf_token())
+
+        # Check that the dataset folder exists
+        if not os.path.exists(self.folder_full_path):
+            raise ValueError(f"Dataset folder {self.folder_full_path} does not exist")
 
         # Validate dataset name
         if not Dataset.check_dataset_name(self.dataset_name):
             raise ValueError(
                 "Dataset name contains invalid characters. Should not contain spaces or /"
             )
-
-        # Check that the dataset folder exists
-        if not os.path.exists(self.folder_full_path):
-            raise ValueError(f"Dataset folder {self.folder_full_path} does not exist")
 
     @classmethod
     def check_dataset_name(cls, name: str) -> bool:
