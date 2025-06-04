@@ -3156,6 +3156,13 @@ class InfoFeatures(BaseModel):
         serialization_alias="next.reward",
         validation_alias=AliasChoices("next.reward", "next_reward"),
     )
+    observation_environment_state: FeatureDetails | None = Field(
+        default=None,
+        serialization_alias="observation.environment.state",
+        validation_alias=AliasChoices(
+            "observation.environment.state", "observation_environment_state"
+        ),
+    )
 
     def to_dict(self) -> dict:
         """
