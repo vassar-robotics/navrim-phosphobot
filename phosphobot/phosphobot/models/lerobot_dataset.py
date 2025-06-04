@@ -1645,12 +1645,12 @@ class LeRobotEpisodeModel(BaseModel):
         return values
 
     def to_parquet(self, filename: str):
-        # Use model_dump with by_alias=True to get keys like "observation.state"
-        df = pd.DataFrame(self.model_dump(by_alias=True, mode="python"))
-        # Pydantic v2: self.model_dump(by_alias=True) should correctly use 'observation.state'
-        # No manual rename needed if aliases are set up correctly.
+        """
+        Save the episode to a Parquet file
+        """
+        df = pd.DataFrame(self.model_dump(mode="python"))
+        df.rename(columns={"observation_state": "observation.state"}, inplace=True)
         df.to_parquet(filename, index=False)
-        logger.debug(f"Wrote {df.shape[0]} rows of LeRobot episode data to {filename}")
 
 
 class TasksFeatures(BaseModel):
