@@ -942,9 +942,10 @@ class BaseManipulator(BaseRobot):
         3. If the robot is an so-100, we load default values from the motors.
         """
 
-        if cfg.ONLY_SIMULATION:
+        # We do this for tests
+        if cfg.ONLY_SIMULATION or not hasattr(self, "SERIAL_ID"):
             self.config = self.get_default_base_robot_config(
-                voltage="12V", raise_if_none=True
+                voltage="6V", raise_if_none=True
             )
             return
 
@@ -1189,14 +1190,13 @@ class BaseManipulator(BaseRobot):
         If the torque is above the threshold, the object is gripped.
         If under the threshold, the object is not gripped.
         """
-        if self.config is None:
-            raise ValueError(
-                "Robot configuration is not set. Run the calibration first."
-            )
+
         gripper_torque = self.read_gripper_torque()
-        # logger.info(
-        #     f"Gripper torque: {gripper_torque}. Threshold: {self.config.gripping_threshold}. Non-gripping threshold: {self.config.non_gripping_threshold}"
-        # )
+
+        if self.config is None:
+            logger.warning("Robot configuration is not set. Run the calibration first.")
+            return
+
         if gripper_torque >= self.config.gripping_threshold:
             self.is_object_gripped = True
         if gripper_torque <= self.config.non_gripping_threshold:
