@@ -320,9 +320,10 @@ def run(
         except CancelledError:
             logger.debug("Server shutdown gracefully.")
             raise typer.Exit(code=0)
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            raise typer.Exit(code=1)
+        # Log the full traceback for unexpected errors
+        # except Exception as e:
+        #     logger.error(f"Unexpected error: {e}")
+        #     raise typer.Exit(code=1)
 
     if not success:
         logger.warning(

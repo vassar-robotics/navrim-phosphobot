@@ -19,7 +19,7 @@ from phosphobot.models import (
     AdminSettingsTokenResponse,
     BrowseFilesResponse,
     BrowserFilesRequest,
-    Dataset,
+    BaseDataset,
     DatasetListResponse,
     DatasetRepairRequest,
     DatasetShuffleRequest,
@@ -39,7 +39,7 @@ from phosphobot.models import (
     WandBTokenRequest,
     InfoModel,
 )
-from phosphobot.models.dataset import EpisodesModel
+from phosphobot.models import EpisodesModel, LeRobotDataset
 from phosphobot.utils import (
     get_hf_token,
     get_resources_path,
@@ -129,7 +129,7 @@ def list_directory_items(path: str, root_dir: str = "") -> list[ItemInfo]:
         raise HTTPException(status_code=404, detail=f"Path not found: {full_path}")
 
     # Remove DS_Store files if they exist
-    Dataset.remove_ds_store_files(full_path)
+    BaseDataset.remove_ds_store_files(full_path)
 
     items = os.listdir(full_path)
     items_info = []
@@ -364,7 +364,7 @@ async def delete_dataset(request: Request, path: str):
             detail="Invalid dataset path. Please use the delete button provided in the admin page to delete dataset.",
         )
 
-    dataset = Dataset(path=dataset_path)
+    dataset = BaseDataset(path=dataset_path)
     dataset.delete()
 
     return StatusResponse(status="ok")
@@ -395,7 +395,10 @@ async def get_dataset_info(path: str) -> InfoResponse:
     try:
         info = InfoModel.from_json(
             meta_folder_path=meta_folder_path,
-            format=cast(Literal["lerobot_v2", "lerobot_v2.1"], path.split("/")[0]),
+            format=cast(
+                Literal["lerobot_v2", "lerobot_v2.1"],
+                Path(path).parts[0],
+            ),
         )
     except Exception as e:
         logger.warning(f"Error loading dataset info: {e}")
@@ -447,8 +450,10 @@ async def merge_datasets(merge_request: MergeDatasetsRequest):
     # 3 - Check that the datasets have the same number of cameras and same robots
 
     # 1
-    first_datatype = merge_request.first_dataset.split("/")[0]
-    second_datatype = merge_request.second_dataset.split("/")[0]
+    # Use Path to extract the first part of the path
+    first_datatype = Path(merge_request.first_dataset).parts[0]
+    second_datatype = Path(merge_request.second_dataset).parts[0]
+
     if first_datatype != second_datatype or first_datatype not in [
         "lerobot_v2.1",
     ]:
@@ -520,10 +525,12 @@ async def merge_datasets(merge_request: MergeDatasetsRequest):
             detail="The datasets have different number of cameras or robots.",
         )
 
-    # Merge the datasets
-
-    initial_dataset = Dataset(path=os.path.join(ROOT_DIR, merge_request.first_dataset))
-    second_dataset = Dataset(path=os.path.join(ROOT_DIR, merge_request.second_dataset))
+    initial_dataset = LeRobotDataset(
+        path=os.path.join(ROOT_DIR, merge_request.first_dataset)
+    )
+    second_dataset = LeRobotDataset(
+        path=os.path.join(ROOT_DIR, merge_request.second_dataset)
+    )
     try:
         initial_dataset.merge_datasets(
             second_dataset=second_dataset,
@@ -600,7 +607,7 @@ async def delete_episode(query: DeleteEpisodeRequest):
     logger.info(f"Deleting episode {query.episode_id} from {query.path}")
 
     try:
-        dataset = Dataset(path=os.path.join(ROOT_DIR, query.path))
+        dataset = LeRobotDataset(path=os.path.join(ROOT_DIR, query.path))
     except ValueError:
         raise HTTPException(
             status_code=404,
@@ -622,7 +629,7 @@ async def delete_episode(query: DeleteEpisodeRequest):
 @router.post("/dataset/sync")
 async def sync_dataset(path: str):
     # Extract dataset name et huggingface repo id from the path
-    dataset = Dataset(path=os.path.join(ROOT_DIR, path))
+    dataset = BaseDataset(path=os.path.join(ROOT_DIR, path))
 
     dataset.sync_local_to_hub()
 
@@ -889,7 +896,7 @@ async def split_dataset(query: DatasetSplitRequest):
         )
 
     # Split the dataset
-    dataset = Dataset(path=dataset_path)
+    dataset = LeRobotDataset(path=dataset_path)
 
     try:
         dataset.split_dataset(
@@ -926,7 +933,7 @@ async def shuffle_dataset(query: DatasetShuffleRequest):
         )
 
     # Shuffle the dataset
-    dataset = Dataset(path=dataset_path)
+    dataset = LeRobotDataset(path=dataset_path)
 
     # Name of the new dataset after shuffling
     new_dataset_name = f"{query.dataset_path}_shuffled"

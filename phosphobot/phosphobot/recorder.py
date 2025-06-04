@@ -1,8 +1,7 @@
 import asyncio
 import os
 import time
-from functools import lru_cache
-from typing import Literal, Optional, cast
+from typing import Literal, Optional, List
 
 import numpy as np
 from fastapi import BackgroundTasks, Depends
@@ -11,17 +10,15 @@ from loguru import logger
 from phosphobot.camera import AllCameras, get_all_cameras
 from phosphobot.configs import config
 from phosphobot.hardware import BaseRobot
+from phosphobot.models import BaseDataset, Observation, Step
+
+# New imports for refactored Episode structure
 from phosphobot.models import (
-    Dataset,
-    Episode,
-    EpisodesModel,
-    EpisodesStatsModel,
-    InfoModel,
-    Observation,
-    Step,
-    TasksModel,
+    BaseEpisode,
+    JsonEpisode,
+    LeRobotEpisode,
+    LeRobotDataset,
 )
-from phosphobot.models.dataset import StatsModel
 from phosphobot.robot import RobotConnectionManager, get_rcm
 from phosphobot.types import VideoCodecs
 from phosphobot.utils import background_task_log_exceptions, get_home_app_path
@@ -30,513 +27,352 @@ recorder = None  # Global variable to store the recorder instance
 
 
 class Recorder:
-    dataset_name: str = "example_dataset"
     episode_format: Literal["json", "lerobot_v2", "lerobot_v2.1"] = "lerobot_v2.1"
-    filename: str
 
     is_saving: bool = False
     is_recording: bool = False
-    episode: Episode | None
+    episode: Optional[BaseEpisode] = None  # Link to an Episode instance
     start_ts: float | None
+    freq: int  # Stored from start() for use in record_loop
 
     cameras: AllCameras
-    cameras_ids_to_record: list[int] | None = None
+    robots: list[BaseRobot]
 
-    # class of meta files
-    episodes_stats_model: EpisodesStatsModel | None = None
-    stats_model: StatsModel | None = None
-    info_model: InfoModel | None = None
-    episodes_model: EpisodesModel | None = None
-    tasks_model: TasksModel | None = None
+    # For push_to_hub, if Recorder handles it directly after save
+    # _current_dataset_full_path_for_push: Optional[str] = None
+    # _current_branch_path_for_push: Optional[str] = None
+    # _use_push_to_hub_after_save: bool = False
 
     @property
-    def episode_recording_folder(self) -> str:
+    def episode_recording_folder(
+        self,
+    ) -> str:  # Base folder for all recordings (".../phosphobot/recordings")
         return str(get_home_app_path() / "recordings")
 
     def __init__(self, robots: list[BaseRobot], cameras: AllCameras):
-        """
-        Usage:
-        ```
-        recorder.start() # Start recording every 1/freq seconds
-        recorder.stop() # Stop recording. This will not save the data to disk
-        ```
-
-        Args:
-            robot (BaseRobot): The robot instance to record
-            cameras (AllCameras): All Cameras used for recording
-        """
         self.robots = robots
         self.cameras = cameras
-
-    @property
-    def dataset_folder_path(self) -> str:
-        if self.episode_format in ["json", "lerobot_v2", "lerobot_v2.1"]:
-            return os.path.join(
-                self.episode_recording_folder, self.episode_format, self.dataset_name
-            )
-        else:
-            raise ValueError(
-                f"Unknown episode format: {self.episode_format}. Please select either 'json', 'lerobot_v2', or 'lerobot_v2.1'"
-            )
-
-    @property
-    def meta_folder_path(self) -> str:
-        """
-        Get the path of the meta folder where the meta files are stored.
-        """
-        return os.path.join(self.dataset_folder_path, "meta")
-
-    @property
-    def data_folder_path(self) -> str:
-        """
-        Get the path of the meta folder where the meta files are stored.
-        """
-        return (
-            str(os.path.join(self.dataset_folder_path, "data", "chunk-000"))
-            if self.episode_format.startswith("lerobot")
-            else self.dataset_folder_path
-        )
-
-    @property
-    def videos_folder_path(self) -> str:
-        """
-        Get the path of the meta folder where the meta files are stored.
-        """
-        if not self.episode_format.startswith("lerobot"):
-            raise ValueError(
-                f"Tried to access videos folder for {self.episode_format}. Only lerobot_v2 and lerobot_v2.1 format are supported"
-            )
-        return os.path.join(self.dataset_folder_path, "videos", "chunk-000")
 
     async def start(
         self,
         background_tasks: BackgroundTasks,
-        robots: list[BaseRobot],
+        robots: list[BaseRobot],  # Can use self.robots or update if new list passed
         codec: VideoCodecs,
         freq: int,
-        branch_path: str | None,
-        # All videos should have the same resolution for the datasets
         target_size: tuple[int, int] | None,
-        dataset_name: str,
+        dataset_name: str,  # e.g., "my_robot_data"
         instruction: str | None,
         episode_format: Literal["json", "lerobot_v2", "lerobot_v2.1"],
         cameras_ids_to_record: list[int] | None,
-        use_push_to_hf: bool = True,
+        use_push_to_hf: bool = True,  # Stored for save_episode to decide
+        branch_path: str | None = None,  # Stored for push_to_hub if initiated from here
     ) -> None:
-        """
-        Args:
-            robots (list[BaseRobot]): The robots instances to record
-            codec (VideoCodecs): The codec to use for the video recording
-            freq (int): The frequency of recording in Hz
-            branch_path (str | None): The branch path to push the dataset to
-            target_size (tuple[int, int] | None): The target size of the video recorded. All videos should have the same resolution for the datasets.
-                If None, the DEFAULT_VIDEO_SIZE from the config is used.
-            dataset_name (str): The name of the dataset
-            episode_format (Literal["json", "lerobot_v2", "lerobot_v2.1]): The format of the episode
-            cameras_ids_to_record (list[int] | None): The list of camera ids to record
-            use_push_to_hf (bool): If True, push the dataset to the Hugging Face Hub using the token saved in huggingface.token
-        """
-
         if target_size is None:
             target_size = (config.DEFAULT_VIDEO_SIZE[0], config.DEFAULT_VIDEO_SIZE[1])
 
         if self.is_recording:
-            logger.warning("Stopping previous recording")
-            await self.stop()
+            logger.warning(
+                "Stopping previous recording session before starting a new one."
+            )
+            await self.stop()  # Stop does not save, just halts the loop
 
-        if self.episode_format not in ["json", "lerobot_v2", "lerobot_v2.1"]:
-            raise ValueError(f"Unknown episode format: {self.episode_format}")
-
-        self.codec = codec
-        # Camera ids to record can be None the case is handled in the setter
+        self.robots = robots  # Update robots if a new list is provided
         self.cameras.cameras_ids_to_record = cameras_ids_to_record  # type: ignore
-        logger.debug(f"(START) Cameras ids asked: {cameras_ids_to_record}")
-
+        self.freq = freq  # Store for record_loop
         self.episode_format = episode_format
-        self.dataset_name = dataset_name
-        self.freq = freq
-
-        self.use_push_to_hub = use_push_to_hf
+        self.use_push_to_hf = use_push_to_hf  # Store for save_episode
         self.branch_path = branch_path
+
+        # Store for push_to_hub, to be used by save_episode
+        # self._current_branch_path_for_push = branch_path
+        # self._use_push_to_hub_after_save = use_push_to_hf
+
+        logger.info(
+            f"Attempting to start recording for dataset '{dataset_name}' in format '{episode_format}'"
+        )
+
+        if self.episode_format == "json":
+            # JsonEpisode.start_new handles its own path creation within "recordings/json/dataset_name"
+            self.episode = await JsonEpisode.start_new(
+                base_recording_folder=self.episode_recording_folder,
+                dataset_name=dataset_name,
+                robots=self.robots,
+                # Any other necessary params for JsonEpisode metadata
+            )
+            # if self._use_push_to_hub_after_save:
+            #     self._current_dataset_full_path_for_push = str(Path(self.episode_recording_folder) / "json" / dataset_name)
+
+        elif self.episode_format.startswith("lerobot"):
+            # Path for LeRobotDataset: "recordings/lerobot_vX.Y/dataset_name"
+            dataset_full_path = os.path.join(
+                self.episode_recording_folder, episode_format, dataset_name
+            )
+            # LeRobotDataset constructor will ensure directories like meta, data, videos exist.
+            lerobot_dataset_manager = LeRobotDataset(path=dataset_full_path)
+
+            # if self._use_push_to_hub_after_save:
+            #     self._current_dataset_full_path_for_push = lerobot_dataset_manager.folder_full_path
+
+            self.episode = await LeRobotEpisode.start_new(
+                dataset_manager=lerobot_dataset_manager,  # Pass the dataset manager
+                robots=self.robots,
+                codec=codec,
+                freq=freq,
+                target_size=target_size,
+                instruction=instruction,
+                secondary_camera_key_names=self.cameras.get_secondary_camera_key_names(),
+            )
+        else:
+            logger.error(f"Unknown episode format: {self.episode_format}")
+            raise ValueError(f"Unknown episode format: {self.episode_format}")
 
         self.is_recording = True
         self.start_ts = time.perf_counter()
 
-        self.robots = robots
-
-        # Count the number of files in meta_folder_path/data/chunk-000 to get episode_index
-        os.makedirs(self.data_folder_path, exist_ok=True)
-        episode_index = len(os.listdir(self.data_folder_path))
-
-        # Read the number of episodes in the data folder
-        self.episode = Episode(
-            steps=[],
-            metadata={
-                "episode_index": episode_index,
-                "created_at": self.start_ts,
-                "robot_type": ", ".join(robot.name for robot in robots),
-                "format": self.episode_format,
-                "dataset_name": self.dataset_name,
-            },
-        )
-
-        # Ensure the meta, data and videos folders exist for lerobot format
-        if self.episode_format.startswith("lerobot"):
-            # Make sure the dataset folder and meta exists
-            os.makedirs(self.meta_folder_path, exist_ok=True)
-            os.makedirs(self.videos_folder_path, exist_ok=True)
-
-            # Load the meta files from the disk
-            if self.episode_format == "lerobot_v2":
-                self.stats_model = StatsModel.from_json(
-                    meta_folder_path=self.meta_folder_path
-                )
-            elif self.episode_format == "lerobot_v2.1":
-                self.episodes_stats_model = EpisodesStatsModel.from_jsonl(
-                    meta_folder_path=self.meta_folder_path
-                )
-
-            # Load the info model
-            # Note: The types are ignored because we don't make those interfaces
-            # available in phosphobot
-
-            # If the we have a stereo_camera, we have to add the right camera in the se
-            self.info_model = InfoModel.from_json(
-                meta_folder_path=self.meta_folder_path,
-                robots=robots,  # type: ignore
-                codec=codec,
-                target_size=target_size,
-                secondary_camera_key_names=self.cameras.get_secondary_camera_key_names(),
-                fps=self.freq,
-                format=cast(Literal["lerobot_v2", "lerobot_v2.1"], self.episode_format),
-            )
-
-            # Increase the episode_index based on the info model
-            self.episode.index = self.info_model.total_episodes
-
-            self.episodes_model = EpisodesModel.from_jsonl(
-                meta_folder_path=self.meta_folder_path,
-                format=cast(Literal["lerobot_v2", "lerobot_v2.1"], self.episode_format),
-            )
-            self.tasks_model = TasksModel.from_jsonl(
-                meta_folder_path=self.meta_folder_path
-            )
-
-            # Pass the task index to the episode
-            for task in self.tasks_model.tasks:
-                if task.task == instruction:
-                    self.episode.metadata["task_index"] = task.task_index
-                    break
-            else:
-                self.episode.metadata["task_index"] = len(self.tasks_model.tasks)
-            logger.debug(
-                f"Task index: {self.episode.metadata['task_index']}, Task: {instruction}"
-            )
-            logger.debug(
-                f"Tasks model: {self.tasks_model.tasks}, Episode index: {self.episode.index}"
-            )
-
-            self.global_index = self.info_model.total_frames
-
         background_tasks.add_task(
-            background_task_log_exceptions(self.record),
+            background_task_log_exceptions(self.record_loop),
             target_size=target_size,
-            language_instruction=instruction or config.DEFAULT_TASK_INSTRUCTION,
+            language_instruction=instruction
+            or config.DEFAULT_TASK_INSTRUCTION,  # Passed to Step
+        )
+        logger.success(
+            f"Recording started for {self.episode_format} dataset '{dataset_name}'. Episode index: {self.episode.episode_index if self.episode else 'N/A'}"
         )
 
     async def stop(self) -> None:
         """
-        Stop the recording without saving
-        Update the info_model instance with the new episode
+        Stop the recording without saving.
         """
-        logger.info("End of recording")
-        self.is_recording = False
-        return None
+        if self.is_recording:
+            logger.info("Stopping current recording...")
+            self.is_recording = False
+            # Allow record_loop to finish its current iteration and exit
+            await asyncio.sleep(
+                1 / self.freq + 0.1
+            )  # Ensure loop has time to see is_recording=False
+            logger.info("Recording loop should now be stopped.")
+        else:
+            logger.info("No active recording to stop.")
+        # self.episode remains as is, until save_episode or a new start clears it.
 
-    def save_episode(self) -> Optional[str]:
-        """
-        Save the current episode to disk asynchronously
+    async def save_episode(self) -> None:
+        if self.is_saving:
+            logger.warning("Already in the process of saving an episode. Please wait.")
+            return None  # Or raise an error/return a specific status
 
-        Save the episode to a JSON file with numpy array handling for phospho recording to RLDS format
-        Save the episode to a parquet file with an mp4 video for LeRobot recording
+        if not self.episode:
+            logger.error(
+                "No episode data found. Was recording started and were steps recorded?"
+            )
+            return None
 
-        Episode are saved in a folder with the following structure:
-
-        ---- folder_name
-        |   ---- json
-        |   |   ---- dataset_name
-        |   |   |   ---- episode_xxxx-xx-xx_xx-xx-xx.json
-        |   ---- lerobot_v2 or lerobot_v2.1
-        |   |   ---- dataset_name
-        |   |   |   ---- data
-        |   |   |   |   ---- chunk-000
-        |   |   |   |   |   ---- episode_xxxxxx.parquet
-        |   |   |   ---- videos
-        |   |   |   |   ---- chunk-000
-        |   |   |   |   |   ---- observation.images.main.right (if stereo else only main)
-        |   |   |   |   |   |   ---- episode_xxxxxx.mp4
-        |   |   |   |   |   ---- observation.images.main.left (if stereo)
-        |  |   |   |   |   |   ---- episode_xxxxxx.mp4
-        |   |   |   |   |   ---- observation.images.secondary_0 (Optional)
-        |   |   |   |   |   |   ---- episode_xxxxxx.mp4
-        |   |   |   |   |   ---- observation.images.secondary_1 (Optional)
-        |   |   |   |   |   |   ---- episode_xxxxxx.mp4
-        |   |   |   ---- meta
-        |   |   |   |   ---- stats.json or episodes_stats.jsonl (Depending on the format)
-        |   |   |   |   ---- episodes.jsonl
-        |   |   |   |   ---- tasks.jsonl
-        |   |   |   |   ---- info.json
-
-        Reminder:
-        self.push_to_hub: If True, push the dataset to the Hugging Face Hub using the token saved in huggingface.token
-        self.branch_path: If provided, push the dataset to the specified branch additionally to the main branch
-        """
+        if not self.episode.steps:
+            logger.warning("Episode contains no steps. Nothing to save.")
+            self.episode = None  # Clear the empty episode
+            return None
 
         self.is_saving = True
+        # Ensure recording is stopped before saving
+        if self.is_recording:
+            logger.info("Stopping active recording before saving.")
+            await self.stop()
+
+        episode_to_save = self.episode  # Keep a reference
+        dataset_name_for_log = episode_to_save.metadata.get(
+            "dataset_name", "UnknownDataset"
+        )
+        episode_format_for_log = episode_to_save.metadata.get(
+            "episode_format", "UnknownFormat"
+        )
+
+        logger.info(
+            f"Starting to save episode for dataset '{dataset_name_for_log}' (format: {episode_format_for_log})..."
+        )
 
         try:
-            # If not steps, we don't save the episode
-            if self.episode and len(self.episode.steps) == 0:
-                logger.warning("No steps in the episode. Not saving the episode.")
-                return None
-
-            if self.episode_format not in ["json", "lerobot_v2", "lerobot_v2.1"]:
-                raise ValueError(f"Unknown episode format: {self.episode_format}")
-
-            if not hasattr(self, "episode") or self.episode is None:
-                logger.error("No episode to save")
-                return None
-
-            if self.episode_format.startswith("lerobot") and not hasattr(
-                self, "global_index"
-            ):
-                logger.error("No global index to save")
-                return None
-
-            episode_to_save = self.episode
-
-            episode_to_save.save(
-                folder_name=self.episode_recording_folder,
-                format_to_save=self.episode_format,
-                dataset_name=self.dataset_name,
-                fps=self.freq,
-                info_model=self.info_model,
-                last_frame_index=None
-                if not hasattr(self, "global_index")
-                else self.global_index,
-            )
-
-            # Update the meta files if recording in lerobot_v2 format
-            if self.episode_format.startswith("lerobot"):
-                # Start by incrementing the recorder global index
-                self.global_index += len(self.episode.steps)
-
-                if self.episode_format == "lerobot_v2":
-                    if self.stats_model is not None:
-                        self.stats_model.save(meta_folder_path=self.meta_folder_path)
-                    else:
-                        logger.error(
-                            "Stats model is not initialized. Call start() first"
-                        )
-                elif self.episode_format == "lerobot_v2.1":
-                    if self.episodes_stats_model is not None:
-                        self.episodes_stats_model.save(
-                            meta_folder_path=self.meta_folder_path
-                        )
-                    else:
-                        logger.error(
-                            "Episodes stats model is not initialized. Call start() first"
-                        )
-
-                if self.tasks_model is not None:
-                    self.tasks_model.save(meta_folder_path=self.meta_folder_path)
-                else:
-                    logger.error("Tasks model is not initialized. Call start() first")
-
-                if self.episodes_model is not None:
-                    self.episodes_model.save(
-                        meta_folder_path=self.meta_folder_path, save_mode="overwrite"
-                    )
-                else:
-                    logger.error(
-                        "Episodes model is not initialized. Call start() first"
-                    )
-
-                if (
-                    self.info_model is not None
-                    and self.tasks_model is not None
-                    and self.episodes_model is not None
-                ):
-                    self.info_model.update(episode=self.episode)
-                    self.info_model.save(meta_folder_path=self.meta_folder_path)
-                else:
-                    logger.error(
-                        "Info model, tasks model or episodes model is not initialized. Call start() first"
-                    )
+            await episode_to_save.save()  # The episode handles all its saving logic
             logger.success(
-                f"Episode saved to {self.episode_recording_folder}/{self.episode_format}"
+                f"Episode saved successfully for dataset '{dataset_name_for_log}'."
             )
 
         except Exception as e:
-            raise e
+            logger.error(f"An error occurred during episode saving: {e}", exc_info=True)
+            # Depending on the severity, you might not want to clear self.episode here,
+            # to allow for a retry or manual inspection. For now, it's cleared in finally.
+            raise  # Re-throw for higher level handling if necessary
         finally:
             self.is_saving = False
+            # self.episode = None # Clear episode if not cleared on success (e.g. if push fails but save was ok)
 
-        if self.use_push_to_hub:
-            self.push_to_hub(branch_path=self.branch_path)
+        if self.use_push_to_hf and isinstance(self.episode, LeRobotEpisode):
+            self.push_to_hub(
+                dataset_path=str(self.episode.dataset_path),
+                branch_path=self.branch_path,
+            )
 
         return None
 
-    def push_to_hub(self, branch_path: str | None = None) -> None:
-        """
-        This method upload the recorded dataset to the Hugging Face Hub.
-        You can specify a branch path to upload the dataset to a specific branch too.
-        We will always push to main branch so it will contain the last version of the dataset.
-        In CI/CD we the branch path correspond to the working branch and commit id.
-        """
-        dataset = Dataset(path=self.dataset_folder_path)
-        dataset.push_dataset_to_hub(branch_path=branch_path)
+    def push_to_hub(self, dataset_path: str, branch_path: str | None = None) -> None:
+        logger.info(
+            f"Attempting to push dataset from {dataset_path} to Hugging Face Hub. Branch: {branch_path or 'main'}"
+        )
+        try:
+            # Dataset class needs to be robust enough to be initialized with the full path
+            # e.g., "recordings/lerobot_v2.1/my_dataset_name"
+            dataset_obj = BaseDataset(path=dataset_path)
+            dataset_obj.push_dataset_to_hub(branch_path=branch_path)
+            logger.success(
+                f"Successfully pushed dataset {dataset_path} to Hugging Face Hub."
+            )
+        except FileNotFoundError:
+            logger.error(f"Dataset path not found for push_to_hub: {dataset_path}")
+        except ValueError as ve:
+            logger.error(
+                f"Failed to initialize Dataset for push_to_hub. Path: {dataset_path}. Error: {ve}"
+            )
+        except Exception as e:
+            logger.error(
+                f"An unexpected error occurred while pushing dataset {dataset_path} to Hub: {e}",
+                exc_info=True,
+            )
 
-    async def record(
+    async def record_loop(
         self,
         target_size: tuple[int, int],
-        language_instruction: str,
+        language_instruction: str,  # This is the initial instruction
     ) -> None:
-        """
-        This function will be used in a background task to record the data of an Episode.
-        When the function stops, the recording stops and we can save the data to the disk at filepath location.
-        """
-
         if not self.episode:
-            raise ValueError("episode is not initialized. Call start() first")
-        if not self.start_ts:
-            raise ValueError("start_ts is not initialized. Call start() first")
+            logger.error(
+                "Record loop started but no episode is initialized in the recorder."
+            )
+            self.is_recording = False  # Stop the loop
+            return
+        if not self.start_ts:  # Should be set by start()
+            logger.error("Record loop started but start_ts is not set.")
+            self.is_recording = False  # Stop the loop
+            return
 
         logger.info(
-            f"Recording: Started with {self.cameras.camera_ids=} ({self.cameras.main_camera=})"
+            f"Record loop engaged for episode {self.episode.episode_index if self.episode else 'N/A'}. Cameras: {self.cameras.camera_ids=} ({self.cameras.main_camera=})"
         )
-        # Init variables to store the data of the episode
-        step_count = 0
-        while self.is_recording:
-            current_ts = time.perf_counter()
 
+        step_count = 0
+        while self.is_recording:  # This flag is controlled by self.stop()
+            loop_iteration_start_time = time.perf_counter()
+
+            # --- Image Gathering (largely unchanged) ---
             main_frames = self.cameras.get_main_camera_frames(
                 target_video_size=target_size
             )
+            main_frame: np.ndarray
+            secondary_frames: List[np.ndarray] = []
+
             if main_frames is not None and len(main_frames) > 0:
                 main_frame = main_frames[0]
-                # The secondary cameras are all the available cameras except the main camera
-                # If the main camera is a stereo camera, we only take the left frame as the main frame
-                secondary_frames = []
-                if len(main_frames) == 2:
-                    secondary_frames.append(main_frames[1])
-
+                if len(main_frames) == 2:  # Stereo main camera
+                    secondary_frames.append(
+                        main_frames[1]
+                    )  # Add right frame as first secondary
+                # Add other configured secondary cameras
                 secondary_frames.extend(
                     self.cameras.get_secondary_camera_frames(
                         target_video_size=target_size
                     )
                 )
-            else:
-                # If no frames are available, we create empty frames
+            else:  # Fallback if no frames
                 main_frame = np.zeros(
                     (target_size[1], target_size[0], 3), dtype=np.uint8
                 )
-                secondary_frames = []
 
-            # If available, get the depth frame. This requires the realsense camera to be available.
-            depth_frame = self.cameras.get_depth_frame()
+            depth_frame = self.cameras.get_depth_frame()  # Optional
 
-            # Get robots observations
-            state, joints_position = self.robots[0].get_observation()
-            for robot in self.robots[1:]:
-                # Append the state and joints position of the other robots
-                state_other, joints_position_other = robot.get_observation()
-                state = np.append(state, state_other)
-                joints_position = np.append(joints_position, joints_position_other)
+            # --- Robot Observation (largely unchanged) ---
+            # Consolidate observations if multiple robots are present
+            all_robot_states = []
+            all_robot_joints_positions = []
+            for robot_instance in self.robots:
+                robot_state, robot_joints = robot_instance.get_observation()
+                all_robot_states.append(robot_state)
+                all_robot_joints_positions.append(robot_joints)
+
+            # Concatenate if multiple robots, otherwise use the first robot's data
+            # Ensure np.array even for single robot for consistency
+            final_state = (
+                np.concatenate(all_robot_states)
+                if len(all_robot_states) > 1
+                else (all_robot_states[0] if all_robot_states else np.array([]))
+            )
+            final_joints_position = (
+                np.concatenate(all_robot_joints_positions)
+                if len(all_robot_joints_positions) > 1
+                else (
+                    all_robot_joints_positions[0]
+                    if all_robot_joints_positions
+                    else np.array([])
+                )
+            )
+
+            current_time_in_episode = loop_iteration_start_time - self.start_ts
+
+            # The language instruction for the step should be the one active for this episode.
+            # If instructions can change mid-episode, this needs more complex handling.
+            # For now, assume it's the instruction set at the start of the episode.
+            current_instruction = (
+                self.episode.instruction
+                if self.episode.instruction
+                else language_instruction
+            )
 
             observation = Observation(
                 main_image=main_frame,
                 secondary_images=secondary_frames,
-                state=state,
-                language_instruction=language_instruction,
-                joints_position=joints_position,
-                # Timestamp in milliseconds since episode start (usefull for frequency)
-                timestamp=current_ts - self.start_ts,
+                state=final_state,  # Robot's end-effector state(s)
+                language_instruction=current_instruction,
+                joints_position=final_joints_position,  # Actual joint positions
+                timestamp=current_time_in_episode,
             )
+
+            # Action for a step is typically the joints_position that LED to the NEXT observation.
+            # So, when we add step N, its action is observation N+1's joints_position.
+            # The last step's action might be None or a repeat.
+            # update_previous_step handles this.
             step = Step(
                 observation=observation,
-                action=joints_position,
-                metadata={"created_at": current_ts, "depth_frame": depth_frame},
+                action=None,  # Will be filled by update_previous_step for the *previous* step
+                metadata={
+                    "created_at": loop_iteration_start_time,
+                    "depth_frame": depth_frame,
+                },
             )
-            # Log the step every 20 steps
-            if step_count % 20 == 0:
-                logger.debug(f"Recording: Adding Step {step_count}")
 
-            # The order of the following steps is important
+            if step_count % 20 == 0:  # Log every 20 steps
+                logger.debug(
+                    f"Recording: Processing Step {step_count} for episode {self.episode.episode_index if self.episode else 'N/A'}"
+                )
 
-            # First, we update the previous step with the current action
-            # This helps simulate the fact that we want to move the robot to the next observation
-            self.episode.update_previous_step(step)
+            # Order: update previous, then add current.
+            if self.episode.steps:  # If there's a previous step
+                # The 'action' of the previous step is the 'joints_position' of the current observation
+                self.episode.update_previous_step(step)
 
-            # Second, we add the step with the observations
-            self.episode.add_step(step)
-            if self.episode_format.startswith("lerobot"):
-                if self.episode_format == "lerobot_v2.1":
-                    assert (
-                        self.episodes_stats_model is not None
-                    ), "Episodes stats model is not initialized. Call start() first"
-                elif self.episode_format == "lerobot_v2":
-                    assert (
-                        self.stats_model is not None
-                    ), "Stats model is not initialized. Call start() first"
-                assert (
-                    self.episodes_model is not None
-                ), "Episodes model is not initialized. Call start() first"
-                assert (
-                    self.tasks_model is not None
-                ), "Tasks model is not initialized. Call start() first"
-                # Update the models
+            # Append the current step. Episode's append_step will handle its internal logic
+            # (like updating meta files for LeRobot format).
+            await self.episode.append_step(step)
 
-                # We pass the step count to update frame index properly
-                if self.episode_format == "lerobot_v2.1":
-                    if self.episodes_stats_model is not None:
-                        self.episodes_stats_model.update(
-                            step=step,
-                            episode_index=self.episode.index,
-                            current_step_index=step_count,
-                        )
-                    else:
-                        logger.warning(
-                            "Episodes stats model is not initialized. Call start() first"
-                        )
-                elif self.episode_format == "lerobot_v2":
-                    if self.stats_model is not None:
-                        self.stats_model.update(
-                            step=step,
-                            episode_index=self.episode.index,
-                            current_step_index=step_count,
-                        )
-                    else:
-                        logger.warning(
-                            "Stats model is not initialized. Call start() first"
-                        )
-                self.episodes_model.update(step=step, episode_index=self.episode.index)
-                self.tasks_model.update(step=step)
-
-            elapsed = current_ts - time.perf_counter()
-            time_to_wait = max(1 / self.freq - elapsed, 0)
+            elapsed_this_iteration = time.perf_counter() - loop_iteration_start_time
+            time_to_wait = max((1 / self.freq) - elapsed_this_iteration, 0)
             await asyncio.sleep(time_to_wait)
             step_count += 1
+
+        logger.info(
+            f"Recording loop for episode {self.episode.episode_index if self.episode else 'N/A'} has gracefully exited."
+        )
 
 
 async def get_recorder(
     rcm: RobotConnectionManager = Depends(get_rcm),
 ) -> Recorder:
-    """
-    Return the global recorder instance.
-    """
     global recorder
-
     if recorder is not None:
         return recorder
     else:
