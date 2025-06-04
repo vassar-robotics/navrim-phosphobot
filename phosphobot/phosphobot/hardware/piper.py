@@ -147,6 +147,7 @@ class PiperHardware(BaseManipulator):
         time.sleep(0.2)
 
         self.is_connected = True
+        self.init_config()
 
     def get_default_base_robot_config(
         self, voltage: str, raise_if_none: bool = False

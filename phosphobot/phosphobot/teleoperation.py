@@ -121,8 +121,6 @@ class TeleopManager:
         for i, robot in enumerate(await self.rcm.robots):
             if robot_id is not None and i != robot_id:
                 continue
-            robot.init_config()
-            robot.enable_torque()
             # For Agilex Piper, we need to connect after enabling torque
             if robot.name == "agilex-piper":
                 robot.connect()

@@ -103,6 +103,7 @@ class SO100Hardware(BaseManipulator):
         self.motors_bus = FeetechMotorsBus(port=self.device_name, motors=self.motors)
         self.motors_bus.connect()
         self.is_connected = True
+        self.init_config()
 
     def disconnect(self):
         """

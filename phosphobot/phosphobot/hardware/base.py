@@ -72,7 +72,7 @@ class BaseManipulator(BaseRobot):
     END_EFFECTOR_LINK_INDEX: int
 
     # calibration config: offsets, signs, pid values
-    config: BaseRobotConfig
+    config: BaseRobotConfig | None = None
 
     # status variables
     is_connected: bool = False
@@ -195,9 +195,9 @@ class BaseManipulator(BaseRobot):
 
         # When creating a new robot, you should add default values for these
         # These values depends on the hardware
-        assert (
-            self.CALIBRATION_POSITION is not None
-        ), "CALIBRATION_POSITION must be defined in the class"
+        assert self.CALIBRATION_POSITION is not None, (
+            "CALIBRATION_POSITION must be defined in the class"
+        )
         assert self.RESOLUTION is not None, "RESOLUTION must be defined in the class"
         assert self.SERVO_IDS is not None, "SERVO_IDS must be defined in the class"
 
@@ -294,9 +294,7 @@ class BaseManipulator(BaseRobot):
             logger.info("Only simulation: Not connecting to the robot.")
             self.is_connected = False
 
-        if not only_simulation:
-            self.init_config()
-        else:
+        if only_simulation:
             config = self.get_default_base_robot_config(
                 voltage="6V", raise_if_none=True
             )
@@ -305,6 +303,8 @@ class BaseManipulator(BaseRobot):
                     f"Default config file not found for {self.name} at 6V."
                 )
             self.config = config
+        else:
+            self.config = None
 
     def __del__(self):
         try:
@@ -384,6 +384,8 @@ class BaseManipulator(BaseRobot):
         """
         Move the robot to its initial position.
         """
+        self.init_config()
+        self.enable_torque()
         zero_position = np.zeros(len(self.SERVO_IDS))
         self.set_motors_positions(zero_position, enable_gripper=True)
         # Wait for the robot to move to the initial position
@@ -413,6 +415,10 @@ class BaseManipulator(BaseRobot):
         """
         Convert from motor discrete units (0 -> RESOLUTION) to radians
         """
+        if self.config is None:
+            raise ValueError(
+                "Robot configuration is not set. Run the calibration first."
+            )
         return (
             (units - self.config.servos_offsets[: len(units)])
             * self.config.servos_offsets_signs[: len(units)]
@@ -425,6 +431,10 @@ class BaseManipulator(BaseRobot):
 
         Note: The result can exceed the resolution of the motor, in the case of a continuous rotation motor.
         """
+        if self.config is None:
+            raise ValueError(
+                "Robot configuration is not set. Run the calibration first."
+            )
 
         x = (
             radians
@@ -440,6 +450,10 @@ class BaseManipulator(BaseRobot):
         Note: The result can exceed the resolution of the motor, in the case of a continuous rotation motor.
         """
         offset_id = self.SERVO_IDS.index(servo_id)
+        if self.config is None:
+            raise ValueError(
+                "Robot configuration is not set. Run the calibration first."
+            )
 
         x = (
             int(
@@ -734,6 +748,10 @@ class BaseManipulator(BaseRobot):
         """
         if not self.is_connected:
             return 0
+        if self.config is None:
+            raise ValueError(
+                "Robot configuration is not set. Run the calibration first."
+            )
 
         # Gripper is the last motor
         current_position = self.read_motor_position(servo_id=self.gripper_servo_id)
@@ -812,6 +830,10 @@ class BaseManipulator(BaseRobot):
         """
         if not self.is_connected:
             return
+        if self.config is None:
+            raise ValueError(
+                "Robot configuration is not set. Run the calibration first."
+            )
         # Since last motor ID might not be equal to the number of motors ( due to some shadowed motors)
         # We extract last motor calibration data for the gripper:
         open_position = np.clip(
@@ -1005,9 +1027,7 @@ class BaseManipulator(BaseRobot):
             logger.info(f"Motor signs computed: {self.config.servos_offsets_signs}")
 
             # Save to file
-            path = self.config.save_local(
-                serial_id=self.device_name if self.device_name else self.SERIAL_ID
-            )
+            path = self.config.save_local(serial_id=self.SERIAL_ID)
             self.calibration_current_step = 0
 
             return (
@@ -1029,14 +1049,13 @@ class BaseManipulator(BaseRobot):
         """
 
         # We check for serial id specific files in the home directory
-        if hasattr(self, "SERIAL_ID"):
-            config = BaseRobotConfig.from_serial_id(
-                serial_id=self.SERIAL_ID, name=self.name
-            )
-            if config is not None:
-                self.config = config
-                logger.success("Loaded config from home directory phosphobot.")
-                return
+        config = BaseRobotConfig.from_serial_id(
+            serial_id=self.SERIAL_ID, name=self.name
+        )
+        if config is not None:
+            self.config = config
+            logger.success("Loaded config from home directory phosphobot.")
+            return
 
         # We check for bundled config files in resources
         config = BaseRobotConfig.from_json(filepath=self.bundled_config_file)
@@ -1062,15 +1081,7 @@ class BaseManipulator(BaseRobot):
             f"Cannot find any config file for robot {self.name}. Perform calibration sequence."
         )
         self.SLEEP_POSITION = None
-        self.config = BaseRobotConfig(
-            name=self.name,
-            servos_voltage=12.0,
-            servos_offsets=[0] * len(self.SERVO_IDS),
-            servos_offsets_signs=[1] * len(self.SERVO_IDS),
-            servos_calibration_position=[0] * len(self.SERVO_IDS),
-            gripping_threshold=0,
-            non_gripping_threshold=0,
-        )
+        self.config = None
 
     def control_gripper(
         self,
@@ -1278,6 +1289,10 @@ class BaseManipulator(BaseRobot):
         If the torque is above the threshold, the object is gripped.
         If under the threshold, the object is not gripped.
         """
+        if self.config is None:
+            raise ValueError(
+                "Robot configuration is not set. Run the calibration first."
+            )
         gripper_torque = self.read_gripper_torque()
         # logger.info(
         #     f"Gripper torque: {gripper_torque}. Threshold: {self.config.gripping_threshold}. Non-gripping threshold: {self.config.non_gripping_threshold}"

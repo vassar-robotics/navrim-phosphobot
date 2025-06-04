@@ -226,8 +226,6 @@ async def setup_ai_control(
                 detail="No robot connected. Exiting AI control loop.",
             )
         for robot in robots:
-            robot.write_joint_positions(
-                angles=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], unit="rad"
-            )
+            robot.move_to_initial_position()
 
     return model, model_spawn_config, server_info
