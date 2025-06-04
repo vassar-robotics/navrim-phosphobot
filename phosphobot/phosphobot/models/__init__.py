@@ -832,7 +832,7 @@ class StartAIControlRequest(BaseModel):
         ...,
         description="Type of model to use. Can be gr00t or act.",
     )
-    selected_camera_name: Optional[str] = Field(
+    selected_camera_id: Optional[int] = Field(
         None,
         description="Name of the camera to use when ACT_BBOX model is used. This is only required for ACT_BBOX models, and is ignored for other models.",
     )

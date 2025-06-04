@@ -51,6 +51,8 @@ interface GlobalStore {
   ) => void;
   selectedDataset: string;
   setSelectedDataset: (dataset: string) => void;
+  selectedCameraId: number;
+  setSelectedCameraId: (cameraId: number) => void;
 }
 
 const useGlobalStore = create(
@@ -98,6 +100,11 @@ const useGlobalStore = create(
       setSelectedDataset: (dataset: string) =>
         set(() => ({
           selectedDataset: dataset,
+        })),
+      selectedCameraId: 0,
+      setSelectedCameraId: (cameraId: number) =>
+        set(() => ({
+          selectedCameraId: cameraId,
         })),
     }),
 

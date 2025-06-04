@@ -387,8 +387,8 @@ class ACT(ActionModel):
         fps: int = 30,
         speed: float = 1.0,
         cameras_keys_mapping: Dict[str, int] | None = None,
-        detect_instruction: Optional[str] = None,
-        camera_id_to_use: Optional[int] = None,
+        prompt: Optional[str] = None,
+        selected_camera_id: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -467,19 +467,20 @@ class ACT(ActionModel):
             }
 
             if config.input_features.env_key is not None:
-                if detect_instruction is None or camera_id_to_use is None:
+                if prompt is None or selected_camera_id is None:
                     raise ValueError(
-                        f"detect_instruction and camera_id_to_use must be provided when env_key is set, got {detect_instruction} and {camera_id_to_use}"
+                        f"detect_instruction and camera_id_to_use must be provided when env_key is set, got {prompt} and {selected_camera_id}"
                     )
-                inputs["detect_instruction"] = detect_instruction
+                inputs["detect_instruction"] = prompt
 
                 frame_array = ACT.fetch_frame(
                     all_cameras=all_cameras,
-                    camera_id=camera_id_to_use,
+                    camera_id=selected_camera_id,
                     resolution=[3, 224, 224],
                 )
                 inputs["image_for_bboxes"] = frame_array
 
+            logger.debug(f"Inputs for model: {inputs.keys()}")
             try:
                 if len(actions_queue) == 0:
                     actions = await self.async_sample_actions(inputs)

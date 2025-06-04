@@ -1,6 +1,7 @@
 import { AIControlDisclaimer } from "@/components/common/ai-control-disclaimer";
 import { AutoComplete, type Option } from "@/components/common/autocomplete";
 import CameraKeyMapper from "@/components/common/camera-mapping-selector";
+import CameraSelector from "@/components/common/camera-selector";
 import { SpeedSelect } from "@/components/common/speed-select";
 import supabase from "@/components/common/supabase-db";
 import Feedback from "@/components/custom/Feedback";
@@ -60,10 +61,14 @@ export default function AIControlPage() {
   const setShowCamera = useGlobalStore((state) => state.setShowCamera);
   const cameraKeysMapping = useGlobalStore((state) => state.cameraKeysMapping);
 
-  const modelsThatRequirePrompt = ["gr00t"];
+  const modelsThatRequirePrompt = ["gr00t", "ACT_BBOX"];
   const selectedModelType = useGlobalStore((state) => state.selectedModelType);
   const setSelectedModelType = useGlobalStore(
     (state) => state.setSelectedModelType,
+  );
+  const selectedCameraId = useGlobalStore((state) => state.selectedCameraId);
+  const setSelectedCameraId = useGlobalStore(
+    (state) => state.setSelectedCameraId,
   );
 
   const { data: modelVideoKeys } = useSWR<ModelVideoKeys>(
@@ -220,10 +225,11 @@ export default function AIControlPage() {
       const response = await fetchWithBaseUrl("/ai-control/start", "POST", {
         prompt,
         model_id: modelId,
-        robot_serials_to_ignore,
-        model_type: selectedModelType,
         speed,
+        robot_serials_to_ignore,
         cameras_keys_mapping: cameraKeysMapping,
+        model_type: selectedModelType,
+        selected_camera_id: selectedCameraId,
       });
 
       if (!response) {
@@ -459,7 +465,16 @@ export default function AIControlPage() {
                     </Tooltip>
                   </TooltipProvider>
                   <AccordionContent>
-                    <CameraKeyMapper modelKeys={modelVideoKeys?.video_keys} />
+                    {selectedModelType === "ACT_BBOX" ? (
+                      <CameraSelector
+                        onCameraSelect={(cameraId) => {
+                          setSelectedCameraId?.(cameraId);
+                        }}
+                        selectedCameraId={selectedCameraId}
+                      />
+                    ) : (
+                      <CameraKeyMapper modelKeys={modelVideoKeys?.video_keys} />
+                    )}
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
@@ -497,6 +512,14 @@ export default function AIControlPage() {
                     Start AI control
                   </Button>
                 </div>
+                {selectedModelType === "ACT_BBOX" && (
+                  <div className="text-muted-foreground">
+                    Instructions for this model should be instructions to detect
+                    the object to pick up.
+                    <br />
+                    For example: "red/orange ball" or "blue cubic tower".
+                  </div>
+                )}
               </div>
             </>
           )}
