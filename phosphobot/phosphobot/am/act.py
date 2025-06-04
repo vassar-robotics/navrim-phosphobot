@@ -205,7 +205,7 @@ class ACT(ActionModel):
 
         try:
             response = await self.async_client.post(
-                f"{self.server_url}/act", json=encoded_payload
+                f"{self.server_url}/act", json=encoded_payload, timeout=30
             )
 
             if response.status_code == 307:
@@ -480,7 +480,6 @@ class ACT(ActionModel):
                 )
                 inputs["image_for_bboxes"] = frame_array
 
-            logger.debug(f"Inputs for model: {inputs.keys()}")
             try:
                 if len(actions_queue) == 0:
                     actions = await self.async_sample_actions(inputs)
