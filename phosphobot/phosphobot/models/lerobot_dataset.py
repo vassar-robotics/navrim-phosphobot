@@ -33,6 +33,8 @@ DEFAULT_FILE_ENCODING = "utf-8"
 
 
 class LeRobotDataset(BaseDataset):
+    episode_format: Literal["lerobot_v2", "lerobot_v2.1"]
+
     def __init__(self, path: str, enforce_path: bool = True):
         # path is like "recordings/lerobot_v2.1/my_dataset_name"
         super().__init__(
@@ -149,9 +151,9 @@ class LeRobotDataset(BaseDataset):
         )
         # Get the full path to the data with episode id
 
-        if self.episode_format == "lerobot_v2.0":
+        if self.episode_format == "lerobot_v2":
             raise NotImplementedError(
-                "Episode deletion is not implemented for LeRobot v2.0 format. Please use v2.1 format."
+                "Episode deletion is not implemented for LeRobot v2 format. Please use v2.1 format."
             )
 
         if self.check_repo_exists(self.repo_id) is False:

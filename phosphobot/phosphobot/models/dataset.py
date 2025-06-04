@@ -417,7 +417,6 @@ class BaseDataset:
     metadata: dict = Field(default_factory=dict)
     path: str
     dataset_name: str
-    episode_format: Literal["json", "lerobot_v2", "lerobot_v2.1"]
     data_file_extension: str
     # Full path to the dataset folder
     folder_full_path: Path
@@ -443,32 +442,17 @@ class BaseDataset:
         self.episodes = []
         self.dataset_name = path_parts[-1]
 
-        # Check if a meta folder exists
-        if not os.path.exists(os.path.join(self.folder_full_path, "meta")):
-            self.episode_format = "json"
-        else:
-            if (self.folder_full_path / "meta" / "stats.json").exists():
-                self.episode_format = "lerobot_v2"
-            elif (self.folder_full_path / "meta" / "episodes_stats.jsonl").exists():
-                self.episode_format = "lerobot_v2.1"
-            else:
-                raise ValueError("Could not determine dataset format.")
+        # Create the dataset folder if it does not exist
+        os.makedirs(self.folder_full_path, exist_ok=True)
 
         self.data_file_extension = "json" if path_parts[-2] == "json" else "parquet"
         self.HF_API = HfApi(token=get_hf_token())
-
-        # Check that the dataset folder exists
-        if not os.path.exists(self.folder_full_path):
-            raise ValueError(f"Dataset folder {self.folder_full_path} does not exist")
 
         # Validate dataset name
         if not BaseDataset.check_dataset_name(self.dataset_name):
             raise ValueError(
                 "Dataset name contains invalid characters. Should not contain spaces or /"
             )
-
-        # Create the dataset folder if it does not exist
-        os.makedirs(self.folder_full_path, exist_ok=True)
 
     @classmethod
     def check_dataset_name(cls, name: str) -> bool:
