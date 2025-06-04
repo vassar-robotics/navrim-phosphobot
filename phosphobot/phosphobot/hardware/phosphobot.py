@@ -31,6 +31,9 @@ class RemotePhosphobot(BaseRobot):
         self.current_position = np.zeros(3)
         self.current_orientation = np.zeros(3)  # [roll, pitch, yaw]
         self.robot_id = robot_id
+        self.initial_position: np.ndarray | None = None
+        self.initial_orientation_rad: np.ndarray | None = None
+        self.device_name = f"{self.ip}:{self.port}"
 
     @property
     def is_connected(self) -> bool:
@@ -271,6 +274,11 @@ class RemotePhosphobot(BaseRobot):
             return
 
         await self.async_client.post("/move/init", params={"robot_id": self.robot_id})
+        # Read the initial position and orientation after moving
+        (
+            self.initial_position,
+            self.initial_orientation_rad,
+        ) = self.forward_kinematics()
 
     async def move_to_sleep(self) -> None:
         """
@@ -340,3 +348,90 @@ class RemotePhosphobot(BaseRobot):
         )
         torque = response.json()
         return np.array(torque["current_torque"])
+
+    def current_voltage(self) -> np.ndarray:
+        """
+        Read current voltage /voltage/read
+        """
+        if not self.is_connected:
+            logger.warning("Robot is not connected")
+            return np.zeros(6)
+
+        response = self.client.post(
+            "/voltage/read",
+            params={"robot_id": self.robot_id},
+        )
+        voltage = response.json()
+        return np.array(voltage["current_voltage"])
+
+    def write_joint_positions(
+        self,
+        angles: list[float],
+        unit: str = "rad",
+        joints_ids: list[int] | None = None,
+        **kwargs,
+    ) -> None:
+        """
+        Write joint positions to the robot.
+
+        Args:
+            positions: Joint positions as a numpy array
+            unit: Unit of the joint positions (default is 'rad')
+            **kwargs: Additional keyword arguments
+        """
+        if not self.is_connected:
+            logger.warning("Robot is not connected")
+            return
+
+        self.client.post(
+            "/joints/write",
+            json={"angles": angles, "unit": unit, "joints_ids": joints_ids},
+            params={"robot_id": self.robot_id},
+        )
+
+    def read_joints_position(self, unit: str = "rad") -> np.ndarray:
+        """
+        Read the current joint positions of the robot.
+
+        Args:
+            unit: Unit of the joint positions (default is 'rad')
+        Returns:
+            np.ndarray: Joint positions as a numpy array
+        """
+        if not self.is_connected:
+            logger.warning("Robot is not connected")
+            return np.zeros(6)
+
+        response = self.client.post(
+            "/joints/read",
+            json={"unit": unit},
+            params={"robot_id": self.robot_id},
+        )
+        joints = response.json()
+        return np.array(joints["angles"])
+
+    @property
+    def actuated_joints(self) -> list[int]:
+        """
+        Get the list of actuated joints.
+
+        Returns:
+            list[int]: List of actuated joint IDs
+        """
+        # TODO: Make this dynamic based on the connected robot configuration
+        return [1, 2, 3, 4, 5, 6]
+
+    def _set_pid_gains_motors(
+        self, servo_id: int, p_gain: int, i_gain: int, d_gain: int
+    ) -> None:
+        """
+        Set PID gains for a specific motor.
+
+        Args:
+            servo_id: ID of the servo motor
+            p_gain: Proportional gain
+            i_gain: Integral gain
+            d_gain: Derivative gain
+        """
+        # TODO: Implement this method to set PID gains for the motors
+        pass
