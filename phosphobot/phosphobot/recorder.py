@@ -206,7 +206,8 @@ class Recorder:
 
         if self.use_push_to_hf and isinstance(self.episode, LeRobotEpisode):
             self.push_to_hub(
-                dataset_path=self.episode.dataset_path, branch_path=self.branch_path
+                dataset_path=str(self.episode.dataset_path),
+                branch_path=self.branch_path,
             )
 
         return None
