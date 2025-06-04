@@ -189,10 +189,10 @@ async def setup_ai_control(
             supabase_client.table("ai_control_sessions")
             .update(
                 {
-                    "id": ai_control_signal_id,
                     "status": "stopped",
                 }
             )
+            .eq("id", ai_control_signal_id)
             .execute()
         )
         raise HTTPException(

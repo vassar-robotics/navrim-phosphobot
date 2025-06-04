@@ -188,9 +188,15 @@ class ACT(ActionModel):
 
         try:
             response = self.sync_client.post("/act", json=encoded_payload)
+
+            if response.status_code == 202:
+                raise RetryError(response.content)
+
             if response.status_code != 200:
                 raise RuntimeError(response.text)
             actions = json_numpy.loads(response.json())
+        except RetryError as e:
+            raise RetryError(e)
         except Exception as e:
             logger.error(f"Error in sampling actions: {e}")
             raise HTTPException(
@@ -208,12 +214,14 @@ class ACT(ActionModel):
                 f"{self.server_url}/act", json=encoded_payload, timeout=30
             )
 
-            if response.status_code == 307:
-                raise RetryError("Received 307 redirect, retrying the request.")
+            if response.status_code == 202:
+                raise RetryError(response.content)
 
             if response.status_code != 200:
                 raise RuntimeError(response.text)
             actions = json_numpy.loads(response.json())
+        except RetryError as e:
+            raise RetryError(e)
         except Exception as e:
             logger.error(f"Error in sampling actions: {e}")
             raise HTTPException(
