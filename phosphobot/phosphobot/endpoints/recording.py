@@ -205,15 +205,11 @@ async def stop_recording_episode(
         )
         return RecordingStopResponse(episode_folder_path=None, episode_index=None)
 
-    # TODO: This step is I/O heavy, we need to optimize it so it doesn't block the main thread
     background_tasks.add_task(background_task_log_exceptions(recorder.save_episode))
 
-    expected_folder_path = getattr(recorder.episode, "dataset_folder_path")
-    expected_episode_index = getattr(recorder.episode, "episode_index")
-
     return RecordingStopResponse(
-        episode_folder_path=expected_folder_path,
-        episode_index=expected_episode_index,
+        episode_folder_path=str(recorder.episode.dataset_path),
+        episode_index=recorder.episode.episode_index,
     )
 
 

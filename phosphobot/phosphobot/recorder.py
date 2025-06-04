@@ -59,13 +59,13 @@ class Recorder:
         robots: list[BaseRobot],  # Can use self.robots or update if new list passed
         codec: VideoCodecs,
         freq: int,
-        branch_path: str | None,  # Stored for push_to_hub if initiated from here
         target_size: tuple[int, int] | None,
         dataset_name: str,  # e.g., "my_robot_data"
         instruction: str | None,
         episode_format: Literal["json", "lerobot_v2", "lerobot_v2.1"],
         cameras_ids_to_record: list[int] | None,
         use_push_to_hf: bool = True,  # Stored for save_episode to decide
+        branch_path: str | None = None,  # Stored for push_to_hub if initiated from here
     ) -> None:
         if target_size is None:
             target_size = (config.DEFAULT_VIDEO_SIZE[0], config.DEFAULT_VIDEO_SIZE[1])
@@ -80,6 +80,8 @@ class Recorder:
         self.cameras.cameras_ids_to_record = cameras_ids_to_record  # type: ignore
         self.freq = freq  # Store for record_loop
         self.episode_format = episode_format
+        self.use_push_to_hf = use_push_to_hf  # Store for save_episode
+        self.branch_path = branch_path
 
         # Store for push_to_hub, to be used by save_episode
         # self._current_branch_path_for_push = branch_path
@@ -153,12 +155,7 @@ class Recorder:
             logger.info("No active recording to stop.")
         # self.episode remains as is, until save_episode or a new start clears it.
 
-    async def save_episode(
-        self,
-        background_tasks: BackgroundTasks,
-        use_push_to_hf: bool = True,
-        branch_path: str | None = None,
-    ) -> Optional[str]:
+    async def save_episode(self) -> None:
         if self.is_saving:
             logger.warning("Already in the process of saving an episode. Please wait.")
             return None  # Or raise an error/return a specific status
@@ -198,32 +195,6 @@ class Recorder:
                 f"Episode saved successfully for dataset '{dataset_name_for_log}'."
             )
 
-            if use_push_to_hf:
-                dataset_to_push_path: Optional[str] = None
-                if isinstance(episode_to_save, LeRobotEpisode):
-                    dataset_to_push_path = str(
-                        episode_to_save.dataset_manager.folder_full_path
-                    )
-                elif isinstance(episode_to_save, JsonEpisode):
-                    dataset_to_push_path = str(
-                        episode_to_save._dataset_folder_path
-                    )  # Assuming JsonEpisode has this
-
-                if dataset_to_push_path:
-                    logger.info(
-                        f"Queueing push to Hugging Face Hub for dataset at {dataset_to_push_path}..."
-                    )
-                    background_tasks.add_task(
-                        background_task_log_exceptions(self.push_to_hub),
-                        dataset_path=dataset_to_push_path,
-                        branch_path=branch_path,
-                    )
-                else:
-                    logger.warning("Could not determine dataset path for push_to_hub.")
-
-            self.episode = None  # Clear the saved episode from recorder
-            return f"Episode for {dataset_name_for_log} saved."
-
         except Exception as e:
             logger.error(f"An error occurred during episode saving: {e}", exc_info=True)
             # Depending on the severity, you might not want to clear self.episode here,
@@ -232,6 +203,13 @@ class Recorder:
         finally:
             self.is_saving = False
             # self.episode = None # Clear episode if not cleared on success (e.g. if push fails but save was ok)
+
+        if self.use_push_to_hf and isinstance(self.episode, LeRobotEpisode):
+            self.push_to_hub(
+                dataset_path=self.episode.dataset_path, branch_path=self.branch_path
+            )
+
+        return None
 
     def push_to_hub(self, dataset_path: str, branch_path: str | None = None) -> None:
         logger.info(

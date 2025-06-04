@@ -125,6 +125,14 @@ class BaseEpisode(BaseModel, ABC):
             self.steps[-1].action = current_step_data.observation.joints_position.copy()
 
     @property
+    @abstractmethod
+    def dataset_path(self) -> Path:
+        """Path to the dataset folder where this episode is stored."""
+        raise NotImplementedError(
+            "Subclasses must implement dataset_path to return the correct path."
+        )
+
+    @property
     def episode_index(self) -> int:
         idx = self.metadata.get("episode_index")
         if idx is None:
@@ -325,13 +333,13 @@ class JsonEpisode(BaseEpisode):
         return name
 
     @property
-    def _dataset_folder_path(self) -> Path:  # Full path to this specific JSON dataset
+    def dataset_path(self) -> Path:  # Full path to this specific JSON dataset
         return self._base_recording_folder / "json" / self._dataset_name
 
     @property
     def _json_episode_path(self) -> Path:
         filename = f"episode_{self.metadata['created_at_str']}.json"
-        path = self._dataset_folder_path / filename
+        path = self.dataset_path / filename
         os.makedirs(path.parent, exist_ok=True)
         return path
 

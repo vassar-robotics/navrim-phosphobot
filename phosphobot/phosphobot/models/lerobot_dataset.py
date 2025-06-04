@@ -1140,12 +1140,13 @@ class LeRobotEpisode(BaseEpisode):
         format = self.metadata.get("format")
         dataset_name = self.metadata.get("dataset_name")
         if not format:
-            raise ValueError("Episode metadata format not set")
+            raise ValueError("Episode metadata.format not set")
         if not dataset_name:
-            raise ValueError("Episode metadata dataset_name not set")
+            raise ValueError("Episode metadata.dataset_name not set")
 
         path = get_home_app_path() / "recordings" / format / dataset_name
         os.makedirs(path, exist_ok=True)
+
         return path
 
     @property
@@ -1202,7 +1203,7 @@ class LeRobotEpisode(BaseEpisode):
             "episode_index": episode_idx,
             "created_at": start_timestamp,
             "robot_type": ", ".join(r.name for r in robots),
-            "episode_format": dataset_manager.format_version,
+            "format": dataset_manager.format_version,
             "dataset_name": dataset_manager.dataset_name,
             "instruction": instruction,  # Store the actual instruction string
             "task_index": task_idx,  # Store the determined or default task index
