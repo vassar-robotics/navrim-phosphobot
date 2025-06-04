@@ -9,10 +9,10 @@ from fastapi import HTTPException
 import numpy as np
 import pybullet as p  # type: ignore
 from loguru import logger
+from phosphobot.configs import config as cfg
 from phosphobot.models import BaseRobot, BaseRobotConfig, BaseRobotInfo
 from phosphobot.models.lerobot_dataset import FeatureDetails
 from scipy.spatial.transform import Rotation as R  # type: ignore
-
 from phosphobot.utils import (
     euler_from_quaternion,
     get_resources_path,
@@ -941,6 +941,12 @@ class BaseManipulator(BaseRobot):
         2. Try to load the default configuration from the bundled config file.
         3. If the robot is an so-100, we load default values from the motors.
         """
+
+        if cfg.ONLY_SIMULATION:
+            self.config = self.get_default_base_robot_config(
+                voltage="12V", raise_if_none=True
+            )
+            return
 
         # We check for serial id specific files in the home directory
         config = BaseRobotConfig.from_serial_id(
