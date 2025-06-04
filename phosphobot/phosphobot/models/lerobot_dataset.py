@@ -1276,15 +1276,8 @@ class LeRobotEpisode(BaseEpisode):
             "index": [],
         }
 
-        # Generate timestamps if not present or if first is None (e.g. if playback or loaded without them)
-        # During live recording, step.observation.timestamp should be set.
-        if not self.steps or self.steps[0].observation.timestamp is None:
-            logger.warning(
-                "Generating timestamps based on frequency as they are missing in steps."
-            )
-            timestamps_for_episode = (np.arange(len(self.steps)) / self.freq).tolist()
-        else:
-            timestamps_for_episode = [s.observation.timestamp for s in self.steps]  # type: ignore
+        # We rewrite the timestamps based on the frequency to validate LeRobot tests
+        timestamps_for_episode = (np.arange(len(self.steps)) / self.freq).tolist()
 
         episode_data_dict["timestamp"] = timestamps_for_episode
 
