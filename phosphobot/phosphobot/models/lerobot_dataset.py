@@ -35,7 +35,11 @@ DEFAULT_FILE_ENCODING = "utf-8"
 class LeRobotDataset(BaseDataset):
     episode_format: Literal["lerobot_v2", "lerobot_v2.1"]
 
-    def __init__(self, path: str, enforce_path: bool = True):
+    def __init__(
+        self,
+        path: str,
+        enforce_path: bool = True,
+    ):
         # path is like "recordings/lerobot_v2.1/my_dataset_name"
         super().__init__(
             path, enforce_path=enforce_path

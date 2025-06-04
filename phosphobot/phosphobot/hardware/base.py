@@ -13,7 +13,6 @@ from phosphobot.models import BaseRobot, BaseRobotConfig, BaseRobotInfo
 from phosphobot.models.lerobot_dataset import FeatureDetails
 from scipy.spatial.transform import Rotation as R  # type: ignore
 
-from phosphobot.configs import SimulationMode, config
 from phosphobot.utils import (
     euler_from_quaternion,
     get_resources_path,
@@ -930,113 +929,8 @@ class BaseManipulator(BaseRobot):
         step_simulation()
 
     async def calibrate(self) -> tuple[Literal["success", "in_progress", "error"], str]:
-        """
-        Compute and save offsets and signs for the motors.
-
-        This method has to be called multiple time, moving the robot to the same position as in the simulation beforehand.
-        """
-
-        if not self.is_connected:
-            self.calibration_current_step = 0
-            logger.warning(
-                "Robot is not connected. Cannot calibrate. Calibration sequence reset to 0."
-            )
-            return (
-                "error",
-                "Robot is not connected. Cannot calibrate. Calibration sequence reset to 0.",
-            )
-
-        voltage = self.current_voltage()
-        if voltage is None:
-            logger.warning("Cannot read voltage. Calibration sequence reset to 0.")
-            self.calibration_current_step = 0
-            return (
-                "error",
-                "Cannot read voltage. Plug your robot to power.",
-            )
-
-        self.config.servos_voltage = 12.0  # Assume default 12V motor
-        motor_voltage = np.mean(voltage)
-
-        if np.abs(motor_voltage - 12.0) > np.abs(motor_voltage - 6.0):
-            self.config.servos_voltage = 6.0
-
-        # Load default config
-        voltage_as_str: str = "6V" if motor_voltage < 9.0 else "12V"
-        default_config = self.get_default_base_robot_config(voltage=voltage_as_str)
-        if default_config is not None:
-            self.config.pid_gains = default_config.pid_gains
-            self.config.gripping_threshold = int(default_config.gripping_threshold)
-            self.config.non_gripping_threshold = int(
-                default_config.non_gripping_threshold
-            )
-
-        self.disable_torque()
-
-        # TODO: force pybullet to appear in headless to give the user instructions
-        sim_helper_text = ""
-        if config.SIM_MODE == SimulationMode.gui:
-            sim_helper_text = "For reference, look at the simulation."
-        else:
-            sim_helper_text = "For reference, look in the instructions manual."
-
-        if self.calibration_current_step == 0:
-            # The first position is the initial position
-            self.set_simulation_positions(np.zeros(self.num_actuated_joints))
-
-            self.calibration_current_step += 1
-
-            return (
-                "in_progress",
-                f"Step {self.calibration_current_step}/{self.calibration_max_steps}: Place the robot in POSITION 1. {sim_helper_text} Verify the gripper position.",
-            )
-
-        if self.calibration_current_step == 1:
-            await self.connect()
-            # Set the offset to the middle of the motor range
-            self.calibrate_motors()
-            self.config.servos_offsets = self.read_joints_position(
-                unit="motor_units", source="robot"
-            ).tolist()
-            logger.info(
-                f"Initial joint positions (motor units): {self.config.servos_offsets}"
-            )
-            # The second position is the calibration position
-            self.set_simulation_positions(np.array(self.CALIBRATION_POSITION))
-            self.calibration_current_step += 1
-
-            return (
-                "in_progress",
-                f"Step {self.calibration_current_step}/{self.calibration_max_steps}: Place the robot in POSITION 2. {sim_helper_text} Verify the gripper position.",
-            )
-
-        if self.calibration_current_step == 2:
-            self.config.servos_calibration_position = self.read_joints_position(
-                unit="motor_units", source="robot"
-            ).tolist()
-            logger.info(
-                f"Current joint positions (motor units): {self.config.servos_calibration_position}"
-            )
-            self.config.servos_offsets_signs = np.sign(
-                (
-                    np.array(self.config.servos_calibration_position)
-                    - np.array(self.config.servos_offsets)
-                )
-                / np.array(self.CALIBRATION_POSITION)
-            ).tolist()
-            logger.info(f"Motor signs computed: {self.config.servos_offsets_signs}")
-
-            # Save to file
-            path = self.config.save_local(serial_id=self.SERIAL_ID)
-            self.calibration_current_step = 0
-
-            return (
-                "success",
-                f"Step {self.calibration_max_steps}/{self.calibration_max_steps}: Calibration completed successfully. Offsets and signs saved to {path}",
-            )
-
-        raise ValueError(
-            f"Invalid calibration step: {self.calibration_current_step}, must be between 0 and {self.calibration_max_steps - 1}"
+        raise NotImplementedError(
+            "The calibrate method must be implemented in the child class."
         )
 
     def init_config(self) -> None:
