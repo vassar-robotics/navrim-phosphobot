@@ -9,12 +9,8 @@ from fastapi import HTTPException
 import numpy as np
 import pybullet as p  # type: ignore
 from loguru import logger
-from phosphobot.models import (
-    BaseRobot,
-    BaseRobotConfig,
-    BaseRobotInfo,
-    FeatureDetails,
-)
+from phosphobot.models import BaseRobot, BaseRobotConfig, BaseRobotInfo
+from phosphobot.models.lerobot_dataset import FeatureDetails
 from scipy.spatial.transform import Rotation as R  # type: ignore
 
 from phosphobot.configs import SimulationMode, config
@@ -199,9 +195,9 @@ class BaseManipulator(BaseRobot):
 
         # When creating a new robot, you should add default values for these
         # These values depends on the hardware
-        assert self.CALIBRATION_POSITION is not None, (
-            "CALIBRATION_POSITION must be defined in the class"
-        )
+        assert (
+            self.CALIBRATION_POSITION is not None
+        ), "CALIBRATION_POSITION must be defined in the class"
         assert self.RESOLUTION is not None, "RESOLUTION must be defined in the class"
         assert self.SERVO_IDS is not None, "SERVO_IDS must be defined in the class"
 

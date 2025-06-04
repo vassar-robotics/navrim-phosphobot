@@ -292,6 +292,9 @@ def is_can_plugged(interface: str = "can0") -> bool:
             raise OSError(f"Unsupported platform: {sys.platform}")
     except subprocess.CalledProcessError as e:
         # Interface doesn't exist or command failed
+        # if exit code is 1, return False with no warning
+        if e.returncode == 1:
+            return False
         logger.warning(f"Failed to check CAN interface status: {str(e)}")
     except FileNotFoundError as e:
         logger.warning(f"OSError: Required system command not found: {str(e)}")

@@ -7,13 +7,13 @@ import pybullet as p
 from loguru import logger
 
 from phosphobot.control_signal import ControlSignal
-from phosphobot.hardware import SO100Hardware
+from phosphobot.hardware import SO100Hardware, RemotePhosphobot
 
 
 @dataclass
 class RobotPair:
-    leader: SO100Hardware
-    follower: SO100Hardware
+    leader: SO100Hardware | RemotePhosphobot
+    follower: SO100Hardware | RemotePhosphobot
 
 
 async def leader_follower_loop(
@@ -69,6 +69,12 @@ async def leader_follower_loop(
                 )
                 await asyncio.sleep(0.05)
         else:
+            assert isinstance(
+                leader, SO100Hardware
+            ), "Gravity compensation is only supported for SO100Hardware."
+            assert isinstance(
+                follower, SO100Hardware
+            ), "Gravity compensation is only supported for SO100Hardware."
             leader_current_voltage = leader.current_voltage()
             if (
                 leader_current_voltage is None
@@ -134,6 +140,12 @@ async def leader_follower_loop(
                     pos_rad[0] = -pos_rad[0]
                 follower.write_joint_positions(list(pos_rad), unit="rad")
             else:
+                assert isinstance(
+                    leader, SO100Hardware
+                ), "Gravity compensation is only supported for SO100Hardware."
+                assert isinstance(
+                    follower, SO100Hardware
+                ), "Gravity compensation is only supported for SO100Hardware."
                 # Calculate gravity compensation torque
                 # Update PyBullet simulation for gravity calculation
                 for i, idx in enumerate(joint_indices):

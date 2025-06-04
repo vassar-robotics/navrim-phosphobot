@@ -48,7 +48,12 @@ from phosphobot.models import (
     UDPServerInformationResponse,
     VoltageReadResponse,
 )
-from phosphobot.robot import RobotConnectionManager, SO100Hardware, get_rcm
+from phosphobot.robot import (
+    RobotConnectionManager,
+    SO100Hardware,
+    get_rcm,
+    RemotePhosphobot,
+)
 from phosphobot.supabase import get_client, user_is_logged_in
 from phosphobot.teleoperation import (
     UDPServer,
@@ -112,10 +117,11 @@ async def move_teleop_ws(
     teleop_manager: TeleopManager = Depends(get_teleop_manager),
 ):
     teleop_manager.robot_id = None
-    await websocket.accept()
 
     if not await rcm.robots:
         raise HTTPException(status_code=400, detail="No robot connected")
+
+    await websocket.accept()
 
     vr_control_signal.start()
     try:
@@ -765,16 +771,35 @@ async def start_leader_follower(
             )
         leader = await rcm.get_robot(robot_pair.leader_id)
         follower = await rcm.get_robot(robot_pair.follower_id)
-        if not isinstance(leader, SO100Hardware):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Leader must be an instance of SO100Hardware for robot pair {i}.",
-            )
-        if not isinstance(follower, SO100Hardware):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Follower must be an instance of SO100Hardware for robot pair {i}.",
-            )
+
+        if request.enable_gravity_compensation:
+            # Only local SO100
+            if not isinstance(leader, SO100Hardware):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Leader must be an instance of SO100Hardware for robot pair {i}.",
+                )
+            if not isinstance(follower, SO100Hardware):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Follower must be an instance of SO100Hardware for robot pair {i}.",
+                )
+        else:
+            if not isinstance(leader, SO100Hardware) or not isinstance(
+                leader, RemotePhosphobot
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Leader must be an instance of SO100Hardware for robot pair {i}.",
+                )
+            if not isinstance(follower, SO100Hardware) or not isinstance(
+                follower, RemotePhosphobot
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Follower must be an instance of SO100Hardware for robot pair {i}.",
+                )
+
         # TODO: Eventually add more config options individual for each pair
         robot_pairs.append(RobotPair(leader=leader, follower=follower))
 
