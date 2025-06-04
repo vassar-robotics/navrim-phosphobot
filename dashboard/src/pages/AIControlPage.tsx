@@ -349,18 +349,9 @@ export default function AIControlPage() {
               value={selectedModelType}
               onValueChange={setSelectedModelType}
             >
-              <ToggleGroupItem
-                value="ACT_BBOX"
-                className="flex-1 cursor-pointer"
-              >
-                Simple ACT
-              </ToggleGroupItem>
-              <ToggleGroupItem value="gr00t" className="flex-1 cursor-pointer">
-                gr00t
-              </ToggleGroupItem>
-              <ToggleGroupItem value="ACT" className="flex-1 cursor-pointer">
-                ACT
-              </ToggleGroupItem>
+              <ToggleGroupItem value="ACT_BBOX">Baby ACT</ToggleGroupItem>
+              <ToggleGroupItem value="gr00t">gr00t</ToggleGroupItem>
+              <ToggleGroupItem value="ACT">ACT</ToggleGroupItem>
             </ToggleGroup>
           </div>
 

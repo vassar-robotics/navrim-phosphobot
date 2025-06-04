@@ -415,7 +415,9 @@ export default function AITrainingPage() {
                       <SelectValue placeholder="Select model type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ACT_BBOX">Simple ACT</SelectItem>
+                      <SelectItem value="ACT_BBOX">
+                        Baby ACT (recommended)
+                      </SelectItem>
                       <SelectItem value="ACT">ACT</SelectItem>
                       <SelectItem value="gr00t">gr00t</SelectItem>
                       <SelectItem value="custom">Custom</SelectItem>
@@ -468,6 +470,20 @@ export default function AITrainingPage() {
                     </div>
                   )}
               </div>
+
+              {selectedModelType === "ACT_BBOX" && (
+                <div className="text-xs text-muted-foreground mt-4">
+                  This model works by recognizing objects in images.
+                  <br />
+                  Make sure to pass:
+                  <br />
+                  <code>target_detection_instruction</code> which is the
+                  instruction to use for detecting objects in the image.
+                  <br />
+                  <code>image_key</code> which is the key of the image to use
+                  for image recognition in your dataset
+                </div>
+              )}
 
               <Button
                 variant="secondary"

@@ -21,7 +21,7 @@ export default function CameraSelector({
   onCameraSelect,
   selectedCameraId,
   title = "Select a viewpoint",
-  description = "Choose a camera to use from the available options below.",
+  description = "Choose a camera to use from the available options below. The selected camera should be in the same position as during the training.",
 }: CameraSelectorProps) {
   const {
     data: serverStatus,
