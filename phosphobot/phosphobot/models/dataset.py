@@ -453,9 +453,8 @@ class BaseDataset:
                 "Dataset name contains invalid characters. Should not contain spaces or /"
             )
 
-        # Check that the dataset folder exists
-        if not os.path.exists(self.folder_full_path):
-            raise ValueError(f"Dataset folder {self.folder_full_path} does not exist")
+        # Create the dataset folder if it does not exist
+        os.makedirs(self.folder_full_path, exist_ok=True)
 
     @classmethod
     def check_dataset_name(cls, name: str) -> bool:
