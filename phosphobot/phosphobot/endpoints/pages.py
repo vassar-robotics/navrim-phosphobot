@@ -670,6 +670,7 @@ async def get_model_video_keys(
     model_type_to_class: dict[str, type[ActionModel]] = {
         "gr00t": Gr00tN1,
         "ACT": ACT,
+        "ACT_BBOX": ACT,  # ACT_BBOX is a variant of ACT
     }
     model_class = model_type_to_class.get(request.model_type)
     if model_class is None:
@@ -737,6 +738,9 @@ async def get_training_info(
             elif request.model_type == "ACT":
                 training_params["batch_size"] = 120 // number_of_cameras
                 training_params["steps"] = 8_000
+            elif request.model_type == "ACT_BBOX":
+                training_params["batch_size"] = 100
+                training_params["steps"] = 10_000
 
         # These are heuristics used to determine the training parameters
         random_suffix = "".join(

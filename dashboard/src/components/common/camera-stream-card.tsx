@@ -38,20 +38,21 @@ export interface CameraStreamProps {
   labelText?: string;
 }
 
-export const CameraStreamCard = ({
+export const CardContentPiece = ({
   id,
-  title,
   streamPath,
-  alt = "Camera Stream",
-  icon,
-  isRecording = false,
-  onRecordingToggle,
-  showRecordingControls = false,
-  labelText = "Record",
-}: CameraStreamProps) => {
+  alt,
+  isRecording,
+  showRecordingControls,
+}: {
+  id: number;
+  streamPath: string;
+  alt?: string;
+  isRecording: boolean;
+  showRecordingControls: boolean;
+}) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [quality, setQuality] = useState(defaultQuality);
   const imgRef = useRef<HTMLImageElement>(null);
 
   const handleImageLoad = () => {
@@ -64,18 +65,6 @@ export const CameraStreamCard = ({
     setHasError(true);
   };
 
-  const toggleQuality = () => {
-    setQuality(quality === defaultQuality ? highQuality : defaultQuality);
-    setIsLoading(true);
-  };
-
-  const handleRecordingChange = (checked: boolean) => {
-    if (onRecordingToggle) {
-      onRecordingToggle(id, checked);
-    }
-  };
-
-  // Clear the stream when unmounted or streaming should stop
   useEffect(() => {
     const img = imgRef.current;
     return () => {
@@ -86,47 +75,82 @@ export const CameraStreamCard = ({
   }, []);
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl flex items-center gap-2">
-          {icon}
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="relative aspect-video bg-muted">
-          {hasError && (
-            <div className="flex items-center gap-1">
-              <CameraOff className="size-6" />
-              Stream Unavailable
-            </div>
-          )}
-          {!isRecording && showRecordingControls && (
-            <div>
-              <div className="flex items-center gap-1">
-                <X className="size-6" />
-                Feed Disabled
-              </div>
-              <p className="text-sm">Enable this camera to view the feed</p>
-            </div>
-          )}
-          <img
-            id={`view-video-${id}`}
-            ref={imgRef}
-            src={
-              getStreamUrl(streamPath, quality, height, width) ||
-              "/placeholder.svg"
-            }
-            alt={alt}
-            className={`w-full h-full object-cover transition-opacity duration-300 ${
-              isLoading || hasError || (!isRecording && showRecordingControls)
-                ? "opacity-0"
-                : "opacity-100"
-            }`}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-          />
+    <div className="relative aspect-video bg-muted">
+      {hasError && (
+        <div className="flex items-center gap-1">
+          <CameraOff className="size-6" />
+          Stream Unavailable
         </div>
+      )}
+      {!isRecording && showRecordingControls && (
+        <div>
+          <div className="flex items-center gap-1">
+            <X className="size-6" />
+            Feed Disabled
+          </div>
+          <p className="text-sm">Enable this camera to view the feed</p>
+        </div>
+      )}
+      <img
+        id={`view-video-${id}`}
+        ref={imgRef}
+        src={
+          getStreamUrl(streamPath, highQuality, height, width) ||
+          "/placeholder.svg"
+        }
+        alt={alt}
+        className={`w-full h-full object-cover transition-opacity duration-300 ${
+          isLoading || hasError || (!isRecording && showRecordingControls)
+            ? "opacity-0"
+            : "opacity-100"
+        }`}
+        onLoad={handleImageLoad}
+        onError={handleImageError}
+      />
+    </div>
+  );
+};
+
+export const CameraStreamCard = ({
+  id,
+  title,
+  streamPath,
+  alt = "Camera Stream",
+  icon,
+  isRecording = false,
+  onRecordingToggle,
+  showRecordingControls = false,
+  labelText = "Record",
+}: CameraStreamProps) => {
+  const [quality, setQuality] = useState(defaultQuality);
+  const toggleQuality = () => {
+    setQuality(quality === defaultQuality ? highQuality : defaultQuality);
+  };
+
+  const handleRecordingChange = (checked: boolean) => {
+    if (onRecordingToggle) {
+      onRecordingToggle(id, checked);
+    }
+  };
+
+  return (
+    <Card className="overflow-hidden">
+      {title !== "" && (
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl flex items-center gap-2">
+            {icon}
+            {title}
+          </CardTitle>
+        </CardHeader>
+      )}
+      <CardContent>
+        <CardContentPiece
+          id={id}
+          streamPath={streamPath}
+          alt={alt}
+          isRecording={isRecording}
+          showRecordingControls={showRecordingControls}
+        />
       </CardContent>
       <CardFooter className="justify-between">
         <div className="flex items-center gap-2">

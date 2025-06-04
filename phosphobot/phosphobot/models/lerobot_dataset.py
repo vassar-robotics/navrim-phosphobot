@@ -33,7 +33,13 @@ DEFAULT_FILE_ENCODING = "utf-8"
 
 
 class LeRobotDataset(BaseDataset):
-    def __init__(self, path: str, enforce_path: bool = True):
+    episode_format: Literal["lerobot_v2", "lerobot_v2.1"]
+
+    def __init__(
+        self,
+        path: str,
+        enforce_path: bool = True,
+    ):
         # path is like "recordings/lerobot_v2.1/my_dataset_name"
         super().__init__(
             path, enforce_path=enforce_path
@@ -149,9 +155,9 @@ class LeRobotDataset(BaseDataset):
         )
         # Get the full path to the data with episode id
 
-        if self.episode_format == "lerobot_v2.0":
+        if self.episode_format == "lerobot_v2":
             raise NotImplementedError(
-                "Episode deletion is not implemented for LeRobot v2.0 format. Please use v2.1 format."
+                "Episode deletion is not implemented for LeRobot v2 format. Please use v2.1 format."
             )
 
         if self.check_repo_exists(self.repo_id) is False:
@@ -3155,6 +3161,13 @@ class InfoFeatures(BaseModel):
         default=None,
         serialization_alias="next.reward",
         validation_alias=AliasChoices("next.reward", "next_reward"),
+    )
+    observation_environment_state: FeatureDetails | None = Field(
+        default=None,
+        serialization_alias="observation.environment.state",
+        validation_alias=AliasChoices(
+            "observation.environment.state", "observation_environment_state"
+        ),
     )
 
     def to_dict(self) -> dict:

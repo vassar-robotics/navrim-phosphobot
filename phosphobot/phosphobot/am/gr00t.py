@@ -693,6 +693,7 @@ class Gr00tN1(ActionModel):
         fps: int = 30,
         speed: float = 1.0,
         cameras_keys_mapping: Dict[str, int] | None = None,
+        **kwargs: Any,
     ):
         """
         AI control loop that runs in the background and sends actions to the robot.

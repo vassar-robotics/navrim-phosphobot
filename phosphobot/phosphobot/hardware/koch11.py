@@ -130,6 +130,11 @@ class KochHardware(BaseManipulator):
             self.portHandler, self.packetHandler, self.ADDR_POSITION_P_GAIN, 2
         )
 
+        if not self.config:
+            raise ValueError(
+                "Configuration is not set. Please set the configuration before calling this method."
+            )
+
         # Loop through all servo configurations and add them to the SyncWrite buffer
         pid_params = np.array(
             [(c.d_gain, c.i_gain, c.p_gain) for c in self.config.pid_gains],

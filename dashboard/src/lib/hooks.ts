@@ -45,10 +45,14 @@ interface GlobalStore {
   setCameraKeysMapping: (mapping: Record<string, number> | null) => void;
   modelId: string;
   setModelId: (modelId: string) => void;
-  selectedModelType: "ACT" | "gr00t" | "custom";
-  setSelectedModelType: (modelType: "ACT" | "gr00t" | "custom") => void;
+  selectedModelType: "ACT" | "ACT_BBOX" | "gr00t" | "custom";
+  setSelectedModelType: (
+    modelType: "ACT" | "ACT_BBOX" | "gr00t" | "custom",
+  ) => void;
   selectedDataset: string;
   setSelectedDataset: (dataset: string) => void;
+  selectedCameraId: number;
+  setSelectedCameraId: (cameraId: number) => void;
 }
 
 const useGlobalStore = create(
@@ -85,8 +89,10 @@ const useGlobalStore = create(
         set(() => ({
           modelId: modelName,
         })),
-      selectedModelType: "gr00t",
-      setSelectedModelType: (modelType: "ACT" | "gr00t" | "custom") =>
+      selectedModelType: "ACT_BBOX",
+      setSelectedModelType: (
+        modelType: "ACT" | "ACT_BBOX" | "gr00t" | "custom",
+      ) =>
         set(() => ({
           selectedModelType: modelType,
         })),
@@ -94,6 +100,11 @@ const useGlobalStore = create(
       setSelectedDataset: (dataset: string) =>
         set(() => ({
           selectedDataset: dataset,
+        })),
+      selectedCameraId: 0,
+      setSelectedCameraId: (cameraId: number) =>
+        set(() => ({
+          selectedCameraId: cameraId,
         })),
     }),
 

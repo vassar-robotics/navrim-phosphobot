@@ -100,6 +100,44 @@ class TrainingParamsAct(BaseModel):
         extra = "forbid"
 
 
+DEFAULT_INSTRUCTION = "describe what to detect in the image: 'red/orange lego brick'"
+
+
+class TrainingParamsActWithBbox(TrainingParamsAct):
+    """
+    Training parameters for ACT with bounding box
+    """
+
+    target_detection_instruction: str = Field(
+        default=DEFAULT_INSTRUCTION,
+        examples=["red/orange lego brick", "brown plushy"],
+        description="Instruction for the target object to detect, e.g. 'red/orange lego brick'",
+        min_length=4,
+    )
+    image_key: str = Field(
+        default="main",
+        examples=["main", "images.main"],
+        description="Key for the image to run detection on, e.g. 'main' or 'images.main'",
+        min_length=1,
+    )
+
+    @field_validator("target_detection_instruction", mode="before")
+    def validate_target_detection_instruction(cls, instruction: str) -> str:
+        # If the instruction is equal to the default, we raise an error
+        if instruction == DEFAULT_INSTRUCTION:
+            raise ValueError(
+                "Please provide a valid target detection instruction, e.g. 'red/orange lego brick' or 'brown plushy'."
+            )
+        elif any(
+            word in instruction.lower()
+            for word in ["detect", "find", "locate", "pick", "pickup", "grab"]
+        ):
+            raise ValueError(
+                "Only provide the object to detect, e.g. 'red/orange lego brick' or 'brown plushy'. Do not include verbs like 'detect', 'find', 'locate', 'pick up', or 'grab'."
+            )
+        return instruction
+
+
 class TrainingParamsGr00T(BaseModel):
     train_test_split: float = Field(
         default=1.0,
@@ -154,7 +192,7 @@ class TrainingParamsGr00T(BaseModel):
 
 
 class BaseTrainerConfig(BaseModel):
-    model_type: Literal["ACT", "gr00t", "custom"] = Field(
+    model_type: Literal["ACT", "ACT_BBOX", "gr00t", "custom"] = Field(
         ...,
         description="Type of model to train, either 'ACT' or 'gr00t'",
     )
@@ -171,7 +209,9 @@ class BaseTrainerConfig(BaseModel):
         default=None,
         description="WandB API key for tracking training, you can find it at https://wandb.ai/authorize",
     )
-    training_params: Optional[TrainingParamsAct | TrainingParamsGr00T] = Field(
+    training_params: Optional[
+        TrainingParamsAct | TrainingParamsActWithBbox | TrainingParamsGr00T
+    ] = Field(
         default=None,
         description="Training parameters for the model, if not provided, default parameters will be used",
     )
@@ -229,6 +269,7 @@ class TrainingRequest(BaseTrainerConfig):
     def validate_training_params(cls, data: dict) -> dict:
         model_type_to_class: dict[str, type[BaseModel]] = {
             "ACT": TrainingParamsAct,
+            "ACT_BBOX": TrainingParamsActWithBbox,
             "gr00t": TrainingParamsGr00T,
         }
 
@@ -237,7 +278,7 @@ class TrainingRequest(BaseTrainerConfig):
 
         if model_type is None:
             raise ValueError(
-                "Model type is required. Please provide a valid model type: 'ACT' or 'gr00t'."
+                "Model type is required. Please provide a valid model type: 'ACT', 'ACT_BBOX' or 'gr00t'."
             )
         if model_type not in model_type_to_class:
             raise ValueError(

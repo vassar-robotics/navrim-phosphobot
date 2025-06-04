@@ -105,7 +105,8 @@ class CustomAIControlSignal(AIControlSignal):
 async def setup_ai_control(
     robots: List[BaseManipulator],
     all_cameras: AllCameras,
-    model_type: Literal["gr00t", "ACT"],
+    ai_control_signal_id: str,
+    model_type: Literal["gr00t", "ACT", "ACT_BBOX"],
     model_id: str = "PLB/GR00T-N1-lego-pickup-mono-2",
     cameras_keys_mapping: dict[str, int] | None = None,
     init_connected_robots: bool = True,
@@ -133,6 +134,7 @@ async def setup_ai_control(
     model_types: Dict[str, type[ACT | Gr00tN1]] = {
         "gr00t": Gr00tN1,
         "ACT": ACT,
+        "ACT_BBOX": ACT,
     }
 
     try:
@@ -183,6 +185,16 @@ async def setup_ai_control(
 
     if response.status_code != 200:
         logger.error(f"Failed to start inference server: {response.text}")
+        await (
+            supabase_client.table("ai_control_sessions")
+            .update(
+                {
+                    "status": "stopped",
+                }
+            )
+            .eq("id", ai_control_signal_id)
+            .execute()
+        )
         raise HTTPException(
             status_code=500,
             detail=f"Failed to start inference server: {response.text}",
@@ -214,8 +226,6 @@ async def setup_ai_control(
                 detail="No robot connected. Exiting AI control loop.",
             )
         for robot in robots:
-            robot.write_joint_positions(
-                angles=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], unit="rad"
-            )
+            robot.move_to_initial_position()
 
     return model, model_spawn_config, server_info

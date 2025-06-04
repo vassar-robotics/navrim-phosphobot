@@ -417,7 +417,6 @@ class BaseDataset:
     metadata: dict = Field(default_factory=dict)
     path: str
     dataset_name: str
-    episode_format: Literal["json", "lerobot_v2", "lerobot_v2.1"]
     data_file_extension: str
     # Full path to the dataset folder
     folder_full_path: Path
@@ -426,8 +425,10 @@ class BaseDataset:
         """
         Load an existing dataset.
         """
-        # Check path format
+
         path_obj = Path(path)
+        self.folder_full_path = path_obj
+        # Check path format
         path_parts = path_obj.parts
         if enforce_path:
             if len(path_parts) < 2 or path_parts[-2] not in [
@@ -440,10 +441,10 @@ class BaseDataset:
         self.path = str(path_obj)
         self.episodes = []
         self.dataset_name = path_parts[-1]
-        self.episode_format = cast(
-            Literal["json", "lerobot_v2", "lerobot_v2.1"], path_parts[-2]
-        )
-        self.folder_full_path = path_obj
+
+        # Create the dataset folder if it does not exist
+        os.makedirs(self.folder_full_path, exist_ok=True)
+
         self.data_file_extension = "json" if path_parts[-2] == "json" else "parquet"
         self.HF_API = HfApi(token=get_hf_token())
 
@@ -452,9 +453,6 @@ class BaseDataset:
             raise ValueError(
                 "Dataset name contains invalid characters. Should not contain spaces or /"
             )
-
-        # Create the dataset folder if it does not exist
-        os.makedirs(self.folder_full_path, exist_ok=True)
 
     @classmethod
     def check_dataset_name(cls, name: str) -> bool:
