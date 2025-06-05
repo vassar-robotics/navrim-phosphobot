@@ -785,19 +785,19 @@ async def start_leader_follower(
                     detail=f"Follower must be an instance of SO100Hardware for robot pair {i}.",
                 )
         else:
-            if not isinstance(leader, SO100Hardware) or not isinstance(
-                leader, RemotePhosphobot
-            ):
+            valid_robot_types = (
+                SO100Hardware,
+                RemotePhosphobot,
+            )
+            if not isinstance(leader, valid_robot_types):
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Leader must be an instance of SO100Hardware for robot pair {i}.",
+                    detail=f"Leader must be an instance of {valid_robot_types} for robot pair {i}.",
                 )
-            if not isinstance(follower, SO100Hardware) or not isinstance(
-                follower, RemotePhosphobot
-            ):
+            if not isinstance(follower, valid_robot_types):
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Follower must be an instance of SO100Hardware for robot pair {i}.",
+                    detail=f"Follower must be an instance of {valid_robot_types} for robot pair {i}.",
                 )
 
         # TODO: Eventually add more config options individual for each pair
@@ -1015,9 +1015,9 @@ async def spawn_inference_server(
             )
             robots_to_control.remove(robot)
 
-    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
-        "All robots must be manipulators for AI control"
-    )
+    assert all(
+        isinstance(robot, BaseManipulator) for robot in robots_to_control
+    ), "All robots must be manipulators for AI control"
 
     # Get the modal host and port here
     _, _, server_info = await setup_ai_control(
@@ -1092,9 +1092,9 @@ async def start_auto_control(
             )
             robots_to_control.remove(robot)
 
-    assert all(isinstance(robot, BaseManipulator) for robot in robots_to_control), (
-        "All robots must be manipulators for AI control"
-    )
+    assert all(
+        isinstance(robot, BaseManipulator) for robot in robots_to_control
+    ), "All robots must be manipulators for AI control"
 
     # Get the modal host and port here
     model, model_spawn_config, server_info = await setup_ai_control(
