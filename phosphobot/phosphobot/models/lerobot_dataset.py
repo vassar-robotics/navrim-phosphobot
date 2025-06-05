@@ -33,7 +33,7 @@ DEFAULT_FILE_ENCODING = "utf-8"
 
 
 class LeRobotDataset(BaseDataset):
-    episode_format: Literal["lerobot_v2", "lerobot_v2.1"]
+    episode_format: Literal["lerobot_v2", "lerobot_v2.1"] = "lerobot_v2.1"
 
     def __init__(
         self,
@@ -46,7 +46,7 @@ class LeRobotDataset(BaseDataset):
         )  # This sets self.folder_full_path etc.
 
         # Determine format version from path
-        self.format_version: Literal["lerobot_v2", "lerobot_v2.1"] = cast(
+        self.format_version = cast(
             Literal["lerobot_v2", "lerobot_v2.1"], Path(path).parts[-2]
         )
 
@@ -91,6 +91,12 @@ class LeRobotDataset(BaseDataset):
                 fps=fps,
                 format=self.format_version,
             )
+            # Edit the .episode_format field to match the dataset format
+            if "2.1" in self.info_model.codebase_version:
+                self.episode_format = "lerobot_v2.1"
+            else:
+                # Assuming it's lerobot_v2
+                self.episode_format = "lerobot_v2"
 
         if self.format_version == "lerobot_v2.1":
             if self.episodes_stats_model is None:
