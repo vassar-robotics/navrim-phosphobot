@@ -481,8 +481,8 @@ export default function AITrainingPage() {
                   want to detect in the images, e.g. "red lego brick", "blue
                   ball", "plushy toy", etc.
                   <br />
-                  <code>image_key</code> which is the key of the image to use
-                  for image recognition in your dataset
+                  <code>image_key</code> corresponds to the key of your context
+                  camera, which overviews the scene.
                 </div>
               )}
 
