@@ -33,7 +33,7 @@ DEFAULT_FILE_ENCODING = "utf-8"
 
 
 class LeRobotDataset(BaseDataset):
-    episode_format: Literal["lerobot_v2", "lerobot_v2.1"] = "lerobot_v2.1"
+    format_version: Literal["lerobot_v2", "lerobot_v2.1"] = "lerobot_v2.1"
 
     def __init__(
         self,
@@ -96,12 +96,12 @@ class LeRobotDataset(BaseDataset):
                 fps=fps,
                 format=self.format_version,
             )
-            # Edit the .episode_format field to match the dataset format
+            # Edit the .format_version field to match the dataset format
             if "2.1" in self.info_model.codebase_version:
-                self.episode_format = "lerobot_v2.1"
+                self.format_version = "lerobot_v2.1"
             else:
                 # Assuming it's lerobot_v2
-                self.episode_format = "lerobot_v2"
+                self.format_version = "lerobot_v2"
 
         if self.format_version == "lerobot_v2.1":
             if self.episodes_stats_model is None:
@@ -166,7 +166,7 @@ class LeRobotDataset(BaseDataset):
         )
         # Get the full path to the data with episode id
 
-        if self.episode_format == "lerobot_v2":
+        if self.format_version == "lerobot_v2":
             raise NotImplementedError(
                 "Episode deletion is not implemented for LeRobot v2 format. Please use v2.1 format."
             )
@@ -178,10 +178,10 @@ class LeRobotDataset(BaseDataset):
             update_hub = False
 
         logger.info(
-            f"Deleting episode {episode_id} from dataset {self.dataset_name} with episode format {self.episode_format}"
+            f"Deleting episode {episode_id} from dataset {self.dataset_name} with episode format {self.format_version}"
         )
 
-        if self.episode_format.startswith("lerobot"):
+        if self.format_version.startswith("lerobot"):
             # Start loading current meta data
             info_model = InfoModel.from_json(
                 meta_folder_path=self.meta_folder_full_path
@@ -191,7 +191,7 @@ class LeRobotDataset(BaseDataset):
             )
             episodes_model = EpisodesModel.from_jsonl(
                 meta_folder_path=self.meta_folder_full_path,
-                format=cast(Literal["lerobot_v2", "lerobot_v2.1"], self.episode_format),
+                format=cast(Literal["lerobot_v2", "lerobot_v2.1"], self.format_version),
             )
             if info_model.codebase_version == "v2.1":
                 episodes_stats_model = EpisodesStatsModel.from_jsonl(
@@ -317,9 +317,9 @@ class LeRobotDataset(BaseDataset):
         """
         # Check that all datasets have the same format
         if check_format:
-            if second_dataset.episode_format != self.episode_format:
+            if second_dataset.format_version != self.format_version:
                 raise ValueError(
-                    f"Dataset {second_dataset.dataset_name} has a different format: {second_dataset.episode_format}"
+                    f"Dataset {second_dataset.dataset_name} has a different format: {second_dataset.format_version}"
                 )
 
         path_result_dataset = os.path.join(
@@ -887,7 +887,7 @@ class LeRobotDataset(BaseDataset):
         Expects a dataset in v2.1 format.
         This will pick a random shuffle of the episodes and apply it to the videos, data and meta files.
         """
-        # if self.episode_format != "lerobot_v2.1":
+        # if self.format_version != "lerobot_v2.1":
         #     raise ValueError(
         #         f"Dataset {self.dataset_name} is not in v2.1 format, cannot shuffle"
         #     )
