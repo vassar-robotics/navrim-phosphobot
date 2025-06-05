@@ -1507,7 +1507,7 @@ class LeRobotEpisode(BaseEpisode):
             dataset_path = os.path.basename(os.path.dirname(episode_data_path))
 
         # Load the dataset
-        dataset = LeRobotDataset(path=dataset_path)
+        dataset = LeRobotDataset(path=dataset_path, enforce_path=False)
         if dataset.info_model:
             freq = dataset.info_model.fps
             codec = list(dataset.info_model.features.observation_images.values())[

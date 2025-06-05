@@ -421,7 +421,7 @@ class BaseDataset:
     # Full path to the dataset folder
     folder_full_path: Path
 
-    def __init__(self, path: str, enforce_path: bool = True) -> None:
+    def __init__(self, path: str, enforce_path: bool = False) -> None:
         """
         Load an existing dataset.
         """

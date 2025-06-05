@@ -900,7 +900,7 @@ async def split_dataset(query: DatasetSplitRequest):
         )
 
     # Split the dataset
-    dataset = LeRobotDataset(path=dataset_path)
+    dataset = LeRobotDataset(path=dataset_path, enforce_path=True)
 
     try:
         dataset.split_dataset(
@@ -937,7 +937,7 @@ async def shuffle_dataset(query: DatasetShuffleRequest):
         )
 
     # Shuffle the dataset
-    dataset = LeRobotDataset(path=dataset_path)
+    dataset = LeRobotDataset(path=dataset_path, enforce_path=True)
 
     # Name of the new dataset after shuffling
     new_dataset_name = f"{query.dataset_path}_shuffled"
