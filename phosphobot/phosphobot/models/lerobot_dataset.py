@@ -1565,22 +1565,27 @@ class LeRobotEpisode(BaseEpisode):
             )
 
         # Remove the video files from the HF repository
-        all_camera_folders = os.listdir(self._cameras_folder_path)
-        for camera_key in all_camera_folders:
-            if "image" not in camera_key:
-                continue
-            try:
-                os.remove(self._get_video_path(camera_key))
-            except FileNotFoundError:
-                logger.warning(
-                    f"Video file {self._get_video_path(camera_key)} not found. Skipping deletion."
-                )
-            if update_hub and repo_id is not None:
-                delete_file(
-                    repo_id=repo_id,
-                    path_in_repo=f"videos/chunk-000/{camera_key}/episode_{self.episode_index:06d}.mp4",
-                    repo_type="dataset",
-                )
+        if os.path.exists(self._cameras_folder_path):
+            all_camera_folders = os.listdir(self._cameras_folder_path)
+            for camera_key in all_camera_folders:
+                if "image" not in camera_key:
+                    continue
+                try:
+                    os.remove(self._get_video_path(camera_key))
+                except FileNotFoundError:
+                    logger.warning(
+                        f"Video file {self._get_video_path(camera_key)} not found. Skipping deletion."
+                    )
+                if update_hub and repo_id is not None:
+                    delete_file(
+                        repo_id=repo_id,
+                        path_in_repo=f"videos/chunk-000/{camera_key}/episode_{self.episode_index:06d}.mp4",
+                        repo_type="dataset",
+                    )
+        else:
+            logger.warning(
+                f"Cameras folder {self._cameras_folder_path} does not exist. Skipping video deletion."
+            )
 
 
 class LeRobotEpisodeModel(BaseModel):
