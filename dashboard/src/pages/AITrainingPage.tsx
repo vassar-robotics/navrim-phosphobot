@@ -477,8 +477,9 @@ export default function AITrainingPage() {
                   <br />
                   Make sure to pass:
                   <br />
-                  <code>target_detection_instruction</code> which is the
-                  instruction to use for detecting objects in the image.
+                  <code>target_detection_instruction</code> is the object you
+                  want to detect in the images, e.g. "red lego brick", "blue
+                  ball", "plushy toy", etc.
                   <br />
                   <code>image_key</code> which is the key of the image to use
                   for image recognition in your dataset
