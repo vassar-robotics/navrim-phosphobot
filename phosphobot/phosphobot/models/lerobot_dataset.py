@@ -3163,9 +3163,12 @@ class InfoFeatures(BaseModel):
     )
     observation_environment_state: FeatureDetails | None = Field(
         default=None,
-        serialization_alias="observation.environment.state",
+        serialization_alias="observation.environment_state",
         validation_alias=AliasChoices(
-            "observation.environment.state", "observation_environment_state"
+            "observation.environment.state",
+            "observation_environment_state",
+            "observation.environment_state",
+            "observation_environment.state",
         ),
     )
 
