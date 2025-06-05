@@ -416,7 +416,7 @@ export default function AITrainingPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ACT_BBOX">
-                        Baby ACT (recommended)
+                        BB-ACT (recommended)
                       </SelectItem>
                       <SelectItem value="ACT">ACT</SelectItem>
                       <SelectItem value="gr00t">gr00t</SelectItem>
