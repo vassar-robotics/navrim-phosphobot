@@ -417,7 +417,6 @@ class BaseDataset:
     metadata: dict = Field(default_factory=dict)
     path: str
     dataset_name: str
-    data_file_extension: str
     # Full path to the dataset folder
     folder_full_path: Path
 
@@ -445,7 +444,6 @@ class BaseDataset:
         # Create the dataset folder if it does not exist
         os.makedirs(self.folder_full_path, exist_ok=True)
 
-        self.data_file_extension = "json" if path_parts[-2] == "json" else "parquet"
         self.HF_API = HfApi(token=get_hf_token())
 
         # Validate dataset name

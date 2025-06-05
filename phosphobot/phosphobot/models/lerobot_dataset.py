@@ -1063,20 +1063,12 @@ class LeRobotDataset(BaseDataset):
 
     def get_episode_data_path(self, episode_id: int) -> str:
         """Get the full path to the data with episode id"""
-        if self.episode_format == "json":
-            return str(
-                os.path.join(
-                    os.path.dirname(self.folder_full_path),
-                    f"episode_{episode_id:06d}.{self.data_file_extension}",
-                )
-            )
-        else:
-            return os.path.join(
-                self.folder_full_path,
-                "data",
-                "chunk-000",
-                f"episode_{episode_id:06d}.{self.data_file_extension}",
-            )
+        return os.path.join(
+            self.folder_full_path,
+            "data",
+            "chunk-000",
+            f"episode_{episode_id:06d}.parquet",
+        )
 
     @property
     def meta_folder_full_path(self) -> str:
