@@ -181,97 +181,92 @@ class LeRobotDataset(BaseDataset):
             f"Deleting episode {episode_id} from dataset {self.dataset_name} with episode format {self.format_version}"
         )
 
-        if self.format_version.startswith("lerobot"):
-            # Start loading current meta data
-            info_model = InfoModel.from_json(
+        # Start loading current meta data
+        info_model = InfoModel.from_json(meta_folder_path=self.meta_folder_full_path)
+        tasks_model = TasksModel.from_jsonl(meta_folder_path=self.meta_folder_full_path)
+        episodes_model = EpisodesModel.from_jsonl(
+            meta_folder_path=self.meta_folder_full_path,
+            format=cast(Literal["lerobot_v2", "lerobot_v2.1"], self.format_version),
+        )
+        if info_model.codebase_version == "v2.1":
+            episodes_stats_model = EpisodesStatsModel.from_jsonl(
                 meta_folder_path=self.meta_folder_full_path
             )
-            tasks_model = TasksModel.from_jsonl(
+        elif info_model.codebase_version == "v2.0":
+            stats_model = StatsModel.from_json(
                 meta_folder_path=self.meta_folder_full_path
             )
-            episodes_model = EpisodesModel.from_jsonl(
-                meta_folder_path=self.meta_folder_full_path,
-                format=cast(Literal["lerobot_v2", "lerobot_v2.1"], self.format_version),
+        else:
+            raise NotImplementedError(
+                f"Codebase version {info_model.codebase_version} not supported, should be v2.1 or v2.0"
             )
-            if info_model.codebase_version == "v2.1":
-                episodes_stats_model = EpisodesStatsModel.from_jsonl(
-                    meta_folder_path=self.meta_folder_full_path
-                )
-            elif info_model.codebase_version == "v2.0":
-                stats_model = StatsModel.from_json(
-                    meta_folder_path=self.meta_folder_full_path
-                )
-            else:
-                raise NotImplementedError(
-                    f"Codebase version {info_model.codebase_version} not supported, should be v2.1 or v2.0"
-                )
 
-            # Update meta data before episode removal
-            try:
-                episode_parquet = episode_to_delete.parquet()
-            except FileNotFoundError as e:
-                logger.warning(f"Episode {episode_id} not found: {e}")
-                episode_parquet = pd.DataFrame()
-            tasks_model.update_for_episode_removal(
-                df_episode_to_delete=episode_parquet,
-                data_folder_full_path=self.data_folder_full_path,
+        # Update meta data before episode removal
+        try:
+            episode_parquet = episode_to_delete.parquet()
+        except FileNotFoundError as e:
+            logger.warning(f"Episode {episode_id} not found: {e}")
+            episode_parquet = pd.DataFrame()
+        tasks_model.update_for_episode_removal(
+            df_episode_to_delete=episode_parquet,
+            data_folder_full_path=self.data_folder_full_path,
+        )
+        tasks_model.save(meta_folder_path=self.meta_folder_full_path)
+        logger.info("Tasks model updated")
+
+        info_model.update_for_episode_removal(
+            df_episode_to_delete=episode_parquet,
+        )
+        info_model.save(meta_folder_path=self.meta_folder_full_path)
+        logger.info("Info model updated")
+
+        # Delete the actual episode files (parquet and mp4 video)
+        episode_to_delete.delete(update_hub=update_hub)
+
+        # Rename the remaining episodes to keep the numbering consistent
+        # be sure to reindex AFTER deleting the episode data
+        old_index_to_new_index = self.reindex_episodes(
+            nb_steps_deleted_episode=len(episode_to_delete.steps),
+            folder_path=self.data_folder_full_path,
+        )
+        # Reindex the episode videos
+        for camera_folder_full_path in self.get_camera_folders_full_paths():
+            self.reindex_episodes(
+                folder_path=camera_folder_full_path,
+                old_index_to_new_index=old_index_to_new_index,  # type: ignore
             )
-            tasks_model.save(meta_folder_path=self.meta_folder_full_path)
-            logger.info("Tasks model updated")
 
-            info_model.update_for_episode_removal(
-                df_episode_to_delete=episode_parquet,
-            )
-            info_model.save(meta_folder_path=self.meta_folder_full_path)
-            logger.info("Info model updated")
+        episodes_model.update_for_episode_removal(
+            episode_to_delete_index=episode_id,
+            old_index_to_new_index=old_index_to_new_index,
+        )
+        episodes_model.save(
+            meta_folder_path=self.meta_folder_full_path, save_mode="overwrite"
+        )
+        logger.info("Episodes model updated")
 
-            # Delete the actual episode files (parquet and mp4 video)
-            episode_to_delete.delete(update_hub=update_hub)
-
-            # Rename the remaining episodes to keep the numbering consistent
-            # be sure to reindex AFTER deleting the episode data
-            old_index_to_new_index = self.reindex_episodes(
-                nb_steps_deleted_episode=len(episode_to_delete.steps),
-                folder_path=self.data_folder_full_path,
-            )
-            # Reindex the episode videos
-            for camera_folder_full_path in self.get_camera_folders_full_paths():
-                self.reindex_episodes(
-                    folder_path=camera_folder_full_path,
-                    old_index_to_new_index=old_index_to_new_index,  # type: ignore
-                )
-
-            episodes_model.update_for_episode_removal(
+        if info_model.codebase_version == "v2.1":
+            episodes_stats_model.update_for_episode_removal(
                 episode_to_delete_index=episode_id,
                 old_index_to_new_index=old_index_to_new_index,
             )
-            episodes_model.save(
-                meta_folder_path=self.meta_folder_full_path, save_mode="overwrite"
+            episodes_stats_model.save(meta_folder_path=self.meta_folder_full_path)
+            logger.info("Episodes stats model updated")
+        elif info_model.codebase_version == "v2.0":
+            # Update for episode removal is not implemented
+            stats_model.update_for_episode_removal(
+                data_folder_path=self.data_folder_full_path,
             )
-            logger.info("Episodes model updated")
+            stats_model.save(meta_folder_path=self.meta_folder_full_path)
+            logger.info("Stats model updated")
 
-            if info_model.codebase_version == "v2.1":
-                episodes_stats_model.update_for_episode_removal(
-                    episode_to_delete_index=episode_id,
-                    old_index_to_new_index=old_index_to_new_index,
-                )
-                episodes_stats_model.save(meta_folder_path=self.meta_folder_full_path)
-                logger.info("Episodes stats model updated")
-            elif info_model.codebase_version == "v2.0":
-                # Update for episode removal is not implemented
-                stats_model.update_for_episode_removal(
-                    data_folder_path=self.data_folder_full_path,
-                )
-                stats_model.save(meta_folder_path=self.meta_folder_full_path)
-                logger.info("Stats model updated")
-
-            if update_hub:
-                upload_folder(
-                    folder_path=self.meta_folder_full_path,
-                    repo_id=self.repo_id,
-                    repo_type="dataset",
-                    path_in_repo="meta",
-                )
+        if update_hub:
+            upload_folder(
+                folder_path=self.meta_folder_full_path,
+                repo_id=self.repo_id,
+                repo_type="dataset",
+                path_in_repo="meta",
+            )
 
     def merge_datasets(
         self,
@@ -1538,14 +1533,6 @@ class LeRobotEpisode(BaseEpisode):
         """
         Load the .parquet file of the episode. Only works for LeRobot format.
         """
-        if not (
-            self.metadata.get("format") == "lerobot_v2"
-            or self.metadata.get("format") == "lerobot_v2.1"
-        ):
-            raise ValueError(
-                "The episode must be in LeRobot format to convert it to a DataFrame"
-            )
-
         return pd.read_parquet(self._parquet_path)
 
     def delete(self, update_hub: bool = True, repo_id: str | None = None) -> None:
