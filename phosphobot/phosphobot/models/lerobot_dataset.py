@@ -46,9 +46,14 @@ class LeRobotDataset(BaseDataset):
         )  # This sets self.folder_full_path etc.
 
         # Determine format version from path
-        self.format_version = cast(
-            Literal["lerobot_v2", "lerobot_v2.1"], Path(path).parts[-2]
-        )
+        if len(Path(path).parts) < 2:
+            # assume version is lerobot_v2.1
+            self.format_version = "lerobot_v2.1"
+        else:
+            # Read the format version from the path
+            self.format_version = cast(
+                Literal["lerobot_v2", "lerobot_v2.1"], Path(path).parts[-2]
+            )
 
         # Ensure base LeRobot directories exist within the dataset path
         os.makedirs(
