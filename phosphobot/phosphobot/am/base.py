@@ -100,7 +100,7 @@ class TrainingParamsAct(BaseModel):
         extra = "forbid"
 
 
-DEFAULT_INSTRUCTION = "describe what to detect in the image: 'red/orange lego brick'"
+DEFAULT_INSTRUCTION = "e.g.: green lego brick, red ball, blue plushy..."
 
 
 class TrainingParamsActWithBbox(TrainingParamsAct):
@@ -110,7 +110,7 @@ class TrainingParamsActWithBbox(TrainingParamsAct):
 
     target_detection_instruction: str = Field(
         default=DEFAULT_INSTRUCTION,
-        examples=["red/orange lego brick", "brown plushy"],
+        examples=["red/orange lego brick", "brown plushy", "blue ball"],
         description="Instruction for the target object to detect, e.g. 'red/orange lego brick'",
         min_length=4,
     )
@@ -126,14 +126,14 @@ class TrainingParamsActWithBbox(TrainingParamsAct):
         # If the instruction is equal to the default, we raise an error
         if instruction == DEFAULT_INSTRUCTION:
             raise ValueError(
-                "Please provide a valid target detection instruction, e.g. 'red/orange lego brick' or 'brown plushy'."
+                "Please provide a valid object to detect, e.g. 'red/orange lego brick' or 'brown plushy'."
             )
         elif any(
             word in instruction.lower()
             for word in ["detect", "find", "locate", "pick", "pickup", "grab"]
         ):
             raise ValueError(
-                "Only provide the object to detect, e.g. 'red/orange lego brick' or 'brown plushy'. Do not include verbs like 'detect', 'find', 'locate', 'pick up', or 'grab'."
+                "Only write the object to detect, e.g. 'red/orange lego brick' or 'brown plushy'. Do not include verbs like 'detect', 'find', 'locate', 'pick up', or 'grab'."
             )
         return instruction
 
