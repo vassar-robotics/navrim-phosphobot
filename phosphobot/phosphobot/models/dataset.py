@@ -550,6 +550,7 @@ class BaseDataset:
                 folder_path=self.folder_full_path,
                 repo_id=self.repo_id,
                 repo_type="dataset",
+                run_as_future=True,
             )
 
     def delete(self) -> None:
@@ -658,6 +659,7 @@ It's compatible with LeRobot and RLDS.
                 folder_path=self.folder_full_path,
                 repo_id=dataset_repo_name,
                 repo_type="dataset",
+                run_as_future=True,
             )
 
             repo_refs = self.HF_API.list_repo_refs(
@@ -691,6 +693,7 @@ It's compatible with LeRobot and RLDS.
                         repo_id=dataset_repo_name,
                         repo_type="dataset",
                         revision="v2.1",
+                        run_as_future=True,
                     )
                 except Exception as e:
                     logger.error(f"Error handling v2.1 branch: {e}")
@@ -719,6 +722,7 @@ It's compatible with LeRobot and RLDS.
                         repo_id=dataset_repo_name,
                         repo_type="dataset",
                         revision=branch_path,
+                        run_as_future=True,
                     )
                     logger.info(f"Dataset pushed to branch {branch_path}")
                 except Exception as e:
