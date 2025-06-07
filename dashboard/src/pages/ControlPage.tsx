@@ -2,8 +2,9 @@ import { Recorder } from "@/components/common/recorder";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGlobalStore } from "@/lib/hooks";
-import { BicepsFlexed, Glasses, Keyboard, Repeat } from "lucide-react";
+import { BicepsFlexed, Gamepad2, Glasses, Keyboard, Repeat } from "lucide-react";
 
+import GamepadControlPage from "./GamepadControlPage";
 import KeyboardControlPage from "./KeyboardControlPage";
 import LeaderArmPage from "./LeaderArmControlPage";
 import ReplayPage from "./SingleArmReplayPage";
@@ -21,6 +22,10 @@ export default function ControlPage() {
             <TabsTrigger value="keyboard" className="cursor-pointer">
               <Keyboard className="size-4 mr-2" />
               Keyboard control
+            </TabsTrigger>
+            <TabsTrigger value="gamepad" className="cursor-pointer">
+              <Gamepad2 className="size-4 mr-2" />
+              Gamepad control
             </TabsTrigger>
             <TabsTrigger value="leader" className="cursor-pointer">
               <BicepsFlexed className="size-4 mr-2" />
@@ -40,6 +45,9 @@ export default function ControlPage() {
         {showCamera && <ViewVideo />}
         <TabsContent value="keyboard">
           <KeyboardControlPage />
+        </TabsContent>
+        <TabsContent value="gamepad">
+          <GamepadControlPage />
         </TabsContent>
         <TabsContent value="leader">
           <LeaderArmPage />
