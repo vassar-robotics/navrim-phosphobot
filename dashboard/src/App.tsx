@@ -11,11 +11,7 @@ import BrowsePage from "@/pages/BrowsePage";
 import CalibrationPage from "@/pages/CalibrationPage";
 import ControlPage from "@/pages/ControlPage";
 import DashboardPage from "@/pages/DashboardPage";
-import GamepadControlPage from "@/pages/GamepadControlPage";
-import KeyboardControlPage from "@/pages/KeyboardControlPage";
-import LeaderArmControlPage from "@/pages/LeaderArmControlPage";
 import NetworkPage from "@/pages/NetworkPage";
-import SingleArmReplayPage from "@/pages/SingleArmReplayPage";
 import ViewVideoPage from "@/pages/ViewVideoPage";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 
@@ -26,10 +22,6 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<DashboardPage />} />
           <Route path="/control" element={<ControlPage />} />
-          <Route path="/keyboard" element={<KeyboardControlPage />} />
-          <Route path="/gamepad" element={<GamepadControlPage />} />
-          <Route path="/leader" element={<LeaderArmControlPage />} />
-          <Route path="/replay" element={<SingleArmReplayPage />} />
           <Route path="/browse" element={<BrowsePage />} />
           <Route path="/browse/:path" element={<BrowsePage />} />
           <Route
