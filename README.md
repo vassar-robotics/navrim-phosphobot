@@ -137,8 +137,10 @@ We welcome contributions! Some of the ways you can contribute:
 - Add support for new robots and sensors
 - Add something you built to the examples
 - Improve the dataset collection and manipulation
-- Improve the documentation and tutorials
+- Improve the [documentation and tutorials](https://github.com/phospho-app/docs)
 - Improve code quality and refacto
+- Improve the performance of the app
+- Fix issues you faced
 
 ## Support
 
