@@ -94,7 +94,7 @@ Here you can:
 
 ## Adding a New Robot
 
-You can extend **phosphobot** by plugging in support for any custom robot. Just follow these steps:
+You can extend **phosphobot** by plugging in support for any custom robot. Just follow these steps to install phosphobot from source on any OS:
 
 1. **Clone the phosphobot repo and fetch submodules.** Make sure you have [git lfs](https://git-lfs.com) installed beforehand
 
@@ -110,7 +110,7 @@ You can extend **phosphobot** by plugging in support for any custom robot. Just 
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-   Then restart your terminal and verify
+   Then restart your terminal and verify that uv is in your path.
 
    ```bash
    uv --version # should output: uv 0.7.10 
@@ -135,13 +135,22 @@ You can extend **phosphobot** by plugging in support for any custom robot. Just 
    nvm install node   # “node” is an alias for the latest version
    ```
 
-5. **Build the app.** From the repo root, run:
+5. **Build the app.** (Linux and MacOS) From the root of the repo, run:
 
    ```bash
    make
    ```
 
-6. **Create your robot driver**
+   Which is a shortcut for the following command:
+
+   ```
+   cd ./dashboard && ((npm i && npm run build && mkdir -p ../phosphobot/resources/dist/ && cp -r ./dist/* ../phosphobot/resources/dist/) || echo "npm command failed, continuing anyway") 
+	cd phosphobot && uv run phosphobot run --simulation=headless
+   ```
+
+   On Windows, run the full command to build the app.
+
+7. **Create your robot driver**
 
    1. In the directory `phosphobot/phosphobot/hardware` add a new file, e.g. `my_robot.py`. Inside, define a class inheriting from `BaseRobot`:
 
@@ -156,9 +165,9 @@ You can extend **phosphobot** by plugging in support for any custom robot. Just 
           ... # Implement the BaseRobot's abstract methods here
       ```
 
-      We use pybullet as a robotics simulation backend. Make sure to add your robot's `urdf` in `phosphobot/resources/urdf`.
+      We use [pybullet](https://pybullet.org/wordpress/) ([docs](https://docs.google.com/document/d/10sXEhzFRSnvFcl3XxNGhnD4N2SedqwdAvK3dsihxVUA/edit?tab=t.0)) as a robotics simulation backend. Make sure to add your robot's `urdf` in `phosphobot/resources/urdf`.
 
-7. **Make your robot detectable**
+8. **Make your robot detectable**
    Open `phosphobot/phosphobot/robot.py` and locate the `RobotConnectionManager` class. Make sure your robot can be detected.
 
 Build and run the app again and ensure your robot gets detected and can be moved. Happy with your changes? Open a pull request! We also recommend you look for testers on [our Discord](https://discord.gg/cbkggY6NSK).
