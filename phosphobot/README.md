@@ -110,7 +110,13 @@ You can extend **phosphobot** by plugging in support for any custom robot. Just 
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-3. **Install nvm and Node.js.** We recommend to manage Node versions via [nvm](https://github.com/nvm-sh/nvm).
+   Then restart your terminal and verify
+
+   ```bash
+   uv --version # should output: uv 0.7.10 
+   ```
+
+4. **Install nvm and Node.js.** We recommend to manage Node versions via [nvm](https://github.com/nvm-sh/nvm).
 
    ```bash
    # Install nvm
@@ -129,13 +135,13 @@ You can extend **phosphobot** by plugging in support for any custom robot. Just 
    nvm install node   # “node” is an alias for the latest version
    ```
 
-4. **Build the app.** From the repo root, run:
+5. **Build the app.** From the repo root, run:
 
    ```bash
    make
    ```
 
-5. **Create your robot driver**
+6. **Create your robot driver**
 
    1. In the directory `phosphobot/phosphobot/hardware` add a new file, e.g. `my_robot.py`. Inside, define a class inheriting from `BaseRobot`:
 
@@ -152,7 +158,7 @@ You can extend **phosphobot** by plugging in support for any custom robot. Just 
 
       We use pybullet as a robotics simulation backend. Make sure to add your robot's `urdf` in `phosphobot/resources/urdf`.
 
-6. **Make your robot detectable**
+7. **Make your robot detectable**
    Open `phosphobot/phosphobot/robot.py` and locate the `RobotConnectionManager` class. Make sure your robot can be detected.
 
 Build and run the app again and ensure your robot gets detected and can be moved. Happy with your changes? Open a pull request! We also recommend you look for testers on [our Discord](https://discord.gg/cbkggY6NSK).
