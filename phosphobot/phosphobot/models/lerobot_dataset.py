@@ -982,7 +982,7 @@ class LeRobotDataset(BaseDataset):
             The path to the folder where the episodes data or videos are stored. May be users/Downloads/dataset_name/data/chunk-000/
             or  users/Downloads/dataset_name/videos/chunk-000/observation.main_image.right
         nb_steps_deleted_episode: int
-            The number of steps deleted in the episode
+            Unused
         old_index_to_new_index: Optional[Dict[int, int]]
             A dictionary mapping old indices to new indices. If None, the function will create a new mapping.
 
