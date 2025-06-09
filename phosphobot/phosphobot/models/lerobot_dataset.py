@@ -162,9 +162,11 @@ class LeRobotDataset(BaseDataset):
         """
 
         episode_to_delete = LeRobotEpisode.from_parquet(
-            self.get_episode_data_path(episode_id), format=self.format_version
+            self.get_episode_data_path(episode_id),
+            format=self.format_version,
+            dataset_path=self.data_folder_full_path,
         )
-        # Get the full path to the data with episode id
+        episode_to_delete.dataset_manager = self
 
         if self.format_version == "lerobot_v2":
             raise NotImplementedError(
@@ -205,7 +207,9 @@ class LeRobotDataset(BaseDataset):
         try:
             episode_parquet = episode_to_delete.parquet()
         except FileNotFoundError as e:
-            logger.warning(f"Episode {episode_id} not found: {e}")
+            logger.warning(
+                f"Episode {episode_id} parquet {episode_to_delete._parquet_path} not found: {e}"
+            )
             episode_parquet = pd.DataFrame()
         tasks_model.update_for_episode_removal(
             df_episode_to_delete=episode_parquet,
@@ -1441,7 +1445,10 @@ class LeRobotEpisode(BaseEpisode):
 
     @classmethod
     def from_parquet(
-        cls, episode_data_path: str, format: Literal["lerobot_v2", "lerobot_v2.1"]
+        cls,
+        episode_data_path: str,
+        format: Literal["lerobot_v2", "lerobot_v2.1"],
+        dataset_path: Optional[str] = None,
     ) -> "LeRobotEpisode":
         """
         Load an episode data file. We only extract the information from the parquet data file.
@@ -1487,16 +1494,17 @@ class LeRobotEpisode(BaseEpisode):
         # Add metadata to the episode
         # the path is like this : dataset_name/data/chunk-000/episode_xxxxxx.parquet
         # get the path : dataset_name
-        normalized = os.path.normpath(episode_data_path)
-        parts = normalized.split(os.sep)
-        if len(parts) >= 4:
-            dataset_path = parts[-4]
-        else:
-            logger.warning(
-                f"Episode {episode_data_path} does not contain the dataset name in the path. Path should be: dataset_name/data/chunk-000/episode_xxxxxx.parquet"
-                + "Using parent folder name as dataset name."
-            )
-            dataset_path = os.path.basename(os.path.dirname(episode_data_path))
+        if dataset_path is None:
+            normalized = os.path.normpath(episode_data_path)
+            parts = normalized.split(os.sep)
+            if len(parts) >= 4:
+                dataset_path = parts[-4]
+            else:
+                logger.warning(
+                    f"Episode {episode_data_path} does not contain the dataset name in the path. Path should be: dataset_name/data/chunk-000/episode_xxxxxx.parquet"
+                    + "Using parent folder name as dataset name."
+                )
+                dataset_path = os.path.basename(os.path.dirname(episode_data_path))
 
         # Load the dataset
         dataset = LeRobotDataset(path=dataset_path, enforce_path=False)
