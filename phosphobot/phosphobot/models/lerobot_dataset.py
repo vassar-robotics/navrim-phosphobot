@@ -1517,6 +1517,7 @@ class LeRobotEpisode(BaseEpisode):
             "dataset_name": dataset_path,
             "format": format,
             "index": episode_df["episode_index"].iloc[0],
+            "episode_index": episode_df["episode_index"].iloc[0],
         }
 
         episode_model = cls(
