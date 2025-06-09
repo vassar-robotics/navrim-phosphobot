@@ -429,9 +429,8 @@ export default function AITrainingPage() {
                 <div className="text-xs text-muted-foreground mt-4">
                   You have selected a custom model type.
                   <br />
-                  When pressing the "Train AI model" button, we will run the
-                  command you've written, you can use this to run any custom
-                  training script you want.
+                  Pressing the "Train AI model" will run the command written.
+                  Use this to run any custom training script.
                 </div>
               )}
               <div className="text-xs text-muted-foreground mt-4">
