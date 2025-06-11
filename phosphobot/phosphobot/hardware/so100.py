@@ -391,6 +391,16 @@ class SO100Hardware(BaseManipulator):
             logger.info(
                 f"Initial joint positions (motor units): {self.config.servos_offsets}"
             )
+            # If the joint positions are NaN or None, we cannot continue
+            if np.isnan(self.config.servos_offsets).any() or np.any(
+                self.config.servos_offsets is None
+            ):
+                self.calibration_current_step = 0
+                return (
+                    "error",
+                    "Calibration failed: joint positions are NaN. Please check that every wire of the robot is plugged correctly.",
+                )
+
             # The second position is the calibration position
             self.set_simulation_positions(np.array(self.CALIBRATION_POSITION))
             self.calibration_current_step += 1
@@ -407,6 +417,16 @@ class SO100Hardware(BaseManipulator):
             logger.info(
                 f"Current joint positions (motor units): {self.config.servos_calibration_position}"
             )
+            # If the joint positions are NaN or None, we cannot continue
+            if np.isnan(self.config.servos_calibration_position).any() or np.any(
+                self.config.servos_calibration_position is None
+            ):
+                self.calibration_current_step = 0
+                return (
+                    "error",
+                    "Calibration failed: joint positions are NaN. Please check that every wire of the robot is plugged correctly.",
+                )
+
             self.config.servos_offsets_signs = np.sign(
                 (
                     np.array(self.config.servos_calibration_position)

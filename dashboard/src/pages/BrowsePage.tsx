@@ -61,7 +61,7 @@ import {
   MoreVertical,
   Plus,
   Repeat,
-  Shuffle,
+  // Shuffle,
   Split,
   Trash2,
   Wrench,
@@ -832,14 +832,14 @@ export default function FileBrowser() {
                   <Split className="mr-2 h-4 w-3" />
                   Split Selected Datasets
                 </Button>
-                <Button
+                {/* <Button
                   className="mb-4"
                   variant="outline"
                   onClick={() => setOpenShuffleModal(true)}
                 >
                   <Shuffle className="mr-2 h-4 w-3" />
                   Shuffle Selected Datasets
-                </Button>
+                </Button> */}
               </>
             )}
             <Button
