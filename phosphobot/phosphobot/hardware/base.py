@@ -710,7 +710,7 @@ class BaseManipulator(BaseRobot):
                 self.write_group_motor_position(q_target, enable_gripper)
             else:
                 # Otherwise loop through the motors
-                for i, servo_id in enumerate(self.SERVO_IDS):
+                for i, servo_id in enumerate(self.actuated_joints):
                     if servo_id == self.gripper_servo_id and not enable_gripper:
                         # The gripper is not controlled by the motors
                         # We skip it
