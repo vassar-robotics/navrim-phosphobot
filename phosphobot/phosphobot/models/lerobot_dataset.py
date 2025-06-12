@@ -136,7 +136,8 @@ class LeRobotDataset(BaseDataset):
                 format=self.format_version,
             )
             self.info_model.recompute_from_parquets(
-                infos=self.info_model, dataset_path=Path(self.data_folder_full_path)
+                infos=self.info_model,
+                dataset_path=Path(self.folder_full_path),
             )
             self.episodes_model.save(
                 meta_folder_path=self.meta_folder_full_path,
