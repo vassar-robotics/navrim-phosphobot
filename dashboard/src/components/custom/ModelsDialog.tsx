@@ -14,6 +14,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
   Table,
   TableBody,
   TableCell,
@@ -30,7 +38,7 @@ import {
 import { fetcher } from "@/lib/utils";
 import type { SupabaseTrainingModel, TrainingConfig } from "@/types";
 import { Check, Copy, ExternalLink, Loader2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type React from "react";
 import useSWR from "swr";
 
@@ -195,6 +203,18 @@ export const ModelsDialog: React.FC<ModelsDialogProps> = ({
 
   const models = modelsData?.models || [];
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(models.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentModels = models.slice(startIndex, endIndex);
+
+  // Reset to first page when models change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [models?.length]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[1200px] w-full">
@@ -223,7 +243,7 @@ export const ModelsDialog: React.FC<ModelsDialogProps> = ({
         ) : models.length === 0 ? (
           <div className="text-center py-4">No models found.</div>
         ) : (
-          <div className="max-h-[400px] overflow-auto border rounded-md">
+          <div className="max-h-[50vh] overflow-auto border rounded-md">
             <Table>
               <TableHeader className="sticky top-0 bg-white z-10">
                 <TableRow>
@@ -237,11 +257,54 @@ export const ModelsDialog: React.FC<ModelsDialogProps> = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {models.map((model, index) => (
+                {currentModels.map((model, index) => (
                   <ModelRow key={index} model={model} />
                 ))}
               </TableBody>
             </Table>
+          </div>
+        )}
+        {models.length > itemsPerPage && (
+          <div className="flex justify-center mt-4">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    className={
+                      currentPage === 1
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(page)}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ),
+                )}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() =>
+                      setCurrentPage(Math.min(totalPages, currentPage + 1))
+                    }
+                    className={
+                      currentPage === totalPages
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         )}
       </DialogContent>
@@ -264,6 +327,18 @@ export const ModelsCard: React.FC = () => {
 
   const models = modelsData?.models || [];
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+  const totalPages = Math.ceil(models.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentModels = models.slice(startIndex, endIndex);
+
+  // Reset to first page when models change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [models?.length]);
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -279,7 +354,48 @@ export const ModelsCard: React.FC = () => {
           endpoint.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-y-2">
+        {models.length > itemsPerPage && (
+          <Pagination className="flex justify-start gap-x-2">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  className={
+                    currentPage === 1
+                      ? "text-xs pointer-events-none opacity-50"
+                      : "text-xs cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      onClick={() => setCurrentPage(page)}
+                      isActive={currentPage === page}
+                      className="textxs  cursor-pointer"
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                ),
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() =>
+                    setCurrentPage(Math.min(totalPages, currentPage + 1))
+                  }
+                  className={
+                    currentPage === totalPages
+                      ? "text-xs pointer-events-none opacity-50"
+                      : "text-xs cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
         {isLoading ? (
           <div className="flex justify-center py-4">
             <Loader2 className="h-6 w-6 animate-spin" />
@@ -291,7 +407,7 @@ export const ModelsCard: React.FC = () => {
         ) : models.length === 0 ? (
           <div className="text-center py-4">No models found.</div>
         ) : (
-          <div className="max-h-[400px] overflow-auto border rounded-md">
+          <div className="max-h-[50vh] overflow-auto border rounded-md">
             <Table>
               <TableHeader className="sticky top-0 bg-white z-10">
                 <TableRow>
@@ -305,7 +421,7 @@ export const ModelsCard: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {models.map((model, index) => (
+                {currentModels.map((model, index) => (
                   <ModelRow key={index} model={model} />
                 ))}
               </TableBody>

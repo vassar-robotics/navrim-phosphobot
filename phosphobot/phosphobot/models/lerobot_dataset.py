@@ -74,19 +74,20 @@ class LeRobotDataset(BaseDataset):
             f"LeRobotDataset manager initialized for path: {self.folder_full_path}"
         )
 
-    def initialize_meta_models_if_needed(
+    def load_meta_models(
         self,
-        robots: List[BaseRobot],
-        codec: VideoCodecs,
-        target_size: tuple[int, int],
-        fps: int,
-        secondary_camera_key_names: List[str],
+        robots: List[BaseRobot] | None = None,
+        codec: VideoCodecs | None = None,
+        target_size: tuple[int, int] | None = None,
+        fps: int | None = None,
+        secondary_camera_key_names: List[str] | None = None,
+        force: bool = False,
     ):
         """Loads existing meta files or initializes new ones if they don't exist."""
         logger.debug(
             f"Initializing/loading meta models for dataset: {self.dataset_name}"
         )
-        if self.info_model is None:
+        if self.info_model is None or force:
             self.info_model = InfoModel.from_json(
                 meta_folder_path=self.meta_folder_full_path,  # Correct path to 'meta' dir
                 robots=robots,  # Passed for initialization if file doesn't exist
@@ -104,21 +105,21 @@ class LeRobotDataset(BaseDataset):
                 self.format_version = "lerobot_v2"
 
         if self.format_version == "lerobot_v2.1":
-            if self.episodes_stats_model is None:
+            if self.episodes_stats_model is None or force:
                 self.episodes_stats_model = EpisodesStatsModel.from_jsonl(
                     meta_folder_path=self.meta_folder_full_path
                 )
         elif self.format_version == "lerobot_v2":
-            if self.stats_model is None:  # Only for v2
+            if self.stats_model is None or force:  # Only for v2
                 self.stats_model = StatsModel.from_json(
                     meta_folder_path=self.meta_folder_full_path
                 )
 
-        if self.episodes_model is None:
+        if self.episodes_model is None or force:
             self.episodes_model = EpisodesModel.from_jsonl(
                 meta_folder_path=self.meta_folder_full_path, format=self.format_version
             )
-        if self.tasks_model is None:
+        if self.tasks_model is None or force:
             self.tasks_model = TasksModel.from_jsonl(
                 meta_folder_path=self.meta_folder_full_path
             )
@@ -173,7 +174,7 @@ class LeRobotDataset(BaseDataset):
                 "Episode deletion is not implemented for LeRobot v2 format. Please use v2.1 format."
             )
 
-        if self.check_repo_exists(self.repo_id) is False:
+        if update_hub is True and self.check_repo_exists(self.repo_id) is False:
             logger.warning(
                 f"Repository {self.repo_id} does not exist on Hugging Face. Skipping deletion on Hugging Face"
             )
@@ -1010,7 +1011,11 @@ class LeRobotDataset(BaseDataset):
                     old_index = int(filename.split("_")[-1].split(".")[0])
                     old_index_to_new_index[old_index] = current_new_index_max
                     current_new_index_max += 1
-            current_new_index_max = max(old_index_to_new_index.values()) + 1
+
+            if len(old_index_to_new_index.keys()) > 0:
+                current_new_index_max = max(old_index_to_new_index.values()) + 1
+            else:
+                current_new_index_max = 0
         else:
             current_new_index_max = 0
 
@@ -1177,7 +1182,7 @@ class LeRobotEpisode(BaseEpisode):
         **kwargs,
     ) -> "LeRobotEpisode":
         # Ensure meta models are loaded/initialized in the dataset manager
-        dataset_manager.initialize_meta_models_if_needed(
+        dataset_manager.load_meta_models(
             robots=robots,
             codec=codec,
             target_size=target_size,  # Used by InfoModel if creating new
@@ -1971,7 +1976,8 @@ class EpisodesModel(BaseModel):
                         for i in range(last_index + 1, episodes_feature.episode_index)
                         if i not in _episodes_features
                     ]
-                    logger.debug(f"Missing indexes: {missing_indexes}")
+                    if missing_indexes:
+                        logger.debug(f"Missing indexes: {missing_indexes}")
                     # Dataset path is the parent folder of the meta folder
                     data_folder_path = os.path.dirname(meta_folder_path)
                     for i in missing_indexes:
@@ -1982,8 +1988,11 @@ class EpisodesModel(BaseModel):
                             f"episode_{i:06d}.parquet",
                         )
                         if os.path.exists(episode_path):
+                            logger.info(
+                                f"Found missing episode: {i} {episode_path} in episodes.jsonl. Adding it."
+                            )
                             episode = LeRobotEpisode.from_parquet(
-                                episode_path, format=format
+                                episode_data_path=episode_path, format=format
                             )
                             _episodes_features[i] = EpisodesFeatures(
                                 episode_index=i,
@@ -1998,6 +2007,36 @@ class EpisodesModel(BaseModel):
                             )
                             missing_episodes.append(i)
                 last_index = episodes_feature.episode_index
+
+        # Read all the .parquet files in the data folder to see if they are missing in the episodes.jsonl file
+        dataset_path = os.path.dirname(meta_folder_path)
+        data_folder_path = os.path.join(dataset_path, "data", "chunk-000")
+        all_parquet_files = list(
+            filter(
+                lambda x: x.endswith(".parquet"),
+                os.listdir(data_folder_path),
+            )
+        )
+        all_parquet_files.sort()  # Sort to ensure episode order
+        # If a .parquet file is missing in the _episodes_features, add it
+        for parquet_file in all_parquet_files:
+            episode_index = int(parquet_file.split("_")[1].split(".")[0])
+            if episode_index not in _episodes_features.keys():
+                logger.info(
+                    f"Found missing episode: {episode_index} {parquet_file} in episodes.jsonl. Adding it."
+                )
+                # Check if the parquet file exists
+                parquet_path = os.path.join(data_folder_path, parquet_file)
+                if os.path.exists(parquet_path):
+                    # Load the episode from the parquet file
+                    episode = LeRobotEpisode.from_parquet(parquet_path, format=format)
+                    # Create a new EpisodesFeatures object
+                    _episodes_features[episode_index] = EpisodesFeatures(
+                        episode_index=episode_index,
+                        tasks=[str(episode.steps[0].observation.language_instruction)],
+                        length=len(episode.steps),
+                    )
+                    missing_episodes.append(episode_index)
 
         # Sort the _episodes_features by increasing episode_index
         _episodes_features = dict(
@@ -2055,7 +2094,10 @@ class EpisodesModel(BaseModel):
 
         else:
             # Use the old_index_to_new_index to update the episode index
-            current_max_index = max(old_index_to_new_index.keys()) + 1
+            if len(old_index_to_new_index.keys()) > 0:
+                current_max_index = max(old_index_to_new_index.keys()) + 1
+            else:
+                current_max_index = 0
             for episode in self.episodes:
                 if episode.episode_index == episode_to_delete_index:
                     pass
@@ -2999,7 +3041,10 @@ class EpisodesStatsModel(BaseModel):
                     episode_stats.episode_index -= 1
 
         else:
-            current_max_index = max(old_index_to_new_index.keys()) + 1
+            if len(old_index_to_new_index.keys()) > 0:
+                current_max_index = max(old_index_to_new_index.keys()) + 1
+            else:
+                current_max_index = 0
             for episode_stats in self.episodes_stats:
                 if episode_stats.episode_index == episode_to_delete_index:
                     pass
