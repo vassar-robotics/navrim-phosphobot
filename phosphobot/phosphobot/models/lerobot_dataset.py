@@ -74,19 +74,20 @@ class LeRobotDataset(BaseDataset):
             f"LeRobotDataset manager initialized for path: {self.folder_full_path}"
         )
 
-    def initialize_meta_models_if_needed(
+    def load_meta_models(
         self,
-        robots: List[BaseRobot],
-        codec: VideoCodecs,
-        target_size: tuple[int, int],
-        fps: int,
-        secondary_camera_key_names: List[str],
+        robots: List[BaseRobot] | None = None,
+        codec: VideoCodecs | None = None,
+        target_size: tuple[int, int] | None = None,
+        fps: int | None = None,
+        secondary_camera_key_names: List[str] | None = None,
+        force: bool = False,
     ):
         """Loads existing meta files or initializes new ones if they don't exist."""
         logger.debug(
             f"Initializing/loading meta models for dataset: {self.dataset_name}"
         )
-        if self.info_model is None:
+        if self.info_model is None or force:
             self.info_model = InfoModel.from_json(
                 meta_folder_path=self.meta_folder_full_path,  # Correct path to 'meta' dir
                 robots=robots,  # Passed for initialization if file doesn't exist
@@ -104,21 +105,21 @@ class LeRobotDataset(BaseDataset):
                 self.format_version = "lerobot_v2"
 
         if self.format_version == "lerobot_v2.1":
-            if self.episodes_stats_model is None:
+            if self.episodes_stats_model is None or force:
                 self.episodes_stats_model = EpisodesStatsModel.from_jsonl(
                     meta_folder_path=self.meta_folder_full_path
                 )
         elif self.format_version == "lerobot_v2":
-            if self.stats_model is None:  # Only for v2
+            if self.stats_model is None or force:  # Only for v2
                 self.stats_model = StatsModel.from_json(
                     meta_folder_path=self.meta_folder_full_path
                 )
 
-        if self.episodes_model is None:
+        if self.episodes_model is None or force:
             self.episodes_model = EpisodesModel.from_jsonl(
                 meta_folder_path=self.meta_folder_full_path, format=self.format_version
             )
-        if self.tasks_model is None:
+        if self.tasks_model is None or force:
             self.tasks_model = TasksModel.from_jsonl(
                 meta_folder_path=self.meta_folder_full_path
             )
@@ -173,7 +174,7 @@ class LeRobotDataset(BaseDataset):
                 "Episode deletion is not implemented for LeRobot v2 format. Please use v2.1 format."
             )
 
-        if self.check_repo_exists(self.repo_id) is False:
+        if update_hub is True and self.check_repo_exists(self.repo_id) is False:
             logger.warning(
                 f"Repository {self.repo_id} does not exist on Hugging Face. Skipping deletion on Hugging Face"
             )
@@ -1181,7 +1182,7 @@ class LeRobotEpisode(BaseEpisode):
         **kwargs,
     ) -> "LeRobotEpisode":
         # Ensure meta models are loaded/initialized in the dataset manager
-        dataset_manager.initialize_meta_models_if_needed(
+        dataset_manager.load_meta_models(
             robots=robots,
             codec=codec,
             target_size=target_size,  # Used by InfoModel if creating new
@@ -1975,7 +1976,8 @@ class EpisodesModel(BaseModel):
                         for i in range(last_index + 1, episodes_feature.episode_index)
                         if i not in _episodes_features
                     ]
-                    logger.debug(f"Missing indexes: {missing_indexes}")
+                    if missing_indexes:
+                        logger.debug(f"Missing indexes: {missing_indexes}")
                     # Dataset path is the parent folder of the meta folder
                     data_folder_path = os.path.dirname(meta_folder_path)
                     for i in missing_indexes:
