@@ -1,3 +1,4 @@
+import { CopyButton } from "@/components/common/copy-button";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,6 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
   TooltipContent,
@@ -36,56 +38,96 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { fetcher } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { SupabaseTrainingModel, TrainingConfig } from "@/types";
-import { Check, Copy, ExternalLink, Loader2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, ExternalLink, Loader2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import useSWR from "swr";
+
+type ModelStatus = "succeeded" | "failed" | "running" | "canceled" | null;
+
+interface ModelStatusFilterProps {
+  onStatusChange: (status: ModelStatus) => void;
+  className?: string;
+}
+
+export function ModelStatusFilter({
+  onStatusChange,
+  className,
+}: ModelStatusFilterProps) {
+  const [selectedStatus, setSelectedStatus] = useState<ModelStatus>(null);
+
+  const handleStatusChange = (value: string) => {
+    // If clicking the already selected status, clear the selection
+    const newStatus = value === selectedStatus ? null : (value as ModelStatus);
+    setSelectedStatus(newStatus);
+    onStatusChange(newStatus);
+  };
+
+  return (
+    <div className={cn("gap-y-2", className)}>
+      <ToggleGroup
+        type="single"
+        value={selectedStatus || ""}
+        onValueChange={handleStatusChange}
+      >
+        <ToggleGroupItem
+          value="succeeded"
+          aria-label="Filter by succeeded status"
+          className={cn(
+            "text-xs flex items-center gap-1.5",
+            selectedStatus === "succeeded" &&
+              "text-green-600 dark:text-green-500",
+          )}
+        >
+          <Check className="h-4 w-4 text-green-600 dark:text-green-500" />
+          <span>Succeeded</span>
+        </ToggleGroupItem>
+
+        <ToggleGroupItem
+          value="failed"
+          aria-label="Filter by failed status"
+          className={cn(
+            "text-xs flex items-center gap-1.5",
+            selectedStatus === "failed" && "text-red-600 dark:text-red-500",
+          )}
+        >
+          <X className="h-4 w-4 text-red-600 dark:text-red-500" />
+          <span>Failed</span>
+        </ToggleGroupItem>
+
+        <ToggleGroupItem
+          value="running"
+          aria-label="Filter by running status"
+          className={cn(
+            "text-xs flex items-center gap-1.5",
+            selectedStatus === "running" && "text-blue-600 dark:text-blue-500",
+          )}
+        >
+          <Loader2 className="h-4 w-4 text-blue-600 dark:text-blue-500" />
+          <span>Running</span>
+        </ToggleGroupItem>
+
+        {/* <ToggleGroupItem
+          value="canceled"
+          aria-label="Filter by canceled status"
+          className={cn(
+            "flex items-center gap-1.5",
+            selectedStatus === "canceled" && "text-gray-600 dark:text-gray-400",
+          )}
+        >
+          <Ban className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+          <span>Canceled</span>
+        </ToggleGroupItem> */}
+      </ToggleGroup>
+    </div>
+  );
+}
 
 interface ModelsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-export function CopyButton({
-  text,
-  hint,
-  className,
-  variant = "ghost",
-}: {
-  text: string;
-  hint: string;
-  className?: string;
-  variant?: "outline" | "ghost" | "default" | "link";
-}) {
-  const [isCopied, setIsCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 1500); // Hide the tooltip after 1.5 seconds
-  };
-
-  return (
-    <TooltipProvider>
-      <Tooltip open={isCopied}>
-        <TooltipTrigger asChild>
-          <Button
-            onClick={handleCopy}
-            title={hint}
-            aria-label={hint}
-            variant={variant}
-            size="icon"
-            className={className}
-          >
-            <Copy className="h-4 w-4" />
-            <span className="sr-only">Copy</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Copied!</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
 }
 
 const ValueWithTooltip = ({ value }: { value: string }) => {
@@ -202,18 +244,27 @@ export const ModelsDialog: React.FC<ModelsDialogProps> = ({
   );
 
   const models = modelsData?.models || [];
+  const [statusFilter, setStatusFilter] = useState<
+    "succeeded" | "failed" | "running" | "canceled" | null
+  >(null);
+
+  // Filter models based on status
+  const filteredModels = useMemo(() => {
+    if (!statusFilter) return models;
+    return models.filter((model) => model.status === statusFilter);
+  }, [models, statusFilter]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const totalPages = Math.ceil(models.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredModels.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentModels = models.slice(startIndex, endIndex);
+  const currentModels = filteredModels.slice(startIndex, endIndex);
 
-  // Reset to first page when models change
+  // Reset to first page when models or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [models?.length]);
+  }, [filteredModels.length]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -231,6 +282,10 @@ export const ModelsDialog: React.FC<ModelsDialogProps> = ({
             endpoint.
           </DialogDescription>
         </DialogHeader>
+        <ModelStatusFilter
+          onStatusChange={setStatusFilter}
+          className="border-b pb-4"
+        />
 
         {isLoading ? (
           <div className="flex justify-center py-4">
@@ -240,8 +295,12 @@ export const ModelsDialog: React.FC<ModelsDialogProps> = ({
           <div className="flex flex-col items-center py-4">
             <p className="text-red-500">{error}</p>
           </div>
-        ) : models.length === 0 ? (
-          <div className="text-center py-4">No models found.</div>
+        ) : filteredModels.length === 0 ? (
+          <div className="text-center py-4">
+            {statusFilter
+              ? `No ${statusFilter} models found.`
+              : "No models found."}
+          </div>
         ) : (
           <div className="max-h-[50vh] overflow-auto border rounded-md">
             <Table>
@@ -264,7 +323,7 @@ export const ModelsDialog: React.FC<ModelsDialogProps> = ({
             </Table>
           </div>
         )}
-        {models.length > itemsPerPage && (
+        {filteredModels.length > itemsPerPage && (
           <div className="flex justify-center mt-4">
             <Pagination>
               <PaginationContent>
@@ -326,18 +385,27 @@ export const ModelsCard: React.FC = () => {
   );
 
   const models = modelsData?.models || [];
+  const [statusFilter, setStatusFilter] = useState<
+    "succeeded" | "failed" | "running" | "canceled" | null
+  >(null);
+
+  // Filter models based on status
+  const filteredModels = useMemo(() => {
+    if (!statusFilter) return models;
+    return models.filter((model) => model.status === statusFilter);
+  }, [models, statusFilter]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
-  const totalPages = Math.ceil(models.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredModels.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentModels = models.slice(startIndex, endIndex);
+  const currentModels = filteredModels.slice(startIndex, endIndex);
 
-  // Reset to first page when models change
+  // Reset to first page when models or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [models?.length]);
+  }, [filteredModels.length]);
 
   return (
     <Card className="w-full">
@@ -354,48 +422,52 @@ export const ModelsCard: React.FC = () => {
           endpoint.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-y-2">
-        {models.length > itemsPerPage && (
-          <Pagination className="flex justify-start gap-x-2">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  className={
-                    currentPage === 1
-                      ? "text-xs pointer-events-none opacity-50"
-                      : "text-xs cursor-pointer"
-                  }
-                />
-              </PaginationItem>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (page) => (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      onClick={() => setCurrentPage(page)}
-                      isActive={currentPage === page}
-                      className="textxs  cursor-pointer"
-                    >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
-                ),
-              )}
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() =>
-                    setCurrentPage(Math.min(totalPages, currentPage + 1))
-                  }
-                  className={
-                    currentPage === totalPages
-                      ? "text-xs pointer-events-none opacity-50"
-                      : "text-xs cursor-pointer"
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
+      <CardContent className="flex flex-col gap-y-4">
+        <div className="flex justify-between items-center w-full">
+          {filteredModels.length > itemsPerPage && (
+            <Pagination className="flex justify-start gap-x-2">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    className={
+                      currentPage === 1
+                        ? "text-xs pointer-events-none opacity-50"
+                        : "text-xs cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(page)}
+                        isActive={currentPage === page}
+                        className="text-xs cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ),
+                )}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() =>
+                      setCurrentPage(Math.min(totalPages, currentPage + 1))
+                    }
+                    className={
+                      currentPage === totalPages
+                        ? "text-xs pointer-events-none opacity-50"
+                        : "text-xs cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+          <div></div>
+          <ModelStatusFilter onStatusChange={setStatusFilter} />
+        </div>
         {isLoading ? (
           <div className="flex justify-center py-4">
             <Loader2 className="h-6 w-6 animate-spin" />
@@ -404,8 +476,12 @@ export const ModelsCard: React.FC = () => {
           <div className="flex flex-col items-center py-4">
             <p className="text-red-500">{error.toString()}</p>
           </div>
-        ) : models.length === 0 ? (
-          <div className="text-center py-4">No models found.</div>
+        ) : filteredModels.length === 0 ? (
+          <div className="text-center py-4">
+            {statusFilter
+              ? `No ${statusFilter} models found.`
+              : "No models found."}
+          </div>
         ) : (
           <div className="max-h-[50vh] overflow-auto border rounded-md">
             <Table>

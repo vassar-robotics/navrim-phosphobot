@@ -1,6 +1,7 @@
 import { AutoComplete, type Option } from "@/components/common/autocomplete";
+import { CopyButton } from "@/components/common/copy-button";
 import { LogStream } from "@/components/custom/LogsStream";
-import { CopyButton, ModelsCard } from "@/components/custom/ModelsDialog";
+import { ModelsCard } from "@/components/custom/ModelsDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
