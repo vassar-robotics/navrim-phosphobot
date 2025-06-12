@@ -1010,7 +1010,11 @@ class LeRobotDataset(BaseDataset):
                     old_index = int(filename.split("_")[-1].split(".")[0])
                     old_index_to_new_index[old_index] = current_new_index_max
                     current_new_index_max += 1
-            current_new_index_max = max(old_index_to_new_index.values()) + 1
+
+            if len(old_index_to_new_index.keys()) > 0:
+                current_new_index_max = max(old_index_to_new_index.values()) + 1
+            else:
+                current_new_index_max = 0
         else:
             current_new_index_max = 0
 
@@ -2055,7 +2059,10 @@ class EpisodesModel(BaseModel):
 
         else:
             # Use the old_index_to_new_index to update the episode index
-            current_max_index = max(old_index_to_new_index.keys()) + 1
+            if len(old_index_to_new_index.keys()) > 0:
+                current_max_index = max(old_index_to_new_index.keys()) + 1
+            else:
+                current_max_index = 0
             for episode in self.episodes:
                 if episode.episode_index == episode_to_delete_index:
                     pass
@@ -2999,7 +3006,10 @@ class EpisodesStatsModel(BaseModel):
                     episode_stats.episode_index -= 1
 
         else:
-            current_max_index = max(old_index_to_new_index.keys()) + 1
+            if len(old_index_to_new_index.keys()) > 0:
+                current_max_index = max(old_index_to_new_index.keys()) + 1
+            else:
+                current_max_index = 0
             for episode_stats in self.episodes_stats:
                 if episode_stats.episode_index == episode_to_delete_index:
                     pass
