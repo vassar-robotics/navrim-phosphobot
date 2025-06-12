@@ -121,6 +121,12 @@ class TrainingParamsActWithBbox(TrainingParamsAct):
         min_length=1,
     )
 
+    # Optional field with the image keys to keep
+    image_keys_to_keep: list[str] | None = Field(
+        default=None,
+        description="Optional list of image keys to keep. If none, all image keys will be dropped.",
+    )
+
     @field_validator("target_detection_instruction", mode="before")
     def validate_target_detection_instruction(cls, instruction: str) -> str:
         # If the instruction is equal to the default, we raise an error
