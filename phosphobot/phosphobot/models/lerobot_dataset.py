@@ -1988,8 +1988,11 @@ class EpisodesModel(BaseModel):
                             f"episode_{i:06d}.parquet",
                         )
                         if os.path.exists(episode_path):
+                            logger.info(
+                                f"Found missing episode: {i} {episode_path} in episodes.jsonl. Adding it."
+                            )
                             episode = LeRobotEpisode.from_parquet(
-                                episode_path, format=format
+                                episode_data_path=episode_path, format=format
                             )
                             _episodes_features[i] = EpisodesFeatures(
                                 episode_index=i,
@@ -2004,6 +2007,36 @@ class EpisodesModel(BaseModel):
                             )
                             missing_episodes.append(i)
                 last_index = episodes_feature.episode_index
+
+        # Read all the .parquet files in the data folder to see if they are missing in the episodes.jsonl file
+        dataset_path = os.path.dirname(meta_folder_path)
+        data_folder_path = os.path.join(dataset_path, "data", "chunk-000")
+        all_parquet_files = list(
+            filter(
+                lambda x: x.endswith(".parquet"),
+                os.listdir(data_folder_path),
+            )
+        )
+        all_parquet_files.sort()  # Sort to ensure episode order
+        # If a .parquet file is missing in the _episodes_features, add it
+        for parquet_file in all_parquet_files:
+            episode_index = int(parquet_file.split("_")[1].split(".")[0])
+            if episode_index not in _episodes_features.keys():
+                logger.info(
+                    f"Found missing episode: {episode_index} {parquet_file} in episodes.jsonl. Adding it."
+                )
+                # Check if the parquet file exists
+                parquet_path = os.path.join(data_folder_path, parquet_file)
+                if os.path.exists(parquet_path):
+                    # Load the episode from the parquet file
+                    episode = LeRobotEpisode.from_parquet(parquet_path, format=format)
+                    # Create a new EpisodesFeatures object
+                    _episodes_features[episode_index] = EpisodesFeatures(
+                        episode_index=episode_index,
+                        tasks=[str(episode.steps[0].observation.language_instruction)],
+                        length=len(episode.steps),
+                    )
+                    missing_episodes.append(episode_index)
 
         # Sort the _episodes_features by increasing episode_index
         _episodes_features = dict(
