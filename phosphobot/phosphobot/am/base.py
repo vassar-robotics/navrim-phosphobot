@@ -122,8 +122,8 @@ class TrainingParamsActWithBbox(TrainingParamsAct):
     )
 
     # Optional field with the image keys to keep
-    image_keys_to_keep: list[str] | None = Field(
-        default=None,
+    image_keys_to_keep: list[str] = Field(
+        default_factory=list,
         description="Optional list of image keys to keep. If none, all image keys will be dropped.",
     )
 
