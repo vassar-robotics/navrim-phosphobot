@@ -123,6 +123,26 @@ class LeRobotDataset(BaseDataset):
             self.tasks_model = TasksModel.from_jsonl(
                 meta_folder_path=self.meta_folder_full_path
             )
+        # Consistency checks and fix
+        if self.info_model.total_frames != sum(
+            [e.length for e in self.episodes_model.episodes]
+        ):
+            logger.warning(
+                "Total frames in info.json doesn't match sum of episodes.jsonl lengths. "
+                + "Recomputing total frames from parquet files."
+            )
+            self.episodes_model.recompute_from_parquets(
+                dataset_path=Path(self.data_folder_full_path),
+                format=self.format_version,
+            )
+            self.info_model.recompute_from_parquets(
+                infos=self.info_model, dataset_path=Path(self.data_folder_full_path)
+            )
+            self.episodes_model.save(
+                meta_folder_path=self.meta_folder_full_path,
+            )
+            self.info_model.save(meta_folder_path=self.meta_folder_full_path)
+
         logger.debug("Meta models initialization/loading complete.")
 
     def get_next_episode_index(self) -> int:
@@ -1960,12 +1980,13 @@ class EpisodesModel(BaseModel):
         if not os.path.exists(f"{meta_folder_path}/episodes.jsonl"):
             return EpisodesModel()
 
+        incorrect_episodes = False
+        _episodes_features: dict[int, EpisodesFeatures] = {}
+
         with open(
             f"{meta_folder_path}/episodes.jsonl", "r", encoding=DEFAULT_FILE_ENCODING
         ) as f:
-            _episodes_features: dict[int, EpisodesFeatures] = {}
             last_index = 0
-            missing_episodes = []
             for line in f:
                 episodes_feature = EpisodesFeatures.model_validate_json(line)
                 _episodes_features[episodes_feature.episode_index] = episodes_feature
@@ -1977,36 +1998,10 @@ class EpisodesModel(BaseModel):
                         if i not in _episodes_features
                     ]
                     if missing_indexes:
-                        logger.debug(f"Missing indexes: {missing_indexes}")
-                    # Dataset path is the parent folder of the meta folder
-                    data_folder_path = os.path.dirname(meta_folder_path)
-                    for i in missing_indexes:
-                        episode_path = os.path.join(
-                            data_folder_path,
-                            "data",
-                            "chunk-000",
-                            f"episode_{i:06d}.parquet",
+                        incorrect_episodes = True
+                        logger.warning(
+                            f"Missing episodes in episodes.jsonl: {missing_indexes}."
                         )
-                        if os.path.exists(episode_path):
-                            logger.info(
-                                f"Found missing episode: {i} {episode_path} in episodes.jsonl. Adding it."
-                            )
-                            episode = LeRobotEpisode.from_parquet(
-                                episode_data_path=episode_path, format=format
-                            )
-                            _episodes_features[i] = EpisodesFeatures(
-                                episode_index=i,
-                                tasks=[
-                                    str(
-                                        episode.steps[
-                                            0
-                                        ].observation.language_instruction
-                                    )
-                                ],
-                                length=len(episode.steps),
-                            )
-                            missing_episodes.append(i)
-                last_index = episodes_feature.episode_index
 
         # Read all the .parquet files in the data folder to see if they are missing in the episodes.jsonl file
         dataset_path = os.path.dirname(meta_folder_path)
@@ -2018,47 +2013,79 @@ class EpisodesModel(BaseModel):
             )
         )
         all_parquet_files.sort()  # Sort to ensure episode order
-        # If a .parquet file is missing in the _episodes_features, add it
+        # Check if all parquet files are in the episodes.jsonl file
         for parquet_file in all_parquet_files:
             episode_index = int(parquet_file.split("_")[1].split(".")[0])
             if episode_index not in _episodes_features.keys():
                 logger.info(
-                    f"Found missing episode: {episode_index} {parquet_file} in episodes.jsonl. Adding it."
+                    f"Found missing episode: {episode_index} {parquet_file} in episodes.jsonl."
                 )
-                # Check if the parquet file exists
-                parquet_path = os.path.join(data_folder_path, parquet_file)
-                if os.path.exists(parquet_path):
-                    # Load the episode from the parquet file
-                    episode = LeRobotEpisode.from_parquet(parquet_path, format=format)
-                    # Create a new EpisodesFeatures object
-                    _episodes_features[episode_index] = EpisodesFeatures(
-                        episode_index=episode_index,
-                        tasks=[str(episode.steps[0].observation.language_instruction)],
-                        length=len(episode.steps),
-                    )
-                    missing_episodes.append(episode_index)
+                incorrect_episodes = True
 
-        # Sort the _episodes_features by increasing episode_index
-        _episodes_features = dict(
-            sorted(_episodes_features.items(), key=lambda x: x[0])
-        )
+        # If there are inconsistencies, we need to recompute the episodes from the parquet files
+        if incorrect_episodes:
+            # Recompute the episodes from the parquet files
+            logger.warning("Recomputing the episodes from the parquet files.")
+            episodes_model = cls.recompute_from_parquets(
+                dataset_path=Path(dataset_path), format=format
+            )
+            logger.info(
+                f"Recomputed {len(episodes_model.episodes)} episodes from the parquet files. Replacing the episodes.jsonl file."
+            )
+            episodes_model.to_jsonl(
+                meta_folder_path=meta_folder_path, save_mode="overwrite"
+            )
+            _episodes_features = {
+                episode.episode_index: episode for episode in episodes_model.episodes
+            }
+        else:
+            # Sort the _episodes_features by increasing episode_index
+            _episodes_features = dict(
+                sorted(_episodes_features.items(), key=lambda x: x[0])
+            )
+            episodes_model = EpisodesModel(
+                episodes=list(_episodes_features.values()),
+            )
 
-        # If we found missing episodes and added them to the list, we need to update the file
-        if missing_episodes:
-            with open(
-                f"{meta_folder_path}/episodes.jsonl",
-                "w",
-                encoding=DEFAULT_FILE_ENCODING,
-            ) as f:
-                for episode_feature in _episodes_features.values():
-                    f.write(episode_feature.model_dump_json() + "\n")
-
-        episodes_model = EpisodesModel(
-            episodes=list(_episodes_features.values()),
-        )
         # Do it after model init, otherwise pydantic ignores the value of _original_nb_total_episodes
         episodes_model._original_nb_total_episodes = len(_episodes_features.keys())
         episodes_model._episodes_features = _episodes_features
+        return episodes_model
+
+    @classmethod
+    def recompute_from_parquets(
+        cls,
+        dataset_path: Path,
+        format: Literal["lerobot_v2", "lerobot_v2.1"] = "lerobot_v2.1",
+    ) -> "EpisodesModel":
+        """
+        Recompute the episodes model from the parquet files in the data folder path.
+        This is useful if the episodes.jsonl file is corrupted or missing.
+        """
+        data_folder_path = dataset_path / "data" / "chunk-000"
+        episodes = []
+        episode_index = 0
+        for parquet_file in sorted(data_folder_path.glob("*.parquet")):
+            episode = LeRobotEpisode.from_parquet(
+                episode_data_path=str(parquet_file),
+                format=format,
+                dataset_path=str(dataset_path),
+            )
+            episodes.append(
+                EpisodesFeatures(
+                    episode_index=episode.episode_index,
+                    tasks=[str(episode.steps[0].observation.language_instruction)],
+                    length=len(episode.steps),
+                )
+            )
+        # Create the EpisodesModel
+        episodes_model = cls(episodes=episodes)
+        # Set the _episodes_features dict
+        episodes_model._episodes_features = {
+            episode.episode_index: episode for episode in episodes_model.episodes
+        }
+        # Set the _original_nb_total_episodes
+        episodes_model._original_nb_total_episodes = len(episodes_model.episodes)
         return episodes_model
 
     def save(
@@ -3426,24 +3453,37 @@ class InfoModel(BaseModel):
         all_episodes_df = list(data_folder_path.rglob("episode_*.parquet"))
         if len(all_episodes_df) != infos.total_episodes:
             logger.warning(
-                f"Number of episodes in info.json ({infos.total_episodes}) does not match the number of episodes in the data folder ({len(all_episodes_df)}). Recomputing total_episodes and total_frames."
+                f"Number of episodes in info.json ({infos.total_episodes}) does not match the number of episodes in the data folder ({len(all_episodes_df)}). Recomputing from parquets."
             )
-            infos.total_episodes = len(all_episodes_df)
-            # Recompute the number of total frames and videos
-            total_frames = 0
-            for episode_file in data_folder_path.glob("episode_*.parquet"):
-                df = pd.read_parquet(episode_file)
-                total_frames += len(df)
-            infos.total_frames = total_frames
-            # Recompute the number of total videos
-            total_videos = 0
-            video_path = Path(dataset_path) / "videos" / "chunk-000"
-            for camera_name in video_path.iterdir():
-                # Count the number of videos in the subfolder
-                if "image" not in camera_name.name:
-                    continue
-                total_videos += len(list(camera_name.glob("episode_*.mp4")))
-            infos.total_videos = total_videos
+            infos = cls.recompute_from_parquets(
+                infos=infos, dataset_path=Path(dataset_path)
+            )
+
+        return infos
+
+    @classmethod
+    def recompute_from_parquets(
+        cls, infos: "InfoModel", dataset_path: Path
+    ) -> "InfoModel":
+        data_folder_path = dataset_path / "data" / "chunk-000"
+        all_episodes_df = list(data_folder_path.rglob("episode_*.parquet"))
+        infos.total_episodes = len(all_episodes_df)
+        # Recompute the number of total frames and videos
+        total_frames = 0
+        for episode_file in data_folder_path.glob("episode_*.parquet"):
+            df = pd.read_parquet(episode_file)
+            total_frames += len(df)
+        infos.total_frames = total_frames
+
+        # Recompute the number of total videos
+        total_videos = 0
+        video_path = dataset_path / "videos" / "chunk-000"
+        for camera_name in video_path.iterdir():
+            # Count the number of videos in the subfolder
+            if "image" not in camera_name.name:
+                continue
+            total_videos += len(list(camera_name.glob("episode_*.mp4")))
+        infos.total_videos = total_videos
 
         return infos
 
