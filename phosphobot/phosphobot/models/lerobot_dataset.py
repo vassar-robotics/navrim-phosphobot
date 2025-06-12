@@ -3415,6 +3415,36 @@ class InfoModel(BaseModel):
             del info_model_dict["features"][key]
         info_model_dict["features"]["observation_images"] = observation_images
         infos = cls.model_validate(info_model_dict)
+
+        # Read the number of .parquet files in the data folder. Get the parent directory
+        dataset_path = os.path.dirname(meta_folder_path)
+        data_folder_path = Path(dataset_path) / "data" / "chunk-000"
+        if not data_folder_path.exists():
+            return infos
+
+        # Otherwise, count the number of .parquet files in the data folder
+        all_episodes_df = list(data_folder_path.rglob("episode_*.parquet"))
+        if len(all_episodes_df) != infos.total_episodes:
+            logger.warning(
+                f"Number of episodes in info.json ({infos.total_episodes}) does not match the number of episodes in the data folder ({len(all_episodes_df)}). Recomputing total_episodes and total_frames."
+            )
+            infos.total_episodes = len(all_episodes_df)
+            # Recompute the number of total frames and videos
+            total_frames = 0
+            for episode_file in data_folder_path.glob("episode_*.parquet"):
+                df = pd.read_parquet(episode_file)
+                total_frames += len(df)
+            infos.total_frames = total_frames
+            # Recompute the number of total videos
+            total_videos = 0
+            video_path = Path(dataset_path) / "videos" / "chunk-000"
+            for camera_name in video_path.iterdir():
+                # Count the number of videos in the subfolder
+                if "image" not in camera_name.name:
+                    continue
+                total_videos += len(list(camera_name.glob("episode_*.mp4")))
+            infos.total_videos = total_videos
+
         return infos
 
     @classmethod
