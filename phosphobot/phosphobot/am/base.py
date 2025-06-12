@@ -123,8 +123,8 @@ class TrainingParamsActWithBbox(TrainingParamsAct):
 
     # Optional field with the image keys to keep
     image_keys_to_keep: list[str] = Field(
-        default=[],
-        description="Optional list of image keys to keep. Default is empty list, all image keys will be dropped.",
+        default_factory=list,
+        description="Optional list of image keys to keep. If none, all image keys will be dropped.",
     )
 
     @field_validator("target_detection_instruction", mode="before")
