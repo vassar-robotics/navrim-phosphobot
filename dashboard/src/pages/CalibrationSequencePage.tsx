@@ -24,7 +24,7 @@ import {
   Loader2,
   RotateCcw,
 } from "lucide-react";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 import useSWR from "swr";
 
@@ -41,7 +41,7 @@ export default function CalibrationPage() {
   const [calibrationStatus, setCalibrationStatus] = useState<
     "idle" | "loading" | "success" | "error" | "in_progress"
   >("idle");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<ReactNode>("");
   const [selectedRobotName, setSelectedRobotName] = useState<string | null>(
     null,
   );
@@ -54,25 +54,41 @@ export default function CalibrationPage() {
     }
 
     setCalibrationStatus("loading");
-    try {
-      // robot_id is the index of the robot in the robot_status array
-      const robot_id = serverStatus?.robot_status.findIndex(
-        (robot) => robot.device_name === selectedRobotName,
-      );
-      if (robot_id === -1 || robot_id === undefined) {
-        throw new Error(`Robot not found: ${robot_id}`);
-      }
-      const queryParam = new URLSearchParams({ robot_id: robot_id.toString() });
-      const data = await fetchWithBaseUrl(
-        `/calibrate?${queryParam.toString()}`,
-        "POST",
-      );
-      setCalibrationStatus(data.calibration_status);
-      setMessage(data.message || "Calibration completed successfully!");
-    } catch (error) {
-      setCalibrationStatus("error");
+    // robot_id is the index of the robot in the robot_status array
+    const robot_id = serverStatus?.robot_status.findIndex(
+      (robot) => robot.device_name === selectedRobotName,
+    );
+    if (robot_id === -1 || robot_id === undefined) {
+      throw new Error(`Robot not found: ${robot_id}`);
+    }
+    const queryParam = new URLSearchParams({ robot_id: robot_id.toString() });
+    const data = await fetchWithBaseUrl(
+      `/calibrate?${queryParam.toString()}`,
+      "POST",
+    );
+    setCalibrationStatus(data.calibration_status);
+    // setMessage(data.message || "Calibration completed successfully!");
+    if (data.calibration_status === "error") {
       setMessage(
-        `An error occurred during calibration. Please try again. ${error}`,
+        <>
+          <p>An error occurred during calibration:</p>
+          <code>{data.message || "Unknown error"}</code>
+          <ul className="mt-2 list-disc pl-5 space-y-1">
+            <li>Ensure the robot is connected to USB-C and to the power.</li>
+            <li>
+              If you have a Torque Read error, check that all the wires are
+              fully plugged in the servomotors. Lose wires can cause this!
+            </li>
+            <li>
+              Check that the power voltage of your servomotors and the power
+              supply are compatible.
+            </li>
+            <li>
+              Ensure your terminal is allowed to access the USB port. This is a
+              common issue on Windows.
+            </li>
+          </ul>
+        </>,
       );
     }
   };
@@ -208,10 +224,16 @@ export default function CalibrationPage() {
       <Alert variant={"default"} className="mb-6">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>
-          Calibration is only required if you've built your own robot arm.
+          Calibration is only required if you're not a phospho.ai customer.
         </AlertTitle>
         <AlertDescription>
-          Assembled robots are pre-calibrated and ready to use.
+          <p>
+            Robots you got from{" "}
+            <a href="https://robots.phospho.ai" className="underline">
+              robots.phospho.ai
+            </a>{" "}
+            are already calibrated.
+          </p>
         </AlertDescription>
       </Alert>
 
@@ -304,6 +326,13 @@ export default function CalibrationPage() {
           <Progress value={(step / totalSteps) * 100} className="h-2" />
         </div>
       </div>
+
+      <a
+        className="text-xs text-muted-foreground underline cursor-pointer"
+        href="https://www.youtube.com/watch?v=65DW8yLcRmM"
+      >
+        Need help? Watch the video tutorial.
+      </a>
     </>
   );
 }
