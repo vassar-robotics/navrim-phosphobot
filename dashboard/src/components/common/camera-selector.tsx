@@ -1,7 +1,6 @@
 "use client";
 
 import { CardContentPiece } from "@/components/common/camera-stream-card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetcher } from "@/lib/utils";
@@ -20,8 +19,8 @@ export interface CameraSelectorProps {
 export default function CameraSelector({
   onCameraSelect,
   selectedCameraId,
-  title = "Select a viewpoint",
-  description = "Choose a camera to use from the available options below. The selected camera should be in the same position as during the training.",
+  title = "Select a camera for object detection",
+  description = "The camera should have the same viewpoint as the image_key had during the training.",
 }: CameraSelectorProps) {
   const {
     data: serverStatus,
@@ -92,18 +91,11 @@ export default function CameraSelector({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold">{title}</h2>
         <p className="text-sm text-muted-foreground">{description}</p>
-        <div className="mt-2">
-          <Badge variant="secondary" className="text-xs">
-            <Check className="mr-1 h-3 w-3" />
-            Camera {selectedCameraId} selected
-          </Badge>
-        </div>
       </div>
-
       <div className="ml-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {cameraIds.map((cameraId) => {

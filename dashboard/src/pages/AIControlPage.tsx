@@ -473,14 +473,21 @@ export default function AIControlPage() {
               </Accordion>
 
               <div className="space-y-2">
-                <Label>Start your model</Label>
+                {selectedModelType == "gr00t" && <Label>Prompt</Label>}
+                {selectedModelType === "ACT_BBOX" && (
+                  <Label>Object to detect</Label>
+                )}
                 <div className="flex flex-col md:flex-row gap-2">
                   {modelsThatRequirePrompt.includes(selectedModelType) && (
                     <Input
                       id="prompt"
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
-                      placeholder="Enter instructions for the AI..."
+                      placeholder={
+                        selectedModelType === "gr00t"
+                          ? "eg. 'Pick up the red ball and place it in the box.'"
+                          : "eg. 'red ball', 'plushy', 'green cube'"
+                      }
                       className="w-full"
                       disabled={aiStatus?.status !== "stopped"}
                     />
@@ -505,14 +512,6 @@ export default function AIControlPage() {
                     Start AI control
                   </Button>
                 </div>
-                {selectedModelType === "ACT_BBOX" && (
-                  <div className="text-muted-foreground">
-                    Instructions for this model should be instructions to detect
-                    the object to pick up.
-                    <br />
-                    For example: "red/orange ball" or "blue cubic tower".
-                  </div>
-                )}
               </div>
             </>
           )}
