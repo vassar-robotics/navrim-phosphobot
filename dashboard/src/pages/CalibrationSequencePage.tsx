@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetcher } from "@/lib/utils";
+import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
 import { ServerStatus } from "@/types";
 import {
   AlertCircle,
@@ -63,15 +63,10 @@ export default function CalibrationPage() {
         throw new Error(`Robot not found: ${robot_id}`);
       }
       const queryParam = new URLSearchParams({ robot_id: robot_id.toString() });
-      const response = await fetch(`/calibrate?${queryParam.toString()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      const data = await response.json();
-
+      const data = await fetchWithBaseUrl(
+        `/calibrate?${queryParam.toString()}`,
+        "POST",
+      );
       setCalibrationStatus(data.calibration_status);
       setMessage(data.message || "Calibration completed successfully!");
     } catch (error) {

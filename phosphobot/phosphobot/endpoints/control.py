@@ -720,11 +720,17 @@ async def calibrate(
     if not robot.is_connected:
         raise HTTPException(status_code=400, detail="Robot is not connected")
 
-    status, message = await robot.calibrate()
-    current_step = robot.calibration_current_step
-    total_nb_steps = robot.calibration_max_steps
-    if status == "success":
-        current_step = total_nb_steps
+    try:
+        status, message = await robot.calibrate()
+        current_step = robot.calibration_current_step
+        total_nb_steps = robot.calibration_max_steps
+        if status == "success":
+            current_step = total_nb_steps
+    except Exception as e:
+        status = "error"
+        current_step = getattr(robot, "calibration_current_step", 0)
+        total_nb_steps = getattr(robot, "calibration_max_steps", 0)
+        message = f"Calibration step {current_step}/{total_nb_steps} failed: {e}"
 
     return CalibrateResponse(
         calibration_status=status,
