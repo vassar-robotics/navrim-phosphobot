@@ -14,17 +14,10 @@ import type React from "react";
 // Default parameters for the streams (these can be passed as props or come from config)
 const defaultQuality = 8;
 const highQuality = 80;
-const width = 640;
-const height = 480;
 
 // Helper to compute stream URL based on current hostname, port, and query parameters
-const getStreamUrl = (
-  streamPath: string,
-  quality: number,
-  height: number,
-  width: number,
-) =>
-  `http://${window.location.hostname}:${window.location.port}${streamPath}?quality=${quality}&height=${height}&width=${width}`;
+const getStreamUrl = (streamPath: string, quality: number) =>
+  `http://${window.location.hostname}:${window.location.port}${streamPath}?quality=${quality}`;
 
 export interface CameraStreamProps {
   id: number;
@@ -75,7 +68,7 @@ export const CardContentPiece = ({
   }, []);
 
   return (
-    <div className="relative aspect-video bg-muted">
+    <div className="relative bg-muted">
       {hasError && (
         <div className="flex items-center gap-1">
           <CameraOff className="size-6" />
@@ -94,10 +87,7 @@ export const CardContentPiece = ({
       <img
         id={`view-video-${id}`}
         ref={imgRef}
-        src={
-          getStreamUrl(streamPath, highQuality, height, width) ||
-          "/placeholder.svg"
-        }
+        src={getStreamUrl(streamPath, highQuality) || "/placeholder.svg"}
         alt={alt}
         className={`w-full h-full object-cover transition-opacity duration-300 ${
           isLoading || hasError || (!isRecording && showRecordingControls)

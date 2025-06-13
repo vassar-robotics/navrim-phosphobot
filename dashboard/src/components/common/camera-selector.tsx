@@ -134,7 +134,7 @@ export default function CameraSelector({
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="aspect-video rounded-md overflow-hidden bg-muted">
+                  <div className="rounded-md overflow-hidden bg-muted">
                     <CardContentPiece
                       id={cameraId}
                       streamPath={`/video/${cameraId}`}

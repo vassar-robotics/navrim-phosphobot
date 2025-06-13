@@ -406,7 +406,7 @@ class VideoCamera(threading.Thread, BaseCamera):
         disable: bool = False,
         camera_id: Optional[int] = 0,
         width: int = 640,
-        height: int = 360,
+        height: int = 480,
         fps: int = 22,
         camera_type: Optional[CameraTypes] = None,
     ):
@@ -516,13 +516,13 @@ Camera type: {self.camera_type}""")
         if self.last_frame is None:
             logger.warning(f"{self.camera_name}: No frame available")
 
-        frame = None
+        frame: np.ndarray | None = None
         # Convert from BGR to RGB
         if self.last_frame is not None:
             frame = cv2.cvtColor(self.last_frame, cv2.COLOR_BGR2RGB)
 
         if resize is not None and frame is not None:
-            frame = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
+            frame = cv2.resize(src=frame, dsize=resize, interpolation=cv2.INTER_AREA)
 
         return frame
 
@@ -538,7 +538,7 @@ class DummyCamera(VideoCamera):
         self,
         camera_type: Literal["dummy", "dummy_stereo"],
         width: int = 640,
-        height: int = 360,
+        height: int = 480,
         fps: int = 30,
     ):
         super().__init__(camera_type=camera_type, width=width, height=height, fps=fps)
