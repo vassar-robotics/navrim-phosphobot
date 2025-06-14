@@ -184,10 +184,6 @@ const ModelRow: React.FC<{ model: SupabaseTrainingModel }> = ({ model }) => {
 
     if (status_response?.status === "succeeded") {
       toast.success(status_response?.message);
-    } else {
-      toast.error(
-        status_response?.message || "Failed to cancel training (no message).",
-      );
     }
   };
 
@@ -226,7 +222,7 @@ const ModelRow: React.FC<{ model: SupabaseTrainingModel }> = ({ model }) => {
                 <ExternalLink className="h-4 w-4" />
               </Button>
               {/* Cancel button - only show for running models */}
-              {model.status === "succeeded" && (
+              {model.status === "running" && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
