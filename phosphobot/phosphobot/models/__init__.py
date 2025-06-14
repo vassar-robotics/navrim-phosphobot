@@ -962,8 +962,7 @@ class StartLeaderArmControlRequest(BaseModel):
 
 
 class SupabaseTrainingModel(BaseModel):
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="allow")
 
     id: int
     status: Literal["succeeded", "failed", "running", "canceled"]
@@ -985,6 +984,17 @@ class TrainingConfig(BaseModel):
 class UDPServerInformationResponse(BaseModel):
     host: str
     port: int
+
+
+class StartTrainingResponse(StatusResponse):
+    training_id: int | None = Field(
+        ...,
+        description="ID of the training to start. This is the ID returned by the training request.",
+    )
+
+
+class CancelTrainingRequest(BaseModel):
+    training_id: int = Field(..., description="ID of the training to cancel.")
 
 
 class CustomTrainingRequest(BaseModel):

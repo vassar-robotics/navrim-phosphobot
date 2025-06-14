@@ -1,3 +1,5 @@
+"use client";
+
 import { CopyButton } from "@/components/common/copy-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,12 +39,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { fetcher } from "@/lib/utils";
+import { fetchWithBaseUrl, fetcher } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { SupabaseTrainingModel, TrainingConfig } from "@/types";
 import { Ban, Check, ExternalLink, Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
+import { toast } from "sonner";
 import useSWR from "swr";
 
 type ModelStatus = "succeeded" | "failed" | "running" | "canceled" | null;
@@ -157,11 +160,36 @@ const ValueWithTooltip = ({ value }: { value: string }) => {
 
 // ModelRow component
 const ModelRow: React.FC<{ model: SupabaseTrainingModel }> = ({ model }) => {
+  const [isCanceling, setIsCanceling] = useState(false);
+
   // Set uppercase status for display
   const status = model.status.charAt(0).toUpperCase() + model.status.slice(1);
 
   // Define model url
   const url = "https://huggingface.co/" + model.model_name;
+
+  const handleCancel = async () => {
+    if (
+      !confirm(
+        "Are you sure you want to cancel this training? This action cannot be undone.",
+      )
+    ) {
+      return;
+    }
+
+    setIsCanceling(true);
+    const status_response = await fetchWithBaseUrl("/training/cancel", "POST", {
+      training_id: model.id,
+    });
+
+    if (status_response?.status === "succeeded") {
+      toast.success(status_response?.message);
+    } else {
+      toast.error(
+        status_response?.message || "Failed to cancel training (no message).",
+      );
+    }
+  };
 
   return (
     <>
@@ -197,6 +225,31 @@ const ModelRow: React.FC<{ model: SupabaseTrainingModel }> = ({ model }) => {
               >
                 <ExternalLink className="h-4 w-4" />
               </Button>
+              {/* Cancel button - only show for running models */}
+              {model.status === "succeeded" && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={handleCancel}
+                        disabled={isCanceling}
+                        variant="ghost"
+                        size="icon"
+                        className="text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
+                      >
+                        {isCanceling ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Ban className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {isCanceling ? "Canceling..." : "Cancel training"}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           </div>
         </TableCell>
