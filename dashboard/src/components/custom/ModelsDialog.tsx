@@ -182,7 +182,7 @@ const ModelRow: React.FC<{ model: SupabaseTrainingModel }> = ({ model }) => {
       training_id: model.id,
     });
 
-    if (status_response?.status === "succeeded") {
+    if (status_response?.status === "ok") {
       toast.success(status_response?.message);
     }
   };
