@@ -40,7 +40,7 @@ import {
 import { fetcher } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { SupabaseTrainingModel, TrainingConfig } from "@/types";
-import { Check, ExternalLink, Loader2, X } from "lucide-react";
+import { Ban, Check, ExternalLink, Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import useSWR from "swr";
@@ -109,7 +109,7 @@ export function ModelStatusFilter({
           <span>Running</span>
         </ToggleGroupItem>
 
-        {/* <ToggleGroupItem
+        <ToggleGroupItem
           value="canceled"
           aria-label="Filter by canceled status"
           className={cn(
@@ -119,7 +119,7 @@ export function ModelStatusFilter({
         >
           <Ban className="h-4 w-4 text-gray-600 dark:text-gray-400" />
           <span>Canceled</span>
-        </ToggleGroupItem> */}
+        </ToggleGroupItem>
       </ToggleGroup>
     </div>
   );
@@ -132,12 +132,12 @@ interface ModelsDialogProps {
 
 const ValueWithTooltip = ({ value }: { value: string }) => {
   // Don't use tooltip if value is short
-  if (!value || value.length < 25) {
+  if (!value || value.length < 30) {
     return <span>{value}</span>;
   }
 
   // Show a preview of the first 20 characters after the last "/"
-  const preview = value.split("/").pop()?.slice(0, 20) + "..." || value;
+  const preview = value.split("/").pop()?.slice(0, 25) + "..." || value;
 
   return (
     <TooltipProvider>
@@ -173,15 +173,17 @@ const ModelRow: React.FC<{ model: SupabaseTrainingModel }> = ({ model }) => {
           {status === "Running" && (
             <Loader2 className="h-4 w-4 animate-spin inline mr-1" />
           )}
-          {(status === "Failed" || status === "Canceled") && (
+          {status === "Failed" && (
             <X className="h-4 w-4 inline mr-1 text-red-500" />
+          )}
+          {status === "Canceled" && (
+            <Ban className="h-4 w-4 inline mr-1 text-gray-500" />
           )}
           {status}
         </TableCell>
         <TableCell>
           <div className="flex items-center flex-row justify-between">
             {ValueWithTooltip({ value: model.model_name })}
-
             <div className="flex items-center">
               <CopyButton text={model.model_name} hint={"Copy model name"} />
               {/* Button to open model page */}
@@ -212,7 +214,10 @@ const ModelRow: React.FC<{ model: SupabaseTrainingModel }> = ({ model }) => {
               )}
           </div>
         </TableCell>
-        <TableCell>{ValueWithTooltip({ value: model.dataset_name })}</TableCell>
+        <TableCell>
+          {ValueWithTooltip({ value: model.dataset_name })}
+          <CopyButton text={model.dataset_name} hint={"Copy dataset name"} />
+        </TableCell>
         <TableCell>
           {model.used_wandb ? (
             <Check className="h-4 w-4 inline mr-1 text-green-500" />
