@@ -49,10 +49,7 @@ async def get_models(
     # Convert the list of models to a TrainingConfig object
     training_config = TrainingConfig(
         models=[
-            SupabaseTrainingModel(
-                **model,
-            )
-            for model in model_list.data
+            SupabaseTrainingModel.model_validate(model) for model in model_list.data
         ]
     )
     return training_config
@@ -154,14 +151,11 @@ async def start_training(
         if response.status_code == 401:
             raise HTTPException(
                 status_code=401,
-                detail="Token expired, please relogin.",
+                detail="Token expired. Please login again.",
             )
-
         if response.status_code == 429:
-            raise HTTPException(
-                status_code=429,
-                detail="A training is already in progress. Please wait until it is finished.",
-            )
+            # Too many requests: this can happen if the user is trying to train too many models at once
+            raise HTTPException(status_code=429, detail=response.text)
 
         if response.status_code == 422:
             raise HTTPException(

@@ -962,6 +962,9 @@ class StartLeaderArmControlRequest(BaseModel):
 
 
 class SupabaseTrainingModel(BaseModel):
+    class Config:
+        extra = "ignore"
+
     id: int
     status: Literal["succeeded", "failed", "running", "canceled"]
     user_id: str
@@ -972,6 +975,7 @@ class SupabaseTrainingModel(BaseModel):
     used_wandb: bool | None
     model_type: str
     training_params: dict | None = None
+    modal_function_call_id: str | None = None
 
 
 class TrainingConfig(BaseModel):
