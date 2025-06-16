@@ -598,7 +598,7 @@ export default function FileBrowser() {
 
         <Button variant="outline" onClick={() => setOpenDownloadModal(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Download dataset
+          Add dataset from hub 🤗
         </Button>
       </div>
       {data.tokenError && (
@@ -645,17 +645,30 @@ export default function FileBrowser() {
                 ) : null}
               </TableCell>
               <TableCell>
-                <Link
-                  to={item.browseUrl}
-                  className="flex items-center text-blue-500 hover:underline"
-                >
-                  {item.is_dir ? (
+                {item.is_dir ? (
+                  <Link
+                    to={item.browseUrl}
+                    className="flex items-center text-blue-500 hover:underline"
+                  >
                     <Folder className="mr-2 h-4 w-4" />
-                  ) : (
-                    <File className="mr-2 h-4 w-4" />
-                  )}
-                  {item.name}
-                </Link>
+                    {item.name}
+                  </Link>
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center">
+                          <File className="mr-2 h-4 w-4" />
+                          {item.name}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        There is no preview available for this file. Open it in
+                        your file explorer to view it.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </TableCell>
               <TableCell className="text-muted-foreground">
                 {datasetInfos[item.path]?.robot_type &&
@@ -993,7 +1006,7 @@ export default function FileBrowser() {
       <Modal
         open={openDownloadModal}
         onOpenChange={setOpenDownloadModal}
-        title="Dataset Download"
+        title="Download dataset"
         description="Enter the Hugging Face dataset name to download: should be hf_name/dataset_name"
         confirmLabel={loading ? "Downloading..." : "Download"}
         isLoading={loading}
