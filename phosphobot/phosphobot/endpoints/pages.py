@@ -189,10 +189,13 @@ async def files(query: BrowserFilesRequest):
     root = Path(ROOT_DIR)
     full_path = os.path.join(ROOT_DIR, safe_path)
 
+    logger.debug(f"Browsing files at path: {safe_path}")
+
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="Path not found")
 
     if os.path.isfile(full_path):
+        logger.debug(f"Serving file: {full_path}")
         return FileResponse(full_path)
 
     items_info = list_directory_items(path=safe_path, root_dir=ROOT_DIR)
