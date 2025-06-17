@@ -77,7 +77,9 @@ INDEX_PATH = get_resources_path() / "dist" / "index.html"
 async def serve_dashboard(request: Request):
     with open(INDEX_PATH.resolve(), "r") as f:
         content = f.read()
-    return HTMLResponse(content=content)
+    return HTMLResponse(
+        headers={"Content-Type": "text/html; charset=utf-8"}, content=content
+    )
 
 
 @router.get("/admin/settings", response_model=AdminSettingsResponse)
