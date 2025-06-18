@@ -11,6 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Example of usage:
+```bash
+python phosphobot/phosphobot/hardware/motors/find_motor_bus.py
+```
+"""
+
 import os
 import time
 from pathlib import Path
