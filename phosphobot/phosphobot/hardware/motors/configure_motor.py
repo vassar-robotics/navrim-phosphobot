@@ -14,10 +14,12 @@
 """
 This script configure a single motor at a time to a given ID and baudrate.
 
+This will overwrite the current ID and baudrate of the motor, so it should be used with caution.
+
 Example of usage:
 ```bash
-python phosphobot/phosphobot/hardware/motors/configure_motor.py \
-  --port /dev/tty.usbmodem585A0080521 \
+uv run phosphobot/hardware/motors/configure_motor.py \
+  --port /dev/cu.usbmodem58FA0823771 \
   --brand feetech \
   --model sts3215 \
   --baudrate 1000000 \
@@ -106,7 +108,7 @@ def configure_motor(port, brand, model, motor_idx_des, baudrate_des):
     )
 
     # Initialize the MotorBus with the correct port and motor configurations
-    motor_bus = motor_bus_cls(config=config)
+    motor_bus = motor_bus_cls(**config.__dict__)
 
     # Try to connect to the motor bus and handle any connection-specific errors
     try:
