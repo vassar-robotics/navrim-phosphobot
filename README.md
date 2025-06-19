@@ -110,23 +110,34 @@ Connect with other developers and share your experience in our [Discord communit
 
 ## Install from source
 
-First, download and install [uv](https://docs.astral.sh/uv/getting-started/installation/) and [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). Best compatibility is with `python>=3.10` and `node>=20`.
+1. Download and install [uv](https://docs.astral.sh/uv/getting-started/installation/) and [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). Best compatibility is with `python>=3.10` and `node>=20`.
 
-Then, to build the frontend and backend, run:
+2. Clone github
 
 ```bash
 git clone https://github.com/phospho-app/phosphobot.git
-cd phosphobot
+```
+
+3. On MacOS and Windows, to build the frontend and start the backend, run:
+
+```bash
 make
 ```
 
-Go to `localhost:80` in your browser to see the dashboard or get the server infos with:
+On Windows, the Makefile don't work. You can run the commands directly.
+
+```
+cd ./dashboard && (npm i && npm run build && mkdir -p ../phosphobot/resources/dist/ && cp -r ./dist/* ../phosphobot/resources/dist/)
+cd phosphobot && uv run --python 3.10 phosphobot run --simulation=headless
+```
+
+4. Go to `localhost:80` in your browser to see the dashboard or get the server infos with:
 
 ```bash
 curl -X 'GET' 'http://localhost/status' -H 'accept: application/json'
 ```
 
-Some features such as connection to the phospho cloud are not available when installing from source.
+> _Note: some features, such as connection to the phospho cloud, AI training, and AI control, are not available when installing from source._
 
 ## Contributing
 
