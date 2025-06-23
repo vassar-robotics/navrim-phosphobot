@@ -16,7 +16,7 @@
 """
 Example of usage:
 ```bash
-python phosphobot/phosphobot/hardware/motors/find_motor_bus.py
+uv run find_motor_bus.py
 ```
 """
 
