@@ -356,7 +356,7 @@ We faced an issue while training your model.
         readme += """
 ## This model was trained using **phospho**.
 
-Training was successfull, try it out on your robot!
+Training was successful, try it out on your robot!
 
 """
 
