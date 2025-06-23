@@ -22,7 +22,7 @@ Windows:
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-After installting uv, restart your terminal.
+After installing uv, restart your terminal.
 
 3. You can now run the script `filename.py` with `un run filename.py`
 
