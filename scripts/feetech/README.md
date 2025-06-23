@@ -2,10 +2,10 @@
 
 ## Installation
 
-1. Clone this repository with [git](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
+1. [Clone or download this git repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
 
 ```bash
-
+git clone git@github.com:phospho-app/phosphobot.git
 ```
 
 2. Install [uv.](https://docs.astral.sh/uv/)
