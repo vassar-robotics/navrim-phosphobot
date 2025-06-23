@@ -20,7 +20,7 @@ This will overwrite the current ID and baudrate of the motor, so it should be us
 
 Example of usage:
 ```bash
-uv run phosphobot/hardware/motors/configure_motor.py \
+uv run configure_motor.py \
   --port /dev/cu.usbmodem58FA0823771 \
   --brand feetech \
   --model sts3215 \
@@ -56,7 +56,7 @@ class FeetechMotorsBusConfig(MotorsBusConfig):
 
 def get_motor_bus_cls(brand: str) -> tuple:
     if brand == "feetech":
-        from phosphobot.hardware.motors.feetech import (
+        from feetech import (
             MODEL_BAUDRATE_TABLE,
             SCS_SERIES_BAUDRATE_TABLE,
             FeetechMotorsBus,
@@ -67,20 +67,6 @@ def get_motor_bus_cls(brand: str) -> tuple:
             FeetechMotorsBus,
             MODEL_BAUDRATE_TABLE,
             SCS_SERIES_BAUDRATE_TABLE,
-        )
-
-    elif brand == "dynamixel":
-        from phosphobot.hardware.motors.dynamixel import (
-            MODEL_BAUDRATE_TABLE,
-            X_SERIES_BAUDRATE_TABLE,
-            DynamixelMotorsBus,
-        )
-
-        return (
-            DynamixelMotorsBusConfig,
-            DynamixelMotorsBus,
-            MODEL_BAUDRATE_TABLE,
-            X_SERIES_BAUDRATE_TABLE,
         )
 
     else:
