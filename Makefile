@@ -7,14 +7,14 @@ OUTPUT_FILENAME ?= main.bin
 # Default target
 all: prod
 
-# Run the server for prod settings (able to connect to the Meta Quest). If npm is not installed, it will skip the build step.
+# Run the server for prod settings (able to connect to the Meta Quest). If pnpm is not installed, it will skip the build step.
 prod:
-	cd ./dashboard && (npm i && npm run build && mkdir -p ../phosphobot/resources/dist/ && cp -r ./dist/* ../phosphobot/resources/dist/)
+	cd ./dashboard && (pnpm i && pnpm run build && mkdir -p ../phosphobot/resources/dist/ && cp -r ./dist/* ../phosphobot/resources/dist/)
 	cd phosphobot && uv run --python 3.10 phosphobot run --simulation=headless
 
-# Run the server for prod settings (able to connect to the Meta Quest) but with telemetry disabled. If npm is not installed, it will skip the build step.
+# Run the server for prod settings (able to connect to the Meta Quest) but with telemetry disabled. If pnpm is not installed, it will skip the build step.
 prod_no_telemetry:
-	cd ./dashboard && ((npm i && npm run build && mkdir -p ../phosphobot/resources/dist/ && cp -r ./dist/* ../phosphobot/resources/dist/) || echo "npm command failed, continuing anyway") 
+	cd ./dashboard && ((pnpm i && pnpm run build && mkdir -p ../phosphobot/resources/dist/ && cp -r ./dist/* ../phosphobot/resources/dist/) || echo "pnpm command failed, continuing anyway") 
 	cd phosphobot && uv run phosphobot run --simulation=headless --no-telemetry
 
 # Run the server for prod settings with the simulation enabled
@@ -66,7 +66,7 @@ clean_build:
 	cd ./phosphobot && rm -rf main.build main.dist main.onefile-build $(OUTPUT_FILENAME)
 
 build_frontend:
-	cd ./dashboard && npm i && npm run build && \
+	cd ./dashboard && pnpm i && pnpm run build && \
 	mkdir -p ../phosphobot/resources/dist/ && \
 	cp -r ./dist/* ../phosphobot/resources/dist/
 

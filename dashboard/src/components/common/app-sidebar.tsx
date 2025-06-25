@@ -18,6 +18,7 @@ import {
   Home,
   Network,
   Play,
+  MessageSquareMore,
   Sliders,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
@@ -106,6 +107,17 @@ export function AppSidebar() {
                   <a href="/inference">
                     <BrainCircuit className="h-5 w-5" />
                     <span>AI Control</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={currentPath === "/chat"}
+                >
+                  <a href="/chat">
+                    <MessageSquareMore className="h-5 w-5" />
+                    <span>Chat Control</span>
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>

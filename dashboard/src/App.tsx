@@ -9,6 +9,7 @@ import AITrainingPage from "@/pages/AITrainingPage";
 import AdminPage from "@/pages/AdminSettingsPage";
 import BrowsePage from "@/pages/BrowsePage";
 import CalibrationPage from "@/pages/CalibrationPage";
+import ChatControlPage from "@/pages/ChatControlPage";
 import ControlPage from "@/pages/ControlPage";
 import DashboardPage from "@/pages/DashboardPage";
 import NetworkPage from "@/pages/NetworkPage";
@@ -38,6 +39,14 @@ function App() {
               <ProtectedRoute>
                 <AIControlPage />
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat"
+            element={
+              // <ProtectedRoute>
+              <ChatControlPage />
+              // </ProtectedRoute>
             }
           />
           <Route path="/admin" element={<AdminPage />} />
