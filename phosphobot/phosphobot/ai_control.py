@@ -110,6 +110,7 @@ async def setup_ai_control(
     model_id: str = "PLB/GR00T-N1-lego-pickup-mono-2",
     cameras_keys_mapping: dict[str, int] | None = None,
     init_connected_robots: bool = True,
+    verify_cameras: bool = True,
 ) -> tuple[Gr00tN1 | ACT, Gr00tSpawnConfig | ACTSpawnConfig, ServerInfoResponse]:
     """
     Setup the AI control loop by spawning the inference server and returning the model.
@@ -144,6 +145,7 @@ async def setup_ai_control(
             all_cameras=all_cameras,
             robots=robots,  # type: ignore
             cameras_keys_mapping=cameras_keys_mapping,
+            verify_cameras=verify_cameras,
         )
     except Exception as e:
         raise HTTPException(

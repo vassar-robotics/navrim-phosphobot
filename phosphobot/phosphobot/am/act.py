@@ -299,6 +299,7 @@ class ACT(ActionModel):
         all_cameras: AllCameras,
         robots: list[BaseManipulator],
         cameras_keys_mapping: Dict[str, int] | None = None,
+        verify_cameras: bool = True,
     ) -> ACTSpawnConfig:
         """
         Verify if the HuggingFace model is compatible with the current setup.
@@ -333,7 +334,7 @@ class ACT(ActionModel):
             ).intersection(hf_model_config.input_features.video_keys)
             nb_connected_cams = len(keys_in_common)
 
-        if nb_connected_cams < len(video_keys):
+        if nb_connected_cams < len(video_keys) and verify_cameras:
             logger.warning(
                 f"Model has {len(video_keys)} cameras but {nb_connected_cams} camera streams are detected."
             )

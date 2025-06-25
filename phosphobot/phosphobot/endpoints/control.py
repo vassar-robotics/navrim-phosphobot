@@ -1112,6 +1112,7 @@ async def start_auto_control(
         model_id=query.model_id,
         cameras_keys_mapping=query.cameras_keys_mapping,
         ai_control_signal_id=ai_control_signal.id,
+        verify_cameras=query.verify_cameras,
     )
 
     # Add a flag: successful setup

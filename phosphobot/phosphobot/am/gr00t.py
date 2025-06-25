@@ -616,6 +616,7 @@ class Gr00tN1(ActionModel):
         all_cameras: AllCameras,
         robots: list[BaseManipulator],
         cameras_keys_mapping: Dict[str, int] | None = None,
+        verify_cameras: bool = True,
     ) -> Gr00tSpawnConfig:
         """
         Verify if the HuggingFace model is compatible with the current setup.
@@ -652,7 +653,7 @@ class Gr00tN1(ActionModel):
         number_of_robots = hf_model_config.embodiment.statistics.state.number_of_arms
 
         # Check if the number of cameras in the model config matches the number of cameras connected
-        if nb_connected_cams < number_of_cameras:
+        if nb_connected_cams < number_of_cameras and verify_cameras:
             logger.warning(
                 f"Model has {len(hf_model_config.embodiment.modalities.video)} cameras but {nb_connected_cams} camera streams are detected."
             )

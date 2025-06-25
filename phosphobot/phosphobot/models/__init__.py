@@ -823,6 +823,10 @@ class StartAIControlRequest(BaseModel):
         None,
         description="Name of the camera to use when ACT_BBOX model is used. This is only required for ACT_BBOX models, and is ignored for other models.",
     )
+    verify_cameras: bool = Field(
+        True,
+        description="Whether to verify the setup before starting the AI control. If False, skips the verification step.",
+    )
 
 
 class AIStatusRequest(BaseModel):
