@@ -60,6 +60,7 @@ INDEX_PATH = get_resources_path() / "dist" / "index.html"
 
 # Optionally, if you want the dashboard to be served at the root endpoint:
 @router.get("/auth", response_class=HTMLResponse)
+@router.get("/chat", response_class=HTMLResponse)
 @router.get("/sign-in", response_class=HTMLResponse)
 @router.get("/sign-up", response_class=HTMLResponse)
 @router.get("/auth/confirm", response_class=HTMLResponse)

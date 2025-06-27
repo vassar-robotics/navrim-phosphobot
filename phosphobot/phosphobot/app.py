@@ -18,6 +18,7 @@ from phosphobot.camera import AllCameras, get_all_cameras
 from phosphobot.configs import config
 from phosphobot.endpoints import (
     auth_router,
+    chat_router,
     camera_router,
     control_router,
     networking_router,
@@ -206,6 +207,7 @@ app.include_router(pages_router)
 app.include_router(networking_router)
 app.include_router(update_router)
 app.include_router(auth_router)
+app.include_router(chat_router)
 
 # TODO : Only allow secured origins
 app.add_middleware(

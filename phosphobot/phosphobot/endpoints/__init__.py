@@ -6,3 +6,4 @@ from .networking import router as networking_router
 from .update import router as update_router
 from .training import router as training_router
 from .auth import router as auth_router
+from .chat import router as chat_router

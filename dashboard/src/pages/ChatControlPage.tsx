@@ -8,7 +8,7 @@ import { InfoIcon } from "lucide-react";
 export default function ChatControlPage() {
   // You can configure the runtime URL based on your backend setup
   // For now, using the cloud runtime as an example
-  const runtimeUrl = import.meta.env.VITE_COPILOT_RUNTIME_URL || "/api/copilotkit";
+  const runtimeUrl = import.meta.env.VITE_COPILOT_RUNTIME_URL || "http://localhost:5175/chat/copilotkit";
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
