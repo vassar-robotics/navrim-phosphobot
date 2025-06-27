@@ -4,6 +4,7 @@ import "@copilotkit/react-ui/styles.css";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { InfoIcon } from "lucide-react";
+import McpToolRenderer from "@/components/common/mcp-tool-renderer";
 
 export default function ChatControlPage() {
   // You can configure the runtime URL based on your backend setup
@@ -45,6 +46,7 @@ export default function ChatControlPage() {
                   placeholder: "Ask me to control the robot or about its capabilities..."
                 }}
               />
+              <McpToolRenderer />
             </div>
           </CopilotKit>
         </CardContent>

@@ -1,17 +1,41 @@
 from fastapi import APIRouter
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+from copilotkit import CopilotKitRemoteEndpoint, Action
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from phosphobot.agents.graph import chat_graph
+# from phosphobot.agents.graph import chat_graph
+
+
+def get_weather_handler(city: str):
+    """
+    Handler for getting weather information.
+    Returns simulated weather data for the given city.
+    """
+    # Simple simulated weather data
+    weather_data = {
+        "city": city,
+        "temperature": 22,  # Celsius
+        "condition": "Partly Cloudy",
+        "humidity": 65,
+        "wind_speed": 12,  # km/h
+        "description": f"The weather in {city} is currently partly cloudy with a temperature of 22°C."
+    }
+    return weather_data
 
 
 router = APIRouter(tags=["chat"])
 
 sdk = CopilotKitRemoteEndpoint(
-    agents=[
-        LangGraphAgent(
-            name="chat_graph",
-            description="This agent chats with user",
-            graph=chat_graph,
+    actions=[
+        Action(
+            name="get_weather",
+            handler=get_weather_handler,
+            description="Get the weather of certain place",
+            parameters=[
+                {
+                    "name": "city",
+                    "type": "string",
+                    "description": "The name of the city"
+                }
+            ]
         )
     ]
 )

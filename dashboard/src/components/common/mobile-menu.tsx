@@ -17,6 +17,7 @@ import {
   Network,
   Play,
   Sliders,
+  MessageSquareMore,
 } from "lucide-react";
 import { Menu } from "lucide-react";
 import { useLocation } from "react-router-dom";
@@ -113,6 +114,15 @@ export function MobileMenu() {
             >
               <BrainCircuit className="h-4 w-4" />
               AI Control
+            </a>
+            <a
+              href="/chat"
+              className={`flex items-center gap-3 px-2 py-1.5 rounded-md ${
+                currentPath === "/chat" ? "bg-accent" : "hover:bg-accent/50"
+              }`}
+            >
+              <MessageSquareMore className="h-4 w-4" />
+              Chat Control
             </a>
           </div>
 
