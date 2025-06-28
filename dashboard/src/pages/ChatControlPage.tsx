@@ -12,7 +12,7 @@ export default function ChatControlPage() {
   const runtimeUrl = import.meta.env.VITE_COPILOT_RUNTIME_URL || "http://localhost:5175/chat/copilotkit";
 
   return (
-    <div className="container mx-auto p-4 max-w-6xl">
+    <div className="container mx-auto p-4 w-full">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">AI Chat Control</h1>
         <p className="text-muted-foreground">
@@ -28,14 +28,14 @@ export default function ChatControlPage() {
         </AlertDescription>
       </Alert>
 
-      <Card className="h-[calc(100vh-280px)]">
+      <Card className="h-[calc(100vh-380px)] overflow-hidden">
         <CardHeader>
           <CardTitle>Robot Control Assistant</CardTitle>
           <CardDescription>
             Ask the AI to help you control the robot or answer questions about its capabilities
           </CardDescription>
         </CardHeader>
-        <CardContent className="h-[calc(100%-120px)] p-0">
+        <CardContent className="h-[calc(100%-60px)] p-0">
           <CopilotKit runtimeUrl={runtimeUrl}>
             <div className="h-full">
               <CopilotChat

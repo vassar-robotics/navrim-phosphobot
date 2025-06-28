@@ -611,8 +611,8 @@ def compute_sum_squaresum_framecount_from_video(
 ) -> Tuple[np.ndarray, np.ndarray, int]:
     """
     Process a video file and calculate the sum of RGB values and sum of squares of RGB values for each frame.
-    Returns a list of np.ndarray corresponding respectively to the sum of RGB values, sum of squares of RGB values and nb_pixel.
-    We divide by 255.0 RGB values to normalize the values to the range [0, 1].
+    Returns a list of np.ndarray corresponding respectively to the sum of RGB values, sum of squares of RGB values
+    and nb_pixel. We divide by 255.0 RGB values to normalize the values to the range [0, 1].
     """
     # Open the video file
     cap = cv2.VideoCapture(video_path)
@@ -897,7 +897,8 @@ async def scan_network_devices(
         arp_cmd = "arp.exe" if is_windows else "arp"
         if not shutil.which(arp_cmd):
             logger.warning(
-                f"'{arp_cmd}' command not found. ARP scan will fail. Please ensure 'arp' is installed and available in PATH. Skipping ARP scan."
+                f"'{arp_cmd}' command not found. ARP scan will fail. Please ensure 'arp' is installed and available "
+                "in PATH. Skipping ARP scan."
             )
             return []
 
