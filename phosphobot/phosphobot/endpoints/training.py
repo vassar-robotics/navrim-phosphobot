@@ -1,8 +1,11 @@
 import asyncio
 import os
 import platform
+import sys
 import time
 from typing import cast
+import lerobot
+import torch
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -176,6 +179,70 @@ async def start_training(
     return StartTrainingResponse(
         message=f"Training triggered successfully, find your model at: https://huggingface.co/{request.model_name}",
         training_id=response_data.get("training_id", None),
+    )
+
+
+@router.post(
+    "/training/start-locally",
+    response_model=StartTrainingResponse,
+    summary="Start training a model locally",
+    description="Start training an ACT or gr00t model on the specified dataset. This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.",
+)
+async def start_training_locally(
+    request: TrainingRequest,
+    background_tasks: BackgroundTasks,
+) -> StartTrainingResponse | HTTPException:
+    """
+    Start training a model locally.
+
+    This will train a model locally using the specified dataset.
+    """
+    # Check that the given dataset has enough episodes to train
+    api = HfApi(token=get_hf_token())
+    try:
+        info_file_path = api.hf_hub_download(
+            repo_id=request.dataset_name,
+            repo_type="dataset",
+            filename="meta/info.json",
+            force_download=True,
+        )
+        meta_folder_path = os.path.dirname(info_file_path)
+        validated_info_model = InfoModel.from_json(meta_folder_path=meta_folder_path)
+        if validated_info_model.total_episodes < 10:
+            raise HTTPException(
+                status_code=400,
+                detail="The dataset has less than 10 episodes. Please record more episodes before training.",
+            )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.warning(f"Error accessing dataset info: {e}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Failed to download and parse meta/info.json.\n{e}",
+        )
+
+    # Build the training command and redirect to `start_custom_training`
+    lerobot_root = os.path.dirname(lerobot.__file__)
+    output_root = os.path.join(os.path.expanduser("~"), "navrim", "models")
+    output_dir = os.path.join(output_root, request.model_name)
+    training_command = " ".join([
+        sys.executable,
+        os.path.join(lerobot_root, "scripts", "train.py"),
+        '--env.push_to_hub=True',
+        f"--dataset.repo_id={request.dataset_name}",
+        f"--policy.type={request.model_type.lower()}",
+        f"--output_dir={output_dir}",
+        f"--job_name={request.model_name.replace('/', '--')}",
+        f"--policy.device={'cuda' if torch.cuda.is_available() else 'cpu'}",
+        f'--policy.repo_id={request.model_name}',
+        f'--batch_size={request.training_params.batch_size}',
+        f'--steps={request.training_params.steps}',
+    ])
+    logger.info(f"Training command: {training_command}")
+    return await start_custom_training(
+        request=CustomTrainingRequest(custom_command=training_command),
+        background_tasks=background_tasks,
     )
 
 

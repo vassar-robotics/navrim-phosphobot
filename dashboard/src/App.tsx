@@ -1,7 +1,7 @@
 import { AuthForm } from "@/components/auth/AuthForm";
 import { ConfirmEmail } from "@/components/auth/ConfirmEmail";
 import { ForgotPassword } from "@/components/auth/ForgotPassword";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+// import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ResetPassword } from "@/components/auth/ResetPassword";
 import { Layout } from "@/components/layout/layout";
 import AIControlPage from "@/pages/AIControlPage";
@@ -28,17 +28,17 @@ function App() {
           <Route
             path="/train"
             element={
-              <ProtectedRoute>
-                <AITrainingPage />
-              </ProtectedRoute>
+              // <ProtectedRoute>
+              <AITrainingPage />
+              // </ProtectedRoute>
             }
           />
           <Route
             path="/inference"
             element={
-              <ProtectedRoute>
-                <AIControlPage />
-              </ProtectedRoute>
+              // <ProtectedRoute>
+              <AIControlPage />
+              // </ProtectedRoute>
             }
           />
           <Route

@@ -279,7 +279,7 @@ export default function AITrainingPage() {
       // Send the edited JSON to the training endpoint
       const response = await fetchWithBaseUrl(
         selectedModelType !== "custom"
-          ? "/training/start"
+          ? "/training/start-locally"
           : "/training/start-custom",
         "POST",
         trainingBody,
