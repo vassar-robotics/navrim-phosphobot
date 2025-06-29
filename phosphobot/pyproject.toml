@@ -1,8 +1,8 @@
 [project]
-name = "phosphobot"
-version = "0.3.49"
+name = "navrim-phosphobot"
+version = "0.1.0"
 description = "The AI-ready robotics dev kit, with built-in remote control and VLA support."
-authors = [{ name = "phospho", email = "contact@phospho.ai" }]
+authors = [{ name = "navrim", email = "contact@navrim.com" }]
 license = "MIT"
 readme = "README.md"
 requires-python = ">=3.10"
