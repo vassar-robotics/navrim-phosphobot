@@ -53,7 +53,7 @@ from phosphobot.robot import (
     SO100Hardware,
     get_rcm,
 )
-from phosphobot.supabase import get_client, user_is_logged_in
+from phosphobot.api_supabase import get_client, user_is_logged_in
 from phosphobot.teleoperation import (
     TeleopManager,
     UDPServer,

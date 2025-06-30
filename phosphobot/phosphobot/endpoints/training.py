@@ -1,6 +1,5 @@
 import asyncio
 import os
-import platform
 import sys
 import time
 from typing import cast
@@ -23,7 +22,7 @@ from phosphobot.models import (
     SupabaseTrainingModel,
     TrainingConfig,
 )
-from phosphobot.supabase import get_client, user_is_logged_in
+from phosphobot.api_supabase import get_client, user_is_logged_in
 from phosphobot.utils import get_hf_token, get_home_app_path, get_tokens
 
 router = APIRouter(tags=["training"])
@@ -184,14 +183,14 @@ async def start_training(
 
 @router.post(
     "/training/start-locally",
-    response_model=StartTrainingResponse,
+    response_model=StatusResponse,
     summary="Start training a model locally",
     description="Start training an ACT or gr00t model on the specified dataset. This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.",
 )
 async def start_training_locally(
     request: TrainingRequest,
     background_tasks: BackgroundTasks,
-) -> StartTrainingResponse | HTTPException:
+) -> StatusResponse | HTTPException:
     """
     Start training a model locally.
 
@@ -229,15 +228,16 @@ async def start_training_locally(
     training_command = " ".join([
         sys.executable,
         os.path.join(lerobot_root, "scripts", "train.py"),
-        '--env.push_to_hub=True',
+        '--env.type=aloha',
+        '--policy.push_to_hub=True',
+        f'--batch_size={request.training_params.batch_size}',
         f"--dataset.repo_id={request.dataset_name}",
-        f"--policy.type={request.model_type.lower()}",
-        f"--output_dir={output_dir}",
         f"--job_name={request.model_name.replace('/', '--')}",
         f"--policy.device={'cuda' if torch.cuda.is_available() else 'cpu'}",
         f'--policy.repo_id={request.model_name}',
-        f'--batch_size={request.training_params.batch_size}',
+        f"--policy.type={request.model_type.lower()}",
         f'--steps={request.training_params.steps}',
+        f"--output_dir={output_dir}",
     ])
     logger.info(f"Training command: {training_command}")
     return await start_custom_training(
@@ -256,41 +256,18 @@ async def start_custom_training(
     log_file_path = os.path.join(get_home_app_path(), "logs", log_file_name)
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
-    # 2) Spawn the process
-    is_windows = platform.system() == "Windows"
-    if not is_windows:
-        # pty is not available on Windows, so we use subprocess directly
-        import pty
+    # 2) Spawn the process using pipes
+    process = await asyncio.create_subprocess_shell(
+        request.custom_command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    if process.stdout is None:
+        raise RuntimeError("Failed to create subprocess")
+    reader = process.stdout
 
-        master_fd, slave_fd = pty.openpty()
-        # We use create_subprocess_shell so we can pass the whole command string
-        process = await asyncio.create_subprocess_shell(
-            request.custom_command,
-            stdin=slave_fd,
-            stdout=slave_fd,
-            stderr=slave_fd,
-            preexec_fn=os.setsid,  # detach in its own process group
-        )
-        os.close(slave_fd)  # we only need master in our code
-
-        # 3) Hook the PTY master into an asyncio StreamReader
-        loop = asyncio.get_running_loop()
-        reader = asyncio.StreamReader()
-        protocol = asyncio.StreamReaderProtocol(reader)
-        # Wrap the master FD as a "read pipe" so .read() becomes non-blocking
-        await loop.connect_read_pipe(lambda: protocol, os.fdopen(master_fd, "rb"))
-    else:
-        process = await asyncio.create_subprocess_shell(
-            request.custom_command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
-        if process.stdout is None:
-            raise RuntimeError("Failed to create subprocess")
-        reader = process.stdout
-
-    # 4) Monitor task: read from the PTY master and write to your log file
-    async def monitor_pty(reader: asyncio.StreamReader, log_path: str):
+    # 3) Monitor task: read from the process output and write to your log file
+    async def monitor_output(reader: asyncio.StreamReader, log_path: str):
         with open(log_path, "wb") as f:
             # header
             f.write(f"Custom training started at {time.ctime()}\n".encode())
@@ -314,7 +291,7 @@ async def start_custom_training(
             else:
                 f.write(b"Training failed. See errors above.\n")
 
-    background_tasks.add_task(monitor_pty, reader, log_file_path)
+    background_tasks.add_task(monitor_output, reader, log_file_path)
 
     return StatusResponse(message=log_file_name)
 
@@ -326,11 +303,6 @@ async def stream_logs(log_file: str):
 
     if not os.path.exists(log_path):
         raise HTTPException(status_code=404, detail="Log file not found")
-
-    if platform.system() == "Windows":
-        return PlainTextResponse(
-            "Streaming logs is not supported on Windows. Check the console logs directly."
-        )
 
     async def log_generator():
         """Generator to stream logs line by line as they are written"""

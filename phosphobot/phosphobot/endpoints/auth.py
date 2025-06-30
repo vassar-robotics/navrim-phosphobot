@@ -12,9 +12,9 @@ from phosphobot.models import (
     SessionReponse,
     StatusResponse,
 )
-from phosphobot.posthog import add_email_to_posthog
+from phosphobot.api_posthog import add_email_to_posthog
 from phosphobot.sentry import add_email_to_sentry
-from phosphobot.supabase import (
+from phosphobot.api_supabase import (
     Session,
     delete_session,
     get_client,

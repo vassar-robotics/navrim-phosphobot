@@ -29,7 +29,7 @@ from phosphobot.endpoints import (
 )
 from phosphobot.hardware import simulation_init, simulation_stop
 from phosphobot.models import ServerStatus
-from phosphobot.posthog import posthog, posthog_pageview
+from phosphobot.api_posthog import posthog, posthog_pageview
 from phosphobot.recorder import Recorder, get_recorder
 from phosphobot.robot import RobotConnectionManager, get_rcm
 from phosphobot.teleoperation import get_udp_server

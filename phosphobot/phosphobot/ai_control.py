@@ -13,7 +13,7 @@ from phosphobot.camera import AllCameras
 from phosphobot.control_signal import AIControlSignal
 from phosphobot.hardware.base import BaseManipulator
 from phosphobot.models import ServerInfoResponse
-from phosphobot.supabase import get_client
+from phosphobot.api_supabase import get_client
 from phosphobot.utils import get_tokens
 
 

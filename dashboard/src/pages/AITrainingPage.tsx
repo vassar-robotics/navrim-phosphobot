@@ -261,6 +261,7 @@ export default function AITrainingPage() {
 
     try {
       // Generate a random model name
+      const forceLocalTraining = true;
       const modelName = await generateHuggingFaceModelName(selectedDataset);
       const modelUrl = `https://huggingface.co/${modelName}`;
 
@@ -290,7 +291,7 @@ export default function AITrainingPage() {
         return;
       }
 
-      if (selectedModelType === "custom" && response.message) {
+      if ((selectedModelType === "custom" || forceLocalTraining) && response.message) {
         setCurrentLogFile(response.message);
       }
 
@@ -298,7 +299,7 @@ export default function AITrainingPage() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       setTrainingState("success");
-      if (selectedModelType !== "custom") {
+      if (selectedModelType !== "custom" || forceLocalTraining) {
         toast.success(
           `Model training started! Check progress at: ${modelUrl}`,
           {
