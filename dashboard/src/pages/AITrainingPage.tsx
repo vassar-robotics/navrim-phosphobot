@@ -217,7 +217,7 @@ export default function AITrainingPage() {
   const generateHuggingFaceModelName = async (dataset: string) => {
     // Model name followed by 10 random characters
     const randomChars = Math.random().toString(36).substring(2, 12);
-    // Remove the name/... and replace with phospho-app/...
+    // Remove the name/... and replace with navrim/...
     const [, datasetName] = dataset.split("/");
 
     // Fetch whoami to get the username
@@ -229,15 +229,17 @@ export default function AITrainingPage() {
       // Check the status from the whoami response
       if (result.status === "success" && result.username) {
         // Include username in the model name if status is success
-        return `phospho-app/${result.username}-${selectedModelType}-${datasetName}-${randomChars}`;
+        return `${result.username}/${selectedModelType}-${datasetName}-${randomChars}`;
       } else {
         // Fallback without username if status is not success
-        return `phospho-app/${selectedModelType}-${datasetName}-${randomChars}`;
+        // return `navrim/${selectedModelType}-${datasetName}-${randomChars}`;
+        throw new Error("Failed to fetch whoami");
       }
     } catch (error) {
       console.error("Error fetching whoami:", error);
       // Fallback without username in case of error
-      return `phospho-app/${selectedModelType}-${datasetName}-${randomChars}`;
+      // return `navrim/${selectedModelType}-${datasetName}-${randomChars}`;
+      throw error;
     }
   };
 
@@ -409,7 +411,8 @@ export default function AITrainingPage() {
                     defaultValue={selectedModelType}
                     onValueChange={(value) =>
                       setSelectedModelType(
-                        value as "gr00t" | "ACT" | "ACT_BBOX" | "custom",
+                        // value as "gr00t" | "ACT" | "ACT_BBOX" | "custom",
+                        value as "ACT" | "custom",
                       )
                     }
                   >
@@ -417,11 +420,11 @@ export default function AITrainingPage() {
                       <SelectValue placeholder="Select model type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ACT_BBOX">
+                      {/* <SelectItem value="ACT_BBOX">
                         BB-ACT (recommended)
-                      </SelectItem>
-                      <SelectItem value="ACT">ACT</SelectItem>
-                      <SelectItem value="gr00t">gr00t</SelectItem>
+                      </SelectItem> */}
+                      <SelectItem value="ACT">ACT (recommended)</SelectItem>
+                      {/* <SelectItem value="gr00t">gr00t</SelectItem> */}
                       <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>

@@ -750,7 +750,7 @@ async def get_training_info(
         training_response = TrainingRequest(
             model_type=request.model_type,
             dataset_name=request.model_id,
-            model_name=f"phospho-app/{username_or_orgid}-{request.model_type}-{request.model_id.split('/')[1]}-{random_suffix}",
+            model_name=f"{username_or_orgid}/{request.model_type}-{request.model_id.split('/')[1]}-{random_suffix}",
         )
         # Replace the fields in training_response with the values from training_params dict
         if training_response.training_params is not None:

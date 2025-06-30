@@ -134,10 +134,7 @@ class TrainingParamsActWithBbox(TrainingParamsAct):
             raise ValueError(
                 "Please provide a valid object to detect, e.g. 'red/orange lego brick' or 'brown plushy'."
             )
-        elif any(
-            word in instruction.lower()
-            for word in ["detect", "find", "locate", "pick", "pickup", "grab"]
-        ):
+        elif any(word in instruction.lower() for word in ["detect", "find", "locate", "pick", "pickup", "grab"]):
             raise ValueError(
                 "Only write the object to detect, e.g. 'red/orange lego brick' or 'brown plushy'. Do not include verbs like 'detect', 'find', 'locate', 'pick up', or 'grab'."
             )
@@ -175,18 +172,14 @@ class TrainingParamsGr00T(BaseModel):
         le=1,
     )
 
-    data_dir: str = Field(
-        default="data/", description="The directory to save the dataset to"
-    )
+    data_dir: str = Field(default="data/", description="The directory to save the dataset to")
 
     validation_data_dir: str | None = Field(
         default=None,
         description="Optional directory to save the validation dataset to. If None, no validation will be done.",
     )
 
-    output_dir: str = Field(
-        default="outputs/", description="The directory to save the model to"
-    )
+    output_dir: str = Field(default="outputs/", description="The directory to save the model to")
 
     path_to_gr00t_repo: str = Field(
         default=".",
@@ -215,9 +208,7 @@ class BaseTrainerConfig(BaseModel):
         default=None,
         description="WandB API key for tracking training, you can find it at https://wandb.ai/authorize",
     )
-    training_params: Optional[
-        TrainingParamsAct | TrainingParamsActWithBbox | TrainingParamsGr00T
-    ] = Field(
+    training_params: Optional[TrainingParamsAct | TrainingParamsActWithBbox | TrainingParamsGr00T] = Field(
         default=None,
         description="Training parameters for the model, if not provided, default parameters will be used",
     )
@@ -239,21 +230,21 @@ class TrainingRequest(BaseTrainerConfig):
             raise ValueError("model_name is required for training requests")
 
         # We add random characters to the model name to avoid collisions
-        random_chars = "".join(
-            random.choices(string.ascii_lowercase + string.digits, k=10)
-        )
+        random_chars = "".join(random.choices(string.ascii_lowercase + string.digits, k=10))
         # We need to make sure that the model is called phospho-app/...
         # So we can upload it to the phospho Hugging Face repo
         size = model_name.split("/")
 
         if len(size) == 1:
-            model_name = "phospho-app/" + model_name + "-" + random_chars
+            raise ValueError(
+                "Cannot determine the username from the model name. Please provide a model name in the format "
+                "<username>/<model_name>"
+            )
         elif len(size) == 2:
-            if size[0] != "phospho-app":
-                model_name = "phospho-app/" + size[1] + "-" + random_chars
+            model_name = size[0] + "/" + size[1] + "-" + random_chars
         else:
             raise ValueError(
-                "Model name should be in the format phospho-app/<model_name> or <model_name>",
+                "Model name should be in the format navrim/<model_name> or <model_name>",
             )
         return model_name
 
@@ -401,15 +392,11 @@ def resize_dataset(
         2nd bool: True if we need to recompute the stats, False otherwise.
     """
     # Start by opening the InfoModel and checking the video sizes
-    logger.info(
-        f"Resizing videos in {dataset_root_path} to {resize_to[0]}x{resize_to[1]}"
-    )
+    logger.info(f"Resizing videos in {dataset_root_path} to {resize_to[0]}x{resize_to[1]}")
     try:
         meta_path = dataset_root_path / "meta"
         video_information = {}
-        validated_info_model = InfoModel.from_json(
-            meta_folder_path=str(meta_path.resolve())
-        )
+        validated_info_model = InfoModel.from_json(meta_folder_path=str(meta_path.resolve()))
         for feature in validated_info_model.features.observation_images:
             shape = validated_info_model.features.observation_images[feature].shape
             if shape != [resize_to[1], resize_to[0], 3]:
@@ -433,9 +420,7 @@ def resize_dataset(
             if video_information[video_folder]["need_to_resize"]:
                 video_path = dataset_root_path / "videos" / "chunk-000" / video_folder
                 for episode in video_path.iterdir():
-                    if episode.suffix == ".mp4" and not episode.name.startswith(
-                        "edited_"
-                    ):
+                    if episode.suffix == ".mp4" and not episode.name.startswith("edited_"):
                         out_path = episode.parent / f"edited_{episode.name}"
 
                         # Open input video

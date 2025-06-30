@@ -5,10 +5,12 @@ import time
 from typing import cast
 import lerobot
 import torch
+import re
 
+import av
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from huggingface_hub import HfApi
 from loguru import logger
 
@@ -51,11 +53,7 @@ async def get_models(
         )
 
     # Convert the list of models to a TrainingConfig object
-    training_config = TrainingConfig(
-        models=[
-            SupabaseTrainingModel.model_validate(model) for model in model_list.data
-        ]
-    )
+    training_config = TrainingConfig(models=[SupabaseTrainingModel.model_validate(model) for model in model_list.data])
     return training_config
 
 
@@ -225,25 +223,59 @@ async def start_training_locally(
     lerobot_root = os.path.dirname(lerobot.__file__)
     output_root = os.path.join(os.path.expanduser("~"), "navrim", "models")
     output_dir = os.path.join(output_root, request.model_name)
-    training_command = " ".join([
-        sys.executable,
-        os.path.join(lerobot_root, "scripts", "train.py"),
-        '--env.type=aloha',
-        '--policy.push_to_hub=True',
-        f'--batch_size={request.training_params.batch_size}',
-        f"--dataset.repo_id={request.dataset_name}",
-        f"--job_name={request.model_name.replace('/', '--')}",
-        f"--policy.device={'cuda' if torch.cuda.is_available() else 'cpu'}",
-        f'--policy.repo_id={request.model_name}',
-        f"--policy.type={request.model_type.lower()}",
-        f'--steps={request.training_params.steps}',
-        f"--output_dir={output_dir}",
-    ])
+    training_command = " ".join(
+        [
+            sys.executable,
+            os.path.join(lerobot_root, "scripts", "train.py"),
+            "--env.type=aloha",
+            "--policy.push_to_hub=True",
+            f"--batch_size={request.training_params.batch_size}",
+            f"--dataset.repo_id={request.dataset_name}",
+            f"--job_name={request.model_name.replace('/', '--')}",
+            f"--policy.device={'cuda' if torch.cuda.is_available() else 'cpu'}",
+            f"--policy.repo_id={request.model_name}",
+            f"--policy.type={request.model_type.lower()}",
+            f"--steps={request.training_params.steps}",
+            f"--output_dir={output_dir}",
+        ]
+    )
     logger.info(f"Training command: {training_command}")
     return await start_custom_training(
         request=CustomTrainingRequest(custom_command=training_command),
         background_tasks=background_tasks,
     )
+
+
+def _prepare_dynamic_link_libraries_macos():
+    av_root = os.path.dirname(av.__file__)
+    av_dylibs_dir = os.path.join(av_root, ".dylibs")
+    dylib_pattern = re.compile(r"^lib(.+?)\.(\d+)(\..+)?\.dylib$")
+    for filename in os.listdir(av_dylibs_dir):
+        matches = dylib_pattern.match(filename)
+        if matches:
+            target = f"lib{matches.group(1)}.{matches.group(2)}.dylib"
+            source_path = os.path.join(av_dylibs_dir, filename)
+            target_path = os.path.join(av_dylibs_dir, target)
+            logger.info(f"symlink {source_path} -> {target_path}")
+            if not os.path.exists(target_path):
+                os.symlink(source_path, target_path)
+    return av_dylibs_dir
+
+
+def _prepare_dynamic_link_libraries_win():
+    pass
+
+
+def prepare_dynamic_link_libraries() -> dict[str, str]:
+    env = os.environ.copy()
+    if sys.platform == "darwin":
+        dylibs_dir = _prepare_dynamic_link_libraries_macos()
+        dyld_library_path = env.get("DYLD_LIBRARY_PATH", "")
+        env["DYLD_LIBRARY_PATH"] = f"{dylibs_dir}:{dyld_library_path}" if dyld_library_path else dylibs_dir
+    elif sys.platform == "win32":
+        _prepare_dynamic_link_libraries_win()
+    # Currently we only handle MacOS and Windows
+    return env
 
 
 @router.post("/training/start-custom", response_model=StatusResponse)
@@ -256,17 +288,23 @@ async def start_custom_training(
     log_file_path = os.path.join(get_home_app_path(), "logs", log_file_name)
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
-    # 2) Spawn the process using pipes
-    process = await asyncio.create_subprocess_shell(
-        request.custom_command,
+    # 2) Prepare dynamic link libraries
+    env = prepare_dynamic_link_libraries()
+
+    # 3) Spawn the process using pipes
+    command_tokens = request.custom_command.split(" ")
+    process = await asyncio.create_subprocess_exec(  # create_subprocess_shell causes issues
+        command_tokens[0],
+        *command_tokens[1:],
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
+        env=env,
     )
     if process.stdout is None:
         raise RuntimeError("Failed to create subprocess")
     reader = process.stdout
 
-    # 3) Monitor task: read from the process output and write to your log file
+    # 4) Monitor task: read from the process output and write to your log file
     async def monitor_output(reader: asyncio.StreamReader, log_path: str):
         with open(log_path, "wb") as f:
             # header
