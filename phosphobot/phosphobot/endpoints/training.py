@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import sys
 import time
@@ -24,8 +25,9 @@ from phosphobot.models import (
     SupabaseTrainingModel,
     TrainingConfig,
 )
-from phosphobot.api_supabase import get_client, user_is_logged_in
+from phosphobot.api_supabase import user_is_logged_in
 from phosphobot.utils import get_hf_token, get_home_app_path, get_tokens
+from phosphobot.workaround.db import DatabaseManager
 
 router = APIRouter(tags=["training"])
 
@@ -35,17 +37,26 @@ async def get_models(
     session=Depends(user_is_logged_in),
 ) -> TrainingConfig:
     """Get the list of models to be trained"""
-    client = await get_client()
+    # client = await get_client()
     user_id = session.user.id
 
-    model_list = await (
-        client.table("trainings")
-        .select("*")
-        .eq("user_id", user_id)
-        .order("requested_at", desc=True)
-        .limit(1000)
-        .execute()
-    )
+    # model_list = await (
+    #     client.table("trainings")
+    #     .select("*")
+    #     .eq("user_id", user_id)
+    #     .order("requested_at", desc=True)
+    #     .limit(1000)
+    #     .execute()
+    # )
+
+    with DatabaseManager.get_instance() as db:
+        trainings_data = db.get_trainings_by_user(user_id)[:1000]
+
+    class MockResponse:
+        def __init__(self, data):
+            self.data = data
+
+    model_list = MockResponse(trainings_data)
 
     if not model_list.data or len(model_list.data) == 0:
         return TrainingConfig(

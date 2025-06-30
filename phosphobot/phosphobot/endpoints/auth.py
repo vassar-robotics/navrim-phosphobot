@@ -18,6 +18,7 @@ from phosphobot.api_supabase import (
     Session,
     delete_session,
     get_client,
+    get_client_no_auth,
     save_session,
 )
 
@@ -31,7 +32,7 @@ async def signup(
     """
     Sign up a new user.
     """
-    client = await get_client()
+    client = await get_client_no_auth()
 
     try:
         response = await client.auth.sign_up(
@@ -74,7 +75,7 @@ async def signin(
     """
     Sign in an existing user.
     """
-    client = await get_client()
+    client = await get_client_no_auth()
 
     try:
         response = await client.auth.sign_in_with_password(
@@ -120,7 +121,7 @@ async def logout() -> StatusResponse | HTTPException:
 
 @router.post("/auth/confirm", response_model=SessionReponse)
 async def confirm_email(request: ConfirmRequest) -> SessionReponse | HTTPException:
-    client = await get_client()
+    client = await get_client_no_auth()
 
     try:
         # Set the session directly with the provided access_token and refresh_token
@@ -188,7 +189,7 @@ async def forgot_password(
     """
     Send a password reset email to the provided email address.
     """
-    client = await get_client()
+    client = await get_client_no_auth()
 
     try:
         await client.auth.reset_password_for_email(
@@ -209,7 +210,7 @@ async def reset_password(
     """
     Reset a user's password using the recovery tokens from the Supabase reset email.
     """
-    client = await get_client()
+    client = await get_client_no_auth()
 
     logger.info(f"Received reset request with access_token: {request.access_token}")
     try:

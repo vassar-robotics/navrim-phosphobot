@@ -93,6 +93,10 @@ async def get_client() -> AsyncClient:
                 else:
                     logger.error(f"Failed after {max_retries} attempts: {e}")
                     return False
+            except Exception as e:
+                # Handle invalid JWT or other auth errors
+                logger.error(f"Auth error during session restoration: {e}")
+                return False
 
     if session:
         if (
@@ -139,6 +143,14 @@ async def get_client() -> AsyncClient:
                 session = None
 
     return client
+
+
+async def get_client_no_auth() -> AsyncClient:
+    """
+    Get the Supabase client without loading any existing session.
+    This is used for auth endpoints where we don't want to restore sessions.
+    """
+    return await initialize_client()
 
 
 async def user_is_logged_in() -> Session:

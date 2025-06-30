@@ -61,6 +61,7 @@ from phosphobot.teleoperation import (
     get_udp_server,
 )
 from phosphobot.utils import background_task_log_exceptions
+from phosphobot.workaround.db import DatabaseManager
 
 # This is used to send numpy arrays as JSON to OpenVLA server
 json_numpy.patch()
@@ -921,42 +922,57 @@ async def fetch_auto_control_status(request: AIStatusRequest) -> AIStatusRespons
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     if user is not None:
-        supabase_response = (
-            await supabase_client.table("ai_control_sessions")
-            .select("*, servers(status)")
-            .eq("user_id", user.user.id)
-            .order("created_at", desc=True)
-            .limit(1)
-            .execute()
-        )
-        if supabase_response.data:
-            supabase_data = supabase_response.data[0]
-            supabase_id = supabase_data["id"]
-            supabase_status = supabase_data["status"]
-            # If server status is stopped, set status to stopped
-            if (
-                supabase_data["servers"] is not None
-                and supabase_data["servers"]["status"] == "stopped"
-            ):
-                # Set the backend status to stopped
-                supabase_status = "stopped"
-                # Update the status in the database
-                await (
-                    supabase_client.table("ai_control_sessions")
-                    .update({"status": supabase_status})
-                    .eq("id", supabase_id)
-                    .execute()
-                )
-            # If ai-control signal is stopped but remote status is running, set the remote status to stopped
-            if ai_control_signal.status == "stopped" and supabase_status == "running":
-                supabase_status = "stopped"
-                # Update the status in the database
-                await (
-                    supabase_client.table("ai_control_sessions")
-                    .update({"status": supabase_status})
-                    .eq("id", supabase_id)
-                    .execute()
-                )
+        with DatabaseManager.get_instance() as db:
+            session_data = db.get_latest_ai_control_session_by_user(user.user.id)
+            if session_data is not None:
+                supabase_id = session_data["id"]
+                supabase_status = session_data["status"]
+                if (
+                    session_data["servers"] is not None
+                    and session_data["servers"]["status"] == "stopped"
+                ):
+                    supabase_status = "stopped"
+                    db.update_ai_control_session_status(supabase_id, supabase_status)
+
+                if ai_control_signal.status == "stopped" and supabase_status == "running":
+                    supabase_status = "stopped"
+                    db.update_ai_control_session_status(supabase_id, supabase_status)
+        # supabase_response = (
+        #     await supabase_client.table("ai_control_sessions")
+        #     .select("*, servers(status)")
+        #     .eq("user_id", user.user.id)
+        #     .order("created_at", desc=True)
+        #     .limit(1)
+        #     .execute()
+        # )
+        # if supabase_response.data:
+        #     supabase_data = supabase_response.data[0]
+        #     supabase_id = supabase_data["id"]
+        #     supabase_status = supabase_data["status"]
+        #     # If server status is stopped, set status to stopped
+        #     if (
+        #         supabase_data["servers"] is not None
+        #         and supabase_data["servers"]["status"] == "stopped"
+        #     ):
+        #         # Set the backend status to stopped
+        #         supabase_status = "stopped"
+        #         # Update the status in the database
+        #         await (
+        #             supabase_client.table("ai_control_sessions")
+        #             .update({"status": supabase_status})
+        #             .eq("id", supabase_id)
+        #             .execute()
+        #         )
+        #     # If ai-control signal is stopped but remote status is running, set the remote status to stopped
+        #     if ai_control_signal.status == "stopped" and supabase_status == "running":
+        #         supabase_status = "stopped"
+        #         # Update the status in the database
+        #         await (
+        #             supabase_client.table("ai_control_sessions")
+        #             .update({"status": supabase_status})
+        #             .eq("id", supabase_id)
+        #             .execute()
+        #         )
 
     # Situation 1: There is already a different, running process in backend
     if (
@@ -969,7 +985,8 @@ async def fetch_auto_control_status(request: AIStatusRequest) -> AIStatusRespons
         )
     ):
         # if started less than 10 minutes ago, return the backend status
-        created_at = parser.isoparse(supabase_data["created_at"])
+        created_at = parser.isoparse(session_data["created_at"])
+        # created_at = parser.isoparse(supabase_data["created_at"])
         if (
             datetime.datetime.now(datetime.timezone.utc) - created_at
         ).total_seconds() < 600:
@@ -1070,21 +1087,35 @@ async def start_auto_control(
 
     supabase_client = await get_client()
     user = await supabase_client.auth.get_user()
-    await (
-        supabase_client.table("ai_control_sessions")
-        .upsert(
-            {
-                "id": ai_control_signal.id,
-                "user_id": user.user.id,
-                "user_email": user.user.email,
-                "model_type": query.model_type,
-                "model_id": query.model_id,
-                "prompt": query.prompt,
-                "status": "waiting",
-            }
-        )
-        .execute()
-    )
+    # await (
+    #     supabase_client.table("ai_control_sessions")
+    #     .upsert(
+    #         {
+    #             "id": ai_control_signal.id,
+    #             "user_id": user.user.id,
+    #             "user_email": user.user.email,
+    #             "model_type": query.model_type,
+    #             "model_id": query.model_id,
+    #             "prompt": query.prompt,
+    #             "status": "waiting",
+    #         }
+    #     )
+    #     .execute()
+    # )
+
+    # SQLite equivalent
+    with DatabaseManager.get_instance() as db:
+        db.insert_ai_control_session({
+            "id": ai_control_signal.id,
+            "user_id": user.user.id,
+            "user_email": user.user.email,
+            "model_type": query.model_type,
+            "model_id": query.model_id,
+            "prompt": query.prompt,
+            "status": "waiting",
+            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "setup_success": False,
+        })
 
     robots_to_control = copy(await rcm.robots)
     for robot in await rcm.robots:
@@ -1116,17 +1147,24 @@ async def start_auto_control(
     )
 
     # Add a flag: successful setup
-    await (
-        supabase_client.table("ai_control_sessions")
-        .update(
-            {
-                "setup_success": True,
-                "server_id": server_info.server_id,
-            }
+    # await (
+    #     supabase_client.table("ai_control_sessions")
+    #     .update(
+    #         {
+    #             "setup_success": True,
+    #             "server_id": server_info.server_id,
+    #         }
+    #     )
+    #     .eq("id", ai_control_signal.id)
+    #     .execute()
+    # )
+
+    with DatabaseManager.get_instance() as db:
+        db.update_ai_control_session_setup(
+            ai_control_signal.id,
+            setup_success=True,
+            server_id=server_info.server_id
         )
-        .eq("id", ai_control_signal.id)
-        .execute()
-    )
 
     background_tasks.add_task(
         model.control_loop,
@@ -1221,16 +1259,19 @@ async def feedback_auto_control(
     """
     supabase_client = await get_client()
 
-    await (
-        supabase_client.table("ai_control_sessions")
-        .update(
-            {
-                "feedback": request.feedback,
-            }
-        )
-        .eq("id", request.ai_control_id)
-        .execute()
-    )
+    # await (
+    #     supabase_client.table("ai_control_sessions")
+    #     .update(
+    #         {
+    #             "feedback": request.feedback,
+    #         }
+    #     )
+    #     .eq("id", request.ai_control_id)
+    #     .execute()
+    # )
+
+    with DatabaseManager.get_instance() as db:
+        db.update_ai_control_session_feedback(request.ai_control_id, request.feedback)
 
     return StatusResponse(message="Feedback sent")
 
