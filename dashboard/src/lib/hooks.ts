@@ -89,7 +89,7 @@ const useGlobalStore = create(
         set(() => ({
           modelId: modelName,
         })),
-      selectedModelType: "ACT_BBOX",
+      selectedModelType: "ACT",
       setSelectedModelType: (
         modelType: "ACT" | "ACT_BBOX" | "gr00t" | "custom",
       ) =>

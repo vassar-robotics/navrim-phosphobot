@@ -1,7 +1,7 @@
 from fastapi import APIRouter
-from copilotkit import CopilotKitRemoteEndpoint, Action
+from copilotkit import CopilotKitRemoteEndpoint
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
-# from phosphobot.agents.graph import chat_graph
+from phosphobot.agents.robot import build_robot_actions
 
 
 def get_weather_handler(city: str):
@@ -23,20 +23,20 @@ def get_weather_handler(city: str):
 
 router = APIRouter(tags=["chat"])
 
-sdk = CopilotKitRemoteEndpoint(
-    actions=[
-        Action(
-            name="get_weather",
-            handler=get_weather_handler,
-            description="Get the weather of certain place",
-            parameters=[
-                {
-                    "name": "city",
-                    "type": "string",
-                    "description": "The name of the city"
-                }
-            ]
-        )
-    ]
-)
+sdk = CopilotKitRemoteEndpoint(actions=build_robot_actions)
+#     actions=[
+#         Action(
+#             name="get_weather",
+#             handler=get_weather_handler,
+#             description="Get the weather of certain place",
+#             parameters=[
+#                 {
+#                     "name": "city",
+#                     "type": "string",
+#                     "description": "The name of the city"
+#                 }
+#             ]
+#         )
+#     ]
+# )
 add_fastapi_endpoint(router, sdk, "/chat/tools")

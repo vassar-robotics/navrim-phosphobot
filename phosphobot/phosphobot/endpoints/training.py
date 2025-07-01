@@ -1,12 +1,14 @@
 import asyncio
-import json
 import os
 import sys
 import time
+from datetime import datetime
 from typing import cast
 import lerobot
 import torch
 import re
+import shlex
+import atexit
 
 import av
 import httpx
@@ -38,7 +40,7 @@ async def get_models(
 ) -> TrainingConfig:
     """Get the list of models to be trained"""
     # client = await get_client()
-    user_id = session.user.id
+    # user_id = session.user.id
 
     # model_list = await (
     #     client.table("trainings")
@@ -50,7 +52,7 @@ async def get_models(
     # )
 
     with DatabaseManager.get_instance() as db:
-        trainings_data = db.get_trainings_by_user(user_id)[:1000]
+        trainings_data = db.get_trainings_by_user("default_user")[:1000]
 
     class MockResponse:
         def __init__(self, data):
@@ -72,7 +74,10 @@ async def get_models(
     "/training/start",
     response_model=StartTrainingResponse,
     summary="Start training a model",
-    description="Start training an ACT or gr00t model on the specified dataset. This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.",
+    description=(
+        "Start training an ACT or gr00t model on the specified dataset. This will upload a trained model to the "
+        "Hugging Face Hub using the main branch of the specified dataset."
+    ),
 )
 async def start_training(
     request: TrainingRequest,
@@ -194,7 +199,10 @@ async def start_training(
     "/training/start-locally",
     response_model=StatusResponse,
     summary="Start training a model locally",
-    description="Start training an ACT or gr00t model on the specified dataset. This will upload a trained model to the Hugging Face Hub using the main branch of the specified dataset.",
+    description=(
+        "Start training an ACT or gr00t model on the specified dataset. This will upload a trained model to the "
+        "Hugging Face Hub using the main branch of the specified dataset."
+    ),
 )
 async def start_training_locally(
     request: TrainingRequest,
@@ -236,18 +244,18 @@ async def start_training_locally(
     output_dir = os.path.join(output_root, request.model_name)
     training_command = " ".join(
         [
-            sys.executable,
-            os.path.join(lerobot_root, "scripts", "train.py"),
-            "--env.type=aloha",
-            "--policy.push_to_hub=True",
-            f"--batch_size={request.training_params.batch_size}",
-            f"--dataset.repo_id={request.dataset_name}",
-            f"--job_name={request.model_name.replace('/', '--')}",
-            f"--policy.device={'cuda' if torch.cuda.is_available() else 'cpu'}",
-            f"--policy.repo_id={request.model_name}",
-            f"--policy.type={request.model_type.lower()}",
-            f"--steps={request.training_params.steps}",
-            f"--output_dir={output_dir}",
+            shlex.quote(sys.executable),
+            shlex.quote(os.path.join(lerobot_root, "scripts", "train.py")),
+            shlex.quote("--env.type=aloha"),
+            shlex.quote("--policy.push_to_hub=True"),
+            shlex.quote(f"--batch_size={request.training_params.batch_size}"),
+            shlex.quote(f"--dataset.repo_id={request.dataset_name}"),
+            shlex.quote(f"--job_name={request.model_name.replace('/', '--')}"),
+            shlex.quote(f"--policy.device={'cuda' if torch.cuda.is_available() else 'cpu'}"),
+            shlex.quote(f"--policy.repo_id={request.model_name}"),
+            shlex.quote(f"--policy.type={request.model_type.lower()}"),
+            shlex.quote(f"--steps={request.training_params.steps}"),
+            shlex.quote(f"--output_dir={output_dir}"),
         ]
     )
     logger.info(f"Training command: {training_command}")
@@ -303,7 +311,7 @@ async def start_custom_training(
     env = prepare_dynamic_link_libraries()
 
     # 3) Spawn the process using pipes
-    command_tokens = request.custom_command.split(" ")
+    command_tokens = shlex.split(request.custom_command)
     process = await asyncio.create_subprocess_exec(  # create_subprocess_shell causes issues
         command_tokens[0],
         *command_tokens[1:],
@@ -314,6 +322,44 @@ async def start_custom_training(
     if process.stdout is None:
         raise RuntimeError("Failed to create subprocess")
     reader = process.stdout
+
+    training_id = int(time.time())
+    with DatabaseManager.get_instance() as db:
+        # Try to parse the command to get the arguments
+        arguments = command_tokens[2:]
+        args_mapping = {}
+        for arg in arguments:
+            arg = re.sub(r"^--", "", arg)
+            if "=" in arg:
+                key, value = arg.split("=", 1)
+                args_mapping[key] = value
+        # Insert the training into the database
+        db.insert_training(
+            {
+                "id": training_id,
+                "status": "running",
+                "user_id": "default_user",
+                "dataset_name": args_mapping.get("dataset.repo_id", "unknown/unknown"),
+                "model_name": args_mapping.get("policy.repo_id", "unknown/unknown"),
+                "requested_at": datetime.now().isoformat(),
+                "terminated_at": "",
+                "used_wandb": False,
+                "model_type": args_mapping.get("policy.type", "unknown"),
+                "training_params": {},
+                "modal_function_call_id": "",
+            }
+        )
+
+    def cancel_training_at_exit():
+        if process.returncode is None:
+            process.terminate()
+            time.sleep(0.5)
+            if process.returncode is None:
+                process.kill()
+            with DatabaseManager.get_instance() as db:
+                db.update_training_status(training_id, "cancelled", datetime.now().isoformat())
+
+    atexit.register(cancel_training_at_exit)
 
     # 4) Monitor task: read from the process output and write to your log file
     async def monitor_output(reader: asyncio.StreamReader, log_path: str):
@@ -337,8 +383,12 @@ async def start_custom_training(
             f.write(footer.encode())
             if process.returncode == 0:
                 f.write(b"Training completed successfully!\n")
+                with DatabaseManager.get_instance() as db:
+                    db.update_training_status(training_id, "succeeded", datetime.now().isoformat())
             else:
                 f.write(b"Training failed. See errors above.\n")
+                with DatabaseManager.get_instance() as db:
+                    db.update_training_status(training_id, "failed", datetime.now().isoformat())
 
     background_tasks.add_task(monitor_output, reader, log_file_path)
 
