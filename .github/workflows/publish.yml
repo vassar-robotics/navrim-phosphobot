@@ -171,4 +171,4 @@ jobs:
       - name: Publish to PyPI
         run: |
           cd phosphobot
-          uv publish
+          uv publish -t ${{ secrets.PYPI_TOKEN }}
