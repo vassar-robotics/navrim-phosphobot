@@ -50,6 +50,7 @@ dependencies = [
     "langchain-openai>=0.3.25",
     "copilotkit>=0.1.51",
     "psutil>=7.0.0",
+    "navrim-lerobot>=0.1.0",
 ]
 
 [dependency-groups]
