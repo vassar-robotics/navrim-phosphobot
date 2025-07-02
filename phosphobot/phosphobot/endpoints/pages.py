@@ -38,6 +38,7 @@ from phosphobot.models import (
     VizSettingsResponse,
     WandBTokenRequest,
     InfoModel,
+    OpenAITokenRequest,
 )
 from phosphobot.models import EpisodesModel, LeRobotDataset
 from phosphobot.utils import (
@@ -102,6 +103,7 @@ async def get_admin_settings_token():
     return AdminSettingsTokenResponse(
         huggingface=login_to_hf(revalidate=False),
         wandb=os.path.exists(str(get_home_app_path()) + "/wandb.token"),
+        openai=os.path.exists(str(get_home_app_path()) + "/openai.token"),
     )
 
 
@@ -278,7 +280,10 @@ async def submit_token(query: HuggingFaceTokenRequest):
         if username_or_orgid is None:
             return {
                 "status": "error",
-                "message": "The token does not have write access to any repository. Please add 'Write access to content/settings' in the token scope.",
+                "message": (
+                    "The token does not have write access to any repository. Please add 'Write access to "
+                    "content/settings' in the token scope."
+                ),
             }
     except Exception as e:
         return {
@@ -339,6 +344,32 @@ async def submit_wandb_token(query: WandBTokenRequest):
             "message": f"Error saving token: {str(e)}",
         }
 
+
+@router.post("/admin/openai")
+async def submit_openai_token(query: OpenAITokenRequest):
+    # For now, we don't perform any check on the token
+    # TODO: make sure an invalid token won't crash the training process
+
+    # Define the file path where the token will be saved
+    file_path = str(get_home_app_path()) + "/openai.token"
+
+    try:
+        # Open the file in write mode and save the token
+        with open(file_path, "w") as token_file:
+            token_file.write(query.token)
+        # Set secure file permissions (optional, but recommended)
+        os.chmod(file_path, 0o600)  # Read and write for owner only
+        # Change config
+        logger.info("Token saved successfully!")
+
+        return {"status": "success", "message": "Token saved successfully!"}
+
+    except Exception as e:
+        logger.error(f"Error saving token: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Error saving token: {str(e)}",
+        }
 
 @router.post("/admin/form/usersettings")
 async def submit_user_settings(user_settings: AdminSettingsRequest):
@@ -816,7 +847,8 @@ async def hf_download_dataset(
             return StatusResponse(
                 status="error",
                 message=(
-                    f"Dataset {query.dataset_name} is not in v2.1 format and is not compatible with this version of the app."
+                    f"Dataset {query.dataset_name} is not in v2.1 format and is not compatible with this version of "
+                    "the app."
                 ),
             )
 
@@ -866,7 +898,8 @@ async def repair_dataset(query: DatasetRepairRequest):
             status_code=404, detail=f"Dataset {query.dataset_path} not found"
         )
 
-    # For the moment, we repair parquets files only, we need to improve this function to recaculate the meta files as well
+    # For the moment, we repair parquets files only, we need to improve this function to recaculate the meta files
+    # as well
 
     result = EpisodesModel.repair_parquets(
         parquets_path=os.path.join(dataset_path, "data", "chunk-000"),

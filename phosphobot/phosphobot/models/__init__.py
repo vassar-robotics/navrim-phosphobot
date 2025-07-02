@@ -622,6 +622,15 @@ class WandBTokenRequest(BaseModel):
     token: str
 
 
+class OpenAITokenRequest(BaseModel):
+    """
+    OpenAI token saved by the user.
+    """
+
+    token: str
+
+
+
 class ItemInfo(BaseModel):
     """
     Contains the information of the items in a directory used in the browser page
@@ -727,6 +736,7 @@ class AdminSettingsTokenResponse(BaseModel):
 
     huggingface: bool = False
     wandb: bool = False
+    openai: bool = False
 
 
 class VizSettingsResponse(BaseModel):

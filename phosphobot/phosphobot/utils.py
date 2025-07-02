@@ -591,12 +591,12 @@ def get_home_app_path() -> Path:
     It's platform dependent.
 
     user_home/
-        phosphobot/
+        navrim/
             calibration/
             recordings/
             ...
     """
-    home_path = Path.home() / "phosphobot"
+    home_path = Path.home() / "navrim"
     # Create the folder if it doesn't exist
     home_path.mkdir(parents=True, exist_ok=True)
     # Create subfolders

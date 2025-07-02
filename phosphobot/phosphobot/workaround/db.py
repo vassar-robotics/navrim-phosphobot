@@ -6,6 +6,7 @@ import threading
 import atexit
 from functools import wraps
 from loguru import logger
+from phosphobot.utils import get_home_app_path
 
 
 def with_instance_lock(func):
@@ -34,7 +35,7 @@ class DatabaseManager:
                     DatabaseManager._instance = DatabaseManager()
         return DatabaseManager._instance
 
-    def __init__(self, db_path: str = os.path.expanduser("~/navrim/userdata.db")):
+    def __init__(self, db_path: str = (get_home_app_path() / "userdata.db").as_posix()):
         """Initialize database connection and create tables if they don't exist.
 
         Args:
@@ -764,7 +765,7 @@ class DatabaseManager:
             if row:
                 result = dict(row)
                 # Format as expected by the API
-                if result.get("server_status"):
+                if "server_status" in result:
                     result["servers"] = {"status": result.pop("server_status")}
                 return result
             return None

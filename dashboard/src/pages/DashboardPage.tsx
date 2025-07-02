@@ -1,5 +1,6 @@
 import { AIControlDisclaimer } from "@/components/common/ai-control-disclaimer";
 import { HuggingFaceKeyInput } from "@/components/common/huggingface-key";
+import { OpenAIKeyInput } from "@/components/common/openai-key";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -146,6 +147,12 @@ function AIModelsCard() {
               {!isLoading && !adminSettingsTokens?.huggingface && (
                 <div className="mb-4">
                   <HuggingFaceKeyInput />
+                </div>
+              )}
+
+              {!isLoading && !adminSettingsTokens?.openai && (
+                <div className="mb-4">
+                  <OpenAIKeyInput />
                 </div>
               )}
 

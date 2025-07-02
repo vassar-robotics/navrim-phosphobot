@@ -1,8 +1,16 @@
 import json
+import requests
 from phosphobot.workaround.db import DatabaseManager
 from copilotkit import Action
 from huggingface_hub import HfApi
 from phosphobot.utils import get_hf_token
+from phosphobot.main import get_local_ip
+from phosphobot.configs import config
+from loguru import logger
+
+
+def get_service_url():
+    return f"http://{get_local_ip()}:{config.PORT}"
 
 
 def build_model_description(training_data: dict):
@@ -34,6 +42,8 @@ def build_robot_action(training_data: dict):
 
 def build_robot_actions(_):
     actions = []
+    trainings_data = requests.post(f"{get_service_url()}/training/models/read").json()
+    logger.info(f"Trainings data: {trainings_data}")
     with DatabaseManager.get_instance() as db:
         trainings_data = db.get_trainings_by_user("default_user")[:1000]
         for training_data in trainings_data:

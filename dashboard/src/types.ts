@@ -51,6 +51,7 @@ export type ServerStatus = {
 export type AdminTokenSettings = {
   huggingface: boolean;
   wandb: boolean;
+  openai: boolean;
 };
 
 export type DatasetListResponse = {

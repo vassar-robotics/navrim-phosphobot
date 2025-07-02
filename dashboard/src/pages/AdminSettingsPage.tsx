@@ -1,5 +1,6 @@
 import { HuggingFaceKeyInput } from "@/components/common/huggingface-key";
 import { LoadingPage } from "@/components/common/loading";
+import { OpenAIKeyInput } from "@/components/common/openai-key";
 import { WandBKeyInput } from "@/components/common/wandb-key";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -154,6 +155,14 @@ export default function AdminPage() {
         <CardContent className="space-y-4">
           <WandBKeyInput />
           {adminSettingsTokens?.wandb && (
+            <div className="flex items-center gap-2 text-xs text-green-500">
+              <CircleCheck className="h-4 w-4" /> Token set
+            </div>
+          )}
+        </CardContent>
+        <CardContent className="space-y-4">
+          <OpenAIKeyInput />
+          {adminSettingsTokens?.openai && (
             <div className="flex items-center gap-2 text-xs text-green-500">
               <CircleCheck className="h-4 w-4" /> Token set
             </div>
