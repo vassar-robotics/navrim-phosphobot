@@ -19,9 +19,9 @@ from typing import Annotated, Any, Literal, Tuple, Union
 
 import av
 import cv2
-import netifaces
 import numpy as np
 import pandas as pd
+import psutil
 import requests
 import toml
 from fastapi import HTTPException
@@ -837,12 +837,11 @@ def get_local_subnet() -> str | None:
         str: The local subnet in CIDR notation (e.g., "192.168.1.0/24").
         None: If no valid subnet is found.
     """
-    for iface in netifaces.interfaces():
-        addrs = netifaces.ifaddresses(iface)
-        if netifaces.AF_INET in addrs:
-            for addr_info in addrs[netifaces.AF_INET]:
-                ip = addr_info.get("addr")
-                netmask = addr_info.get("netmask")
+    for iface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family == socket.AF_INET:
+                ip = addr.address
+                netmask = addr.netmask
                 if ip and netmask and not ip.startswith("127."):
                     network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
                     return str(network)
