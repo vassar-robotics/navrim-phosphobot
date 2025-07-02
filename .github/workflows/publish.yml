@@ -138,7 +138,7 @@ jobs:
         run: |
           python -m venv .testvenv
           source .testvenv/bin/activate
-          pip install phosphobot/dist/phosphobot-*.whl
+          pip install phosphobot/dist/navrim_phosphobot-*.whl
 
       - name: Run installed app
         run: |
