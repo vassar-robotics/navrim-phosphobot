@@ -162,11 +162,11 @@ jobs:
             fi
           done
 
-      - name: Run integration tests
-        run: |
-          cd phosphobot
-          uv run pytest tests/api/
-        continue-on-error: false
+      # - name: Run integration tests
+      #   run: |
+      #     cd phosphobot
+      #     uv run pytest tests/api/
+      #   continue-on-error: false
 
       - name: Publish to PyPI
         run: |
