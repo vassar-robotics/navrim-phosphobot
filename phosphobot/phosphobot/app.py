@@ -66,7 +66,7 @@ def get_local_ip() -> str:
 async def lifespan(app: FastAPI):
     # Initialize telemetry
     init_telemetry()
-    # Initialize pybullet simulation
+    # Initialize simulation (pybullet removed)
     simulation_init()
     # Initialize cameras
     cameras = get_all_cameras()
