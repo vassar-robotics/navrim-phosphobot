@@ -3,7 +3,6 @@ import subprocess
 from typing import Any, List, Literal, Optional, Union
 
 import numpy as np
-import pybullet as p  # type: ignore
 from loguru import logger
 from phosphobot.models import BaseRobotConfig
 from piper_sdk import C_PiperInterface_V2

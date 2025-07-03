@@ -57,13 +57,11 @@ def step_simulation(steps=960):
     Pybullet forces us to step the simulation manually.
 
     The sim runs at 240 Hz, so we need to step it 240 times per second.
+    
+    Note: PyBullet simulation has been removed from this project.
     """
-    import pybullet as p  # type: ignore
-
-    # When running the simulation in headless mode,
-    # Pybullet forces us to step the simulation manually
-    for _ in range(steps):
-        p.stepSimulation()
+    # No-op - pybullet removed
+    pass
 
 
 def euler_from_quaternion(quaternion: np.ndarray, degrees: bool) -> np.ndarray:
@@ -498,7 +496,7 @@ def create_video_file(
             # old MPEG-4 Part 2: no CRF, use qscale OR fixed bitrate
             # Lower qscale = better quality. 2–5 is a good range.
             encoder_opts = {"qscale": "2"}
-        # else: leave encoder_opts empty for codecs that don’t support these flags
+        # else: leave encoder_opts empty for codecs that don't support these flags
 
         stream = container.add_stream(
             codec_av,

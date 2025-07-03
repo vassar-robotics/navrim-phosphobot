@@ -3,7 +3,6 @@ import time
 from typing import Literal, Optional
 
 import numpy as np
-import pybullet as p  # type: ignore
 from loguru import logger
 from serial.tools.list_ports_common import ListPortInfo
 
@@ -363,12 +362,8 @@ class SO100Hardware(BaseManipulator):
 
         self.disable_torque()
 
-        # TODO: force pybullet to appear in headless to give the user instructions
-        sim_helper_text = ""
-        if config.SIM_MODE == SimulationMode.gui:
-            sim_helper_text = "For reference, look at the simulation."
-        else:
-            sim_helper_text = "For reference, look in the instructions manual."
+        # Provide instructions to the user
+        sim_helper_text = "For reference, look in the instructions manual."
 
         if self.calibration_current_step == 0:
             # The first position is the initial position
@@ -460,99 +455,3 @@ class SO100Hardware(BaseManipulator):
 
         self.motors_bus.write("Torque_Enable", 128)
         time.sleep(1)
-
-    async def gravity_compensation_loop(
-        self,
-        control_signal: ControlSignal,
-    ):
-        """
-        Background task that implements gravity compensation control:
-        - Applies gravity compensation to the robot
-        """
-        # Connect to PyBullet for gravity compensation calculations
-        p.connect(p.DIRECT)
-        p.setGravity(0, 0, -9.81)
-
-        # Set up PID gains for leader's gravity compensation
-        current_voltage = self.current_voltage()
-        if current_voltage is None:
-            logger.warning(
-                "Unable to read motor voltage. Check that your robot is plugged to power."
-            )
-            return
-        motor_voltage = np.mean(current_voltage)
-        voltage = "6V" if motor_voltage < 9.0 else "12V"
-
-        # Define PID gains for all six motors
-        p_gains = [3, 6, 6, 3, 3, 3]
-        d_gains = [9, 9, 9, 9, 9, 9]
-        default_p_gains = [12, 20, 20, 20, 20, 20]
-        default_d_gains = [36, 36, 36, 32, 32, 32]
-        alpha = np.array([0, 0.2, 0.2, 0.1, 0.2, 0.2])
-
-        if voltage == "12V":
-            p_gains = [int(p / 2) for p in p_gains]
-            d_gains = [int(d / 2) for d in d_gains]
-            default_p_gains = [6, 6, 6, 10, 10, 10]
-            default_d_gains = [30, 15, 15, 30, 30, 30]
-
-        # Enable torque if using gravity compensation
-        self.enable_torque()
-
-        # Apply custom PID gains to leader for all six motors
-        for i in range(6):
-            self._set_pid_gains_motors(
-                servo_id=i + 1,
-                p_gain=p_gains[i],
-                i_gain=0,
-                d_gain=d_gains[i],
-            )
-            await asyncio.sleep(0.05)
-
-        # Control loop parameters
-        num_joints = len(self.actuated_joints)
-        joint_indices = list(range(num_joints))
-        loop_period = 1 / 50
-
-        # Main control loop
-        while control_signal.is_in_loop():
-            start_time = time.time()
-
-            # Get leader's current joint positions
-            pos_rad = self.read_joints_position(unit="rad")
-
-            # Update PyBullet simulation for gravity calculation
-            for i, idx in enumerate(joint_indices):
-                p.resetJointState(self.p_robot_id, idx, pos_rad[i])
-            step_simulation()
-
-            # Calculate gravity compensation torque
-            positions = list(pos_rad)
-            velocities = [0.0] * num_joints
-            accelerations = [0.0] * num_joints
-            tau_g = p.calculateInverseDynamics(
-                self.p_robot_id,
-                positions,
-                velocities,
-                accelerations,
-            )
-
-            # Apply gravity compensation to leader
-            theta_des_rad = pos_rad + alpha[:num_joints] * np.array(tau_g)
-            self.write_joint_positions(theta_des_rad, unit="rad")
-
-            # Maintain loop frequency
-            elapsed = time.time() - start_time
-            sleep_time = max(0, loop_period - elapsed)
-            await asyncio.sleep(sleep_time)
-
-        # Cleanup: Reset leader's PID gains to default for all six motors
-        for i in range(6):  # Changed from 4 to 6
-            self._set_pid_gains_motors(
-                servo_id=i + 1,
-                p_gain=default_p_gains[i],
-                i_gain=0,
-                d_gain=default_d_gains[i],
-            )
-            await asyncio.sleep(0.05)
-        logger.info("Gravity control stopped")

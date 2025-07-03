@@ -3,7 +3,6 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
-import pybullet as p
 from loguru import logger
 
 from phosphobot.control_signal import ControlSignal
@@ -25,8 +24,9 @@ async def leader_follower_loop(
 ):
     """
     Background task that implements leader-follower control:
-    - Applies gravity compensation to the leader
     - Makes the follower mirror the leader's current joint positions
+    
+    Note: Gravity compensation using PyBullet has been removed from this project.
     """
     logger.info("Starting leader-follower control.")
     loop_period = 1 / 150 if not enable_gravity_compensation else 1 / 60
@@ -69,49 +69,10 @@ async def leader_follower_loop(
                 )
                 await asyncio.sleep(0.05)
         else:
-            assert isinstance(
-                leader, SO100Hardware
-            ), "Gravity compensation is only supported for SO100Hardware."
-            assert isinstance(
-                follower, SO100Hardware
-            ), "Gravity compensation is only supported for SO100Hardware."
-            leader_current_voltage = leader.current_voltage()
-            if (
-                leader_current_voltage is None
-                or np.isnan(np.mean(leader_current_voltage))
-                or np.mean(leader_current_voltage) < 10
-            ):
-                logger.warning(
-                    "Leader motor voltage is NaN. Please calibrate the robot and check the USB connection."
-                )
-                control_signal.stop()
-                return
-
-            voltage = "6V" if np.mean(leader_current_voltage) < 9.0 else "12V"
-
-            # Define PID gains for all six motors
-            p_gains = [3, 6, 6, 3, 3, 3]
-            d_gains = [9, 9, 9, 9, 9, 9]
-            default_p_gains = [12, 20, 20, 20, 20, 20]
-            default_d_gains = [36, 36, 36, 32, 32, 32]
-            alpha = np.array([0, 0.2, 0.2, 0.1, 0.2, 0.2])
-
-            if voltage == "12V":
-                p_gains = [int(p / 2) for p in p_gains]
-                d_gains = [int(d / 2) for d in d_gains]
-                default_p_gains = [6, 6, 6, 10, 10, 10]
-                default_d_gains = [30, 15, 15, 30, 30, 30]
-            leader.enable_torque()
-
-            # Apply custom PID gains to leader for all six motors
-            for i in range(6):
-                leader._set_pid_gains_motors(
-                    servo_id=i + 1,
-                    p_gain=p_gains[i],
-                    i_gain=0,
-                    d_gain=d_gains[i],
-                )
-                await asyncio.sleep(0.05)
+            # Gravity compensation has been removed - pybullet dependency
+            logger.warning("Gravity compensation is no longer supported (pybullet removed).")
+            control_signal.stop()
+            return
 
     # Main control loop
     while control_signal.is_in_loop():
@@ -134,52 +95,10 @@ async def leader_follower_loop(
                 )
                 continue
 
-            if not enable_gravity_compensation:
-                # Simple leader-follower control: follower mirrors leader's position
-                if invert_controls:
-                    pos_rad[0] = -pos_rad[0]
-                follower.write_joint_positions(list(pos_rad), unit="rad")
-            else:
-                assert isinstance(
-                    leader, SO100Hardware
-                ), "Gravity compensation is only supported for SO100Hardware."
-                assert isinstance(
-                    follower, SO100Hardware
-                ), "Gravity compensation is only supported for SO100Hardware."
-                # Calculate gravity compensation torque
-                # Update PyBullet simulation for gravity calculation
-                for i, idx in enumerate(joint_indices):
-                    p.resetJointState(leader.p_robot_id, idx, pos_rad[i])
-
-                positions = list(pos_rad)
-                velocities = [0.0] * num_joints
-                accelerations = [0.0] * num_joints
-                tau_g = p.calculateInverseDynamics(
-                    leader.p_robot_id,
-                    positions,
-                    velocities,
-                    accelerations,
-                )
-                tau_g = list(tau_g)
-
-                if compensation_values is not None:
-                    for key in compensation_values.keys():
-                        if key == "shoulder":
-                            tau_g[1] = compensation_values[key] * tau_g[1] / 100
-                        elif key == "elbow":
-                            tau_g[2] = compensation_values[key] * tau_g[2] / 100
-                        elif key == "wrist":
-                            tau_g[3] = compensation_values[key] * tau_g[3] / 100
-                        else:
-                            logger.debug(f"Unknow key: {key}")
-                            continue
-
-                # Apply gravity compensation to leader
-                theta_des_rad = pos_rad + alpha[:num_joints] * np.array(tau_g)
-                leader.write_joint_positions(theta_des_rad, unit="rad")
-                if invert_controls:
-                    theta_des_rad[0] = -theta_des_rad[0]
-                follower.write_joint_positions(theta_des_rad, unit="rad")
+            # Simple leader-follower control: follower mirrors leader's position
+            if invert_controls:
+                pos_rad[0] = -pos_rad[0]
+            follower.write_joint_positions(list(pos_rad), unit="rad")
 
         # Maintain loop frequency
         elapsed = time.perf_counter() - start_time
@@ -192,6 +111,8 @@ async def leader_follower_loop(
         follower = pair.follower
 
         leader.enable_torque()
+        default_p_gains = [12, 20, 20, 20, 20, 20]
+        default_d_gains = [36, 36, 36, 32, 32, 32]
         for i in range(6):
             leader._set_pid_gains_motors(
                 servo_id=i + 1,
