@@ -1,6 +1,6 @@
 [project]
 name = "navrim-phosphobot"
-version = "0.1.0.post6"
+version = "0.1.0.post7"
 description = "The AI-ready robotics dev kit, with built-in remote control and VLA support."
 authors = [{ name = "navrim", email = "contact@navrim.com" }]
 license = "MIT"
