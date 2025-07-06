@@ -47,38 +47,19 @@ def print_phospho_splash():
 
 print_phospho_splash()
 
-import platform
-import threading
+# import platform  # 移除自动更新相关
+# import threading  # 移除自动更新相关
+# from phosphobot.utils import fetch_latest_brew_version  # 移除自动更新相关
 
-from phosphobot.utils import fetch_latest_brew_version
+# _version_check_started = False  # 移除自动更新相关
 
-_version_check_started = False
+# def fetch_latest_version():  # 移除自动更新相关
+#     """已停用自动检测新版本功能"""
+#     return
 
-
-def fetch_latest_version():
-    try:
-        version = fetch_latest_brew_version(fail_silently=True)
-        if version != "unknown" and (version != "v" + __version__):
-            if platform.system() == "Darwin":
-                logger.warning(
-                    f"🧪 Version {version} is available. Please update with: \nbrew update && brew upgrade phosphobot"
-                )
-            elif platform.system() == "Linux":
-                logger.warning(
-                    f"🧪 Version {version} is available. Please update with: \nsudo apt update && sudo apt upgrade phosphobot"
-                )
-            else:
-                logger.warning(
-                    f"🧪 Version {version} is available. Please update: https://docs.phospho.ai/installation#windows"
-                )
-    except Exception:
-        pass
-
-
-if not _version_check_started:
-    thread = threading.Thread(target=fetch_latest_version, daemon=True)
-    thread.start()
-    _version_check_started = True
+# if False:  # 强制禁用自动检测新版本线程
+#     thread = threading.Thread(target=fetch_latest_version, daemon=True)
+#     thread.start()
 
 import socket
 import time

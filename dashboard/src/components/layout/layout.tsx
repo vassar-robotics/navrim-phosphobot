@@ -1,5 +1,4 @@
 import { ErrorBoundary } from "@/components/common/error";
-import { Footer } from "@/components/layout/footer";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/topbar";
 import { Toaster } from "@/components/ui/sonner";
@@ -18,7 +17,6 @@ export function Layout() {
         </main>
         <Toaster position="top-center" />
       </div>
-      <Footer />
     </div>
   );
 }
