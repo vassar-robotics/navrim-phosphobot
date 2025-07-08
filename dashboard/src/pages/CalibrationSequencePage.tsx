@@ -174,7 +174,7 @@ export default function CalibrationPage() {
             </h2>
             <p className="text-muted-foreground mb-6">
               Move the arm forward and fully close the gripper. The gripper
-              moving claw should be to the left of the arm.
+              moving claw should be to the top of the arm.
             </p>
             <div>
               <img

@@ -16,9 +16,7 @@ from phosphobot.utils import get_resources_path, step_simulation
 class SO100Hardware(BaseManipulator):
     name = "so-100"
 
-    URDF_FILE_PATH = str(
-        get_resources_path() / "urdf" / "so-100" / "urdf" / "so-100.urdf"
-    )
+    URDF_FILE_PATH = str(get_resources_path() / "urdf" / "so-100" / "urdf" / "so-100.urdf")
 
     AXIS_ORIENTATION = [0, 0, 1, 1]
 
@@ -122,9 +120,7 @@ class SO100Hardware(BaseManipulator):
         try:
             self.motors_bus.write("Torque_Enable", 1)
             for servo_id, c in enumerate(self.config.pid_gains):
-                self._set_pid_gains_motors(
-                    servo_id + 1, p_gain=c.p_gain, i_gain=c.i_gain, d_gain=c.d_gain
-                )
+                self._set_pid_gains_motors(servo_id + 1, p_gain=c.p_gain, i_gain=c.i_gain, d_gain=c.d_gain)
             self.motor_communication_errors = 0
         except Exception as e:
             logger.warning(f"Error enabling torque: {e}")
@@ -138,9 +134,7 @@ class SO100Hardware(BaseManipulator):
 
         self.motors_bus.write("Torque_Enable", 0)
 
-    def _set_pid_gains_motors(
-        self, servo_id: int, p_gain: int = 32, i_gain: int = 0, d_gain: int = 32
-    ):
+    def _set_pid_gains_motors(self, servo_id: int, p_gain: int = 32, i_gain: int = 0, d_gain: int = 32):
         """
         Set the PID gains for the Feetech servo.
 
@@ -150,9 +144,7 @@ class SO100Hardware(BaseManipulator):
         :param d_gain: Derivative gain (0-255)
         """
         try:
-            torque_status = self.motors_bus.read(
-                "Torque_Enable", motor_names=list(self.motors.keys())
-            )
+            torque_status = self.motors_bus.read("Torque_Enable", motor_names=list(self.motors.keys()))
         except Exception as e:
             logger.warning(f"Error reading torque status: {e}")
             return
@@ -228,9 +220,7 @@ class SO100Hardware(BaseManipulator):
             logger.warning(f"Error writing motor position: {e}")
             self.update_motor_errors()
 
-    def write_group_motor_position(
-        self, q_target: np.ndarray, enable_gripper: bool = True
-    ) -> None:
+    def write_group_motor_position(self, q_target: np.ndarray, enable_gripper: bool = True) -> None:
         """
         Write a position to all motors of the robot.
         """
@@ -245,9 +235,7 @@ class SO100Hardware(BaseManipulator):
             motor_names = motor_names[:-1]
 
         try:
-            self.motors_bus.write(
-                "Goal_Position", values=values, motor_names=motor_names
-            )
+            self.motors_bus.write("Goal_Position", values=values, motor_names=motor_names)
             self.motor_communication_errors = 0
         except Exception as e:
             logger.warning(f"Error writing motor position: {e}")
@@ -262,9 +250,7 @@ class SO100Hardware(BaseManipulator):
 
         motor_names = list(self.motors.keys())
         try:
-            motor_positions = self.motors_bus.read(
-                "Present_Position", motor_names=motor_names
-            )
+            motor_positions = self.motors_bus.read("Present_Position", motor_names=motor_names)
             self.motor_communication_errors = 0
         except Exception as e:
             logger.warning(f"Error reading motor position: {e}")
@@ -320,9 +306,7 @@ class SO100Hardware(BaseManipulator):
 
         if not self.is_connected:
             self.calibration_current_step = 0
-            logger.warning(
-                "Robot is not connected. Cannot calibrate. Calibration sequence reset to 0."
-            )
+            logger.warning("Robot is not connected. Cannot calibrate. Calibration sequence reset to 0.")
             return (
                 "error",
                 "Robot is not connected. Cannot calibrate. Calibration sequence reset to 0.",
@@ -352,13 +336,9 @@ class SO100Hardware(BaseManipulator):
             self.config = default_config
             self.config.pid_gains = default_config.pid_gains
             self.config.gripping_threshold = int(default_config.gripping_threshold)
-            self.config.non_gripping_threshold = int(
-                default_config.non_gripping_threshold
-            )
+            self.config.non_gripping_threshold = int(default_config.non_gripping_threshold)
         else:
-            raise ValueError(
-                f"Default config file not found for {self.name} at {voltage_as_str}."
-            )
+            raise ValueError(f"Default config file not found for {self.name} at {voltage_as_str}.")
 
         self.disable_torque()
 
@@ -380,16 +360,10 @@ class SO100Hardware(BaseManipulator):
             await self.connect()
             # Set the offset to the middle of the motor range
             self.calibrate_motors()
-            self.config.servos_offsets = self.read_joints_position(
-                unit="motor_units", source="robot"
-            ).tolist()
-            logger.info(
-                f"Initial joint positions (motor units): {self.config.servos_offsets}"
-            )
+            self.config.servos_offsets = self.read_joints_position(unit="motor_units", source="robot").tolist()
+            logger.info(f"Initial joint positions (motor units): {self.config.servos_offsets}")
             # If the joint positions are NaN or None, we cannot continue
-            if np.isnan(self.config.servos_offsets).any() or np.any(
-                self.config.servos_offsets is None
-            ):
+            if np.isnan(self.config.servos_offsets).any() or np.any(self.config.servos_offsets is None):
                 self.calibration_current_step = 0
                 return (
                     "error",
@@ -400,18 +374,29 @@ class SO100Hardware(BaseManipulator):
             self.set_simulation_positions(np.array(self.CALIBRATION_POSITION))
             self.calibration_current_step += 1
 
-            return (
-                "in_progress",
-                f"Step {self.calibration_current_step}/{self.calibration_max_steps}: Place the robot in POSITION 2. {sim_helper_text} Verify the gripper position.",
+            mid_range = self.RESOLUTION // 2
+            self.motors_bus.write(
+                "Goal_Position",
+                values=[mid_range for _ in self.motors.keys()],
+                motor_names=list(self.motors.keys()),
             )
+            self.disable_torque()
+
+            return (
+                "success",
+                "Calibration completed successfully. Middle position is set.",
+            )
+
+            # return (
+            #     "in_progress",
+            #     f"Step {self.calibration_current_step}/{self.calibration_max_steps}: Place the robot in POSITION 2. {sim_helper_text} Verify the gripper position.",
+            # )
 
         if self.calibration_current_step == 2:
             self.config.servos_calibration_position = self.read_joints_position(
                 unit="motor_units", source="robot"
             ).tolist()
-            logger.info(
-                f"Current joint positions (motor units): {self.config.servos_calibration_position}"
-            )
+            logger.info(f"Current joint positions (motor units): {self.config.servos_calibration_position}")
             # If the joint positions are NaN or None, we cannot continue
             if np.isnan(self.config.servos_calibration_position).any() or np.any(
                 self.config.servos_calibration_position is None
@@ -423,10 +408,7 @@ class SO100Hardware(BaseManipulator):
                 )
 
             self.config.servos_offsets_signs = np.sign(
-                (
-                    np.array(self.config.servos_calibration_position)
-                    - np.array(self.config.servos_offsets)
-                )
+                (np.array(self.config.servos_calibration_position) - np.array(self.config.servos_offsets))
                 / np.array(self.CALIBRATION_POSITION)
             ).tolist()
             logger.info(f"Motor signs computed: {self.config.servos_offsets_signs}")
@@ -453,5 +435,17 @@ class SO100Hardware(BaseManipulator):
             logger.warning("Robot is not connected.")
             return None
 
+        """
+        In the context of Feetech servos, the Torque_Enable register typically accepts these values:
+        0: Torque disabled (motor freewheels)
+        1: Normal torque enabled (motor holds position)
+        128 (0x80): Special calibration mode
+        The value 128 puts the servos into a calibration/offset adjustment mode.
+
+        When you write 128 to Torque_Enable, it allows the servo to:
+        Accept new offset values: The servo enters a mode where its internal zero-point reference can be adjusted
+        Maintain position: Unlike torque=0, the motor still has some holding force
+        Update internal calibration: The servo can store new calibration data in its EEPROM
+        """
         self.motors_bus.write("Torque_Enable", 128)
         time.sleep(1)

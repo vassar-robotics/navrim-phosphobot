@@ -29,6 +29,8 @@ async def leader_follower_loop(
     Note: Gravity compensation using PyBullet has been removed from this project.
     """
     logger.info("Starting leader-follower control.")
+    logger.warning("Gravity compensation is no longer supported (pybullet removed). Forcing it to False.")
+    enable_gravity_compensation = False
     loop_period = 1 / 150 if not enable_gravity_compensation else 1 / 60
 
     # Check if the initial position is set, otherwise move them
